@@ -15,7 +15,8 @@ import type { FeatureLike } from "ol/Feature";
 import { industryLabel, LAYERS, stationTraffic, stockTotal, type LayerId, type LiveData } from "$lib/core/filters";
 import type { Line, StationMode, Stock, Vehicle } from "$lib/core/live";
 import { stopLegs, type Pt } from "$lib/core/routes";
-import { iconUri, stopGlyph, type IconOpts } from "./icons";
+import { inkOn, iconUri, stopGlyph, type IconOpts } from "./icons";
+import LineString from "ol/geom/LineString";
 
 export interface Frame {
   minX: number;
@@ -69,14 +70,15 @@ const label = (text: string, offsetY: number, size = 11, weight = 400, offsetX =
 
 const ringStyles = new Map<string, Style[]>();
 /** Selection ring in the object's own colour, with a white edge to stay readable. */
-function ringStyle(color: string): Style[] {
-  let s = ringStyles.get(color);
+function ringStyle(color: string, radius = 12): Style[] {
+  const key = `${color}|${radius}`;
+  let s = ringStyles.get(key);
   if (!s) {
     s = [
-      new Style({ image: new Circle({ radius: 12, stroke: new Stroke({ color: "rgba(255,255,255,.9)", width: 5 }) }) }),
-      new Style({ image: new Circle({ radius: 12, stroke: new Stroke({ color, width: 3 }) }) }),
+      new Style({ image: new Circle({ radius, stroke: new Stroke({ color: "rgba(255,255,255,.9)", width: 5 }) }) }),
+      new Style({ image: new Circle({ radius, stroke: new Stroke({ color, width: 3 }) }) }),
     ];
-    ringStyles.set(color, s);
+    ringStyles.set(key, s);
   }
   return s;
 }
@@ -112,6 +114,10 @@ export interface LiveOptions {
   labels: Record<LayerId, boolean>;
   /** Duration of a vehicle's glide to its new position (≈ the interval between updates). */
   glideMs: number;
+  /** Options → Map: pictogram and label size factors, opacity of the line tracks. */
+  iconScale: number;
+  textScale: number;
+  lineOpacity: number;
 }
 
 /** Short stock summary: "Coal 120 → Steel 40" (inputs → outputs), storage as "Goods 250 · Coal 30". */
@@ -149,7 +155,14 @@ export function createLiveLayers(): LiveLayers {
   let selectedLine: number | null = null;
   let opts: LiveOptions = {
     labels: { towns: true, industries: false, warehouses: false, stations: true, lines: false, vehicles: false }, glideMs: 2000,
+    iconScale: 1, textScale: 1, lineOpacity: 0.75,
   };
+  /** Sizes scaled by Options → Map. */
+  const isz = (px: number) => Math.round(px * opts.iconScale);
+  const lbl = (text: string, offsetY: number, size = 11, weight = 400, offsetX = 0) =>
+    label(text, offsetY * opts.textScale, size * opts.textScale, weight, offsetX * opts.iconScale);
+  /** Line names: one label per name (two-way lines), busiest lines first (declutter priority). */
+  const lineLabelSrc = new VectorSource();
   /** Drawn position of each vehicle (world) and its current glide. */
   const drawn = new Map<number, { x: number; y: number }>();
   const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
@@ -161,10 +174,10 @@ export function createLiveLayers(): LiveLayers {
 
   const townStyle = (f: FeatureLike, res: number) => {
     const size = f.get("size") as number;
-    const px = Math.max(11, Math.min(20, 10 + Math.sqrt(size) / 2.5));
+    const px = Math.max(11, Math.min(20, 10 + Math.sqrt(size) / 2.5)) * opts.textScale;
     const area = f.get("hasArea") as boolean;
     return new Style({
-      image: area ? undefined : new Circle({ radius: 4, fill: new Fill({ color: "#fff" }), stroke: new Stroke({ color: "#222", width: 1.5 }) }),
+      image: area ? undefined : new Circle({ radius: 4 * opts.iconScale, fill: new Fill({ color: "#fff" }), stroke: new Stroke({ color: "#222", width: 1.5 }) }),
       // Background name: light, under every other object and label (they are drawn on top).
       text: showLabel("towns", res) ? new Text({
         text: f.get("name"), font: `600 ${px}px system-ui, sans-serif`, offsetY: area ? 0 : -px,
@@ -180,13 +193,13 @@ export function createLiveLayers(): LiveLayers {
   });
 
   const industryStyle = (f: FeatureLike, res: number) => new Style({
-    image: icon("factory", typeColor(f.get("type")), { size: 17, shape: "square" }),
-    text: showLabel("industries", res) && f.get("stockLabel") ? label(f.get("stockLabel"), -15, 10.5) : undefined,
+    image: icon("factory", typeColor(f.get("type")), { size: isz(17), shape: "square" }),
+    text: showLabel("industries", res) && f.get("stockLabel") ? lbl(f.get("stockLabel"), -15 * opts.iconScale / opts.textScale, 10.5) : undefined,
   });
 
   const warehouseStyle = (f: FeatureLike, res: number) => new Style({
-    image: icon("warehouse", WAREHOUSE_COLOR, { size: 17, shape: "square" }),
-    text: showLabel("warehouses", res) ? label(f.get("stockLabel") || f.get("name"), -15, 10.5) : undefined,
+    image: icon("warehouse", WAREHOUSE_COLOR, { size: isz(17), shape: "square" }),
+    text: showLabel("warehouses", res) ? lbl(f.get("stockLabel") || f.get("name"), -15 * opts.iconScale / opts.textScale, 10.5) : undefined,
   });
 
   // Stations and stops: stop pictogram of the mode (vehicles have their own) on a rounded square in
@@ -194,12 +207,13 @@ export function createLiveLayers(): LiveLayers {
   // a marked corner, mixed ones a second outline. Name when labels are on, figures when zoomed in.
   const stationStyle = (f: FeatureLike, res: number) => {
     const mode = f.get("mode") as StationMode;
-    const size = Math.round(14 + Math.min(6, Math.log10(1 + (f.get("traffic") as number)) * 1.3));
+    const size = isz(14 + Math.min(6, Math.log10(1 + (f.get("traffic") as number)) * 1.3));
     const cargo = f.get("cargo") as boolean, passengers = f.get("passengers") as boolean;
     let text: Text | undefined;
     if (showLabel("stations", res)) {
       const figures = res < FIGURES_RES ? (f.get("figures") as string) : "";
-      text = label(figures ? `${f.get("name")}\n${figures}` : f.get("name"), -size / 2 - (figures ? 14 : 8));
+      text = label(figures ? `${f.get("name")}\n${figures}` : f.get("name"), -size / 2 - (figures ? 14 : 8) * opts.textScale,
+        11 * opts.textScale);
     }
     return new Style({
       image: icon(stopGlyph(mode), (f.get("colors") as string[])[0] ?? STOP_NO_LINE, {
@@ -215,15 +229,15 @@ export function createLiveLayers(): LiveLayers {
     const sel = selectedLine === f.get("lineId");
     const dim = selectedLine !== null && !sel;
     const kind = f.get("approx") as "" | "legs" | "trail" | "fill";
+    // Opacity from Options → Map (overlapping lines show through); a selected line is opaque.
+    const alpha = sel ? 1 : dim ? 0.25 * opts.lineOpacity : opts.lineOpacity;
     if (kind === "fill") {
       // Gap filled from the vehicles' trails: thin solid line in the line's colour, not selectable.
-      return new Style({ stroke: new Stroke({ color: rgb(f.get("color"), dim ? 0.22 : 0.8), width: sel ? 3.5 : 2 }), zIndex: sel ? 3 : 1 });
+      return new Style({ stroke: new Stroke({ color: rgb(f.get("color"), alpha * 0.85), width: sel ? 3.5 : 2 }), zIndex: sel ? 3 : 1 });
     }
     const dash = kind === "legs" ? [8, 6] : kind === "trail" ? [2, 5] : undefined;
     const main = new Style({
-      stroke: new Stroke({ color: rgb(f.get("color"), dim ? 0.22 : 0.95), width: sel ? 5 : kind === "trail" ? 2 : 3, lineDash: dash }),
-      text: showLabel("lines", res) ? new Text({ text: f.get("name"), placement: "line", font: "11px system-ui, sans-serif",
-        fill: new Fill({ color: "#eef1f5" }), stroke: halo, overflow: false }) : undefined,
+      stroke: new Stroke({ color: rgb(f.get("color"), alpha), width: sel ? 5 : kind === "trail" ? 2 : 3, lineDash: dash }),
       zIndex: sel ? 3 : 1,
     });
     return sel ? [new Style({ stroke: new Stroke({ color: rgb(f.get("color"), 0.35), width: 13 }), zIndex: 2 }), main] : main;
@@ -234,8 +248,8 @@ export function createLiveLayers(): LiveLayers {
     const big = selectedLine !== null && f.get("line") === selectedLine;
     const text = showLabel("vehicles", res) ? [f.get("vname"), f.get("loadText")].filter(Boolean).join(" · ") : "";
     return new Style({
-      image: icon(f.get("mode"), rgb(f.get("color")), { size: big ? 20 : 15, ring: big ? "#ffffff" : undefined }),
-      text: text ? label(text, 0, 10, 600, big ? 13 : 10) : undefined,
+      image: icon(f.get("mode"), rgb(f.get("color")), { size: isz(big ? 20 : 15), ring: big ? "#ffffff" : undefined }),
+      text: text ? lbl(text, 0, 10, 600, big ? 13 : 10) : undefined,
       zIndex: big ? 2 : 1,
     });
   };
@@ -246,6 +260,16 @@ export function createLiveLayers(): LiveLayers {
   const layers = [
     new VectorLayer({ source: areaSrc, style: areaStyle, zIndex: 5, properties: { liveLayer: "towns" } }),
     mk("lines", lineStyle, 10),
+    // Line names along their track: decluttered, one per name, busiest first.
+    new VectorLayer({
+      source: lineLabelSrc, zIndex: 10.5, declutter: true,
+      style: (f, res) => (showLabel("lines", res) ? new Style({
+        text: new Text({
+          text: f.get("name"), placement: "line", font: `600 ${11 * opts.textScale}px system-ui, sans-serif`,
+          fill: new Fill({ color: "#eef1f5" }), stroke: halo, overflow: false, padding: [2, 6, 2, 6],
+        }),
+      }) : undefined),
+    }),
     mk("industries", industryStyle, 11, true),
     mk("warehouses", warehouseStyle, 11, true),
     mk("stations", stationStyle, 12, true),
@@ -255,9 +279,11 @@ export function createLiveLayers(): LiveLayers {
     mk("towns", townStyle, 6),
     new VectorLayer({
       source: selection, zIndex: 20,
+      // Stops of the selected line: dot in white, or black on a light line colour.
       style: (f) => (f.get("kind") === "stops" ? new Style({
-        image: new Circle({ radius: 4.5, fill: new Fill({ color: "#fff" }), stroke: new Stroke({ color: f.get("color"), width: 2.5 }) }),
-      }) : ringStyle(f.get("color"))),
+        image: new Circle({ radius: 4.5 * opts.iconScale, fill: new Fill({ color: inkOn(f.get("color")) }),
+          stroke: new Stroke({ color: f.get("color"), width: 2.5 }) }),
+      }) : ringStyle(f.get("color"), 12 * opts.iconScale)),
     }),
   ];
 
@@ -303,6 +329,7 @@ export function createLiveLayers(): LiveLayers {
       byKey.clear();
       for (const s of Object.values(src)) s.clear();
       areaSrc.clear();
+      lineLabelSrc.clear();
       const m = (x: number, y: number) => toMap(frame, x, y);
       const mapRing = (r: Pt[]) => [...r, r[0]!].map(([x, y]) => m(x, y));
       src.towns.addFeatures(d.towns.map((t) => {
@@ -353,6 +380,8 @@ export function createLiveLayers(): LiveLayers {
       }));
       const lineColor = new Map<number, Line["color"]>();
       for (const l of d.lines) lineColor.set(l.id, l.color);
+      const labelCands: { name: string; rank: number; piece: Pt[] }[] = [];
+      const pieceLen = (p: Pt[]) => p.reduce((a, q, i) => (i ? a + Math.hypot(q[0] - p[i - 1]![0], q[1] - p[i - 1]![1]) : 0), 0);
       src.lines.addFeatures(d.lines.flatMap((l) => {
         const route = routes.get(l.id);
         const trail = !route && (l.mode === "water" || l.mode === "air") ? trails.get(l.id) : undefined;
@@ -361,6 +390,10 @@ export function createLiveLayers(): LiveLayers {
         const c = l.stops[0] ?? { x: parts[0]![0]![0], y: parts[0]![0]![1] };
         const details: FeatureInfo["details"] = { mode: labels.value("mode", l.mode), stops: l.stops.length, vehicles: l.vehicles };
         if (l.traffic) Object.assign(details, { transported: l.traffic.transported, waitP: l.traffic.waitP, waitC: l.traffic.waitC });
+        // Label candidate: the longest piece of the track; the selected line ranks first.
+        const longest = parts.reduce((a, b) => (pieceLen(b) > pieceLen(a) ? b : a));
+        const rank = l.id === selectedLine ? Infinity : (l.traffic?.transported ?? 0) * 1000 + l.vehicles;
+        if (longest.length >= 2) labelCands.push({ name: l.name, rank, piece: longest });
         const fill = route ? fills.get(l.id) : undefined;
         const extra = fill?.length
           ? [new Feature({ geometry: new MultiLineString(fill.map((p) => p.map(([x, y]) => m(x, y)))), color: l.color, lineId: l.id, approx: "fill" })]
@@ -371,6 +404,14 @@ export function createLiveLayers(): LiveLayers {
           stopPts: l.stops.map((s) => m(s.x, s.y)),
         }), { layer: "lines", id: l.id, name: l.name, x: c.x, y: c.y, details }, l.name, rgb(l.color))];
       }));
+      // One label per name (a two-way line, or two lines sharing a name), busiest first: when labels
+      // collide, the declutter keeps the earliest ones.
+      const seenNames = new Set<string>();
+      for (const c of labelCands.sort((a, b) => b.rank - a.rank)) {
+        if (seenNames.has(c.name)) continue;
+        seenNames.add(c.name);
+        lineLabelSrc.addFeature(new Feature({ geometry: new LineString(c.piece.map(([x, y]) => m(x, y))), name: c.name }));
+      }
       vehicleFeatures = new Map();
       const now = Date.now();
       const seen = new Set<number>();

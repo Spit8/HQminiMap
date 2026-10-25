@@ -39,7 +39,12 @@ function log(times, values) return { times_native = vec(times), values_native = 
 comps = {
   [101] = { TOWN = { initialLandUseCapacities = { 100, 50, 10 } } },
   [301] = { STATION_GROUP = { stations = { 311, 312 } }, NAME = { name = "Gare A" } },
-  [311] = { BOUNDING_VOLUME = { bbox = { min = { x = 990, y = 1990 }, max = { x = 1010, y = 2010 } } } }, [312] = {},
+  [311] = { BOUNDING_VOLUME = { bbox = { min = { x = 990, y = 1990 }, max = { x = 1010, y = 2010 } } },
+            STATION = { terminals = { { vehicleNodeId = { entity = 3110, index = 0 } } } } },
+  [312] = { STATION = { terminals = { { vehicleNodeId = { entity = 3120, index = 2 } } } } },
+  -- Only reached by the pathfinding (no vehicle path goes through it).
+  [708] = { BASE_EDGE = { position0 = { x = 500, y = 500 }, position1 = { x = 600, y = 500 },
+                          tangent0 = { x = 100, y = 0 }, tangent1 = { x = 100, y = 0 } } },
   [701] = { BASE_EDGE = { position0 = { x = 1000, y = 2000 }, position1 = { x = 1100, y = 2100 },
                           tangent0 = { x = 100, y = 100 }, tangent1 = { x = 100, y = 100 } } },
   [702] = {},
@@ -79,7 +84,9 @@ api = {
   type = { ComponentType = CT, Vec2f = { new = function(x, y) return { x = x, y = y } end },
            Vec3f = { new = function(x, y, z) return { x = x, y = y, z = z } end },
            Mat4f = { getTransl = function(m) return { x = m[1], y = m[2], z = 0 } end },
+           NodeId = { new = function(e, i) return { entity = e, index = i } end },
            enum = { Carrier = { ROAD = 0, RAIL = 1, TRAM = 2, OTHER = 3, AIR = 4, WATER = 5 },
+                    TransportMode = { TRAIN = "TRAIN", ELECTRIC_TRAIN = "ELECTRIC_TRAIN", BUS = "BUS", TRUCK = "TRUCK", CAR = "CAR", TRAM = "TRAM", ELECTRIC_TRAM = "ELECTRIC_TRAM" },
                     StockListType = { InputStock = "IN", OutputStock = "OUT", StorageStock = "STORE" } },
            -- No calcPos: the native helper cannot take the Lua tables getComponent returns.
            EdgeGeometry = { Type = { ARC = "ARC", STRAIGHT = "STRAIGHT", CUBIC_SPLINE = "CUBIC_SPLINE", CUBIC_OFFSET_SPLINE = "CUBIC_OFFSET_SPLINE" } } },
@@ -102,6 +109,14 @@ api = {
     },
     util = { getPlayer = function() return 1 end, vehicle = { getPosition = function(v) return { x = 1500.4, y = 2500.6, z = 3 } end },
              station = { isStationOfType = function(st, cargo) return cargo end },
+             -- Leg 3110:0 → 3120:2 goes through edge 708; the way back is not found.
+             pathfinding = { findPathNodeToNode = function(a, b, modes)
+               LEGCALLS = (LEGCALLS or 0) + 1
+               if a[1].entity == 3110 and b[1].entity == 3120 and b[1].index == 2 and modes[1] == "TRAIN" then
+                 return { { { entity = 708, index = 0 }, true } }
+               end
+               return {}
+             end },
              logbook = { getLogValuePerYear = function(e, n) return n == "itemsTransported" and 1234 or n == "itemsLoaded" and 50 or 70 end } },
     system = {
       lineSystem = { getLinesForPlayer = function() return { 501, 502 } end, getLinesForStationGroup = function() return { 501 } end },
@@ -157,7 +172,7 @@ print = function() end
     assert (sl.transported, sl.waitP, sl.waitC) == (1234, 6, 8) and (ss.loaded, ss.unloaded, ss.waitP) == (50, 70, 9)
     routes = s["live_routes"]
     print("routes:", routes.edges, "| line 501:", routes.lines[1].e, routes.lines[1].p, "| ship:", routes.lines[2].p)
-    assert routes.lines[1].e == "701,704,706"
+    assert routes.lines[1].e == "701,704,706,708", routes.lines[1].e  # 708: from the pathfinding
     # 702 unreadable: bridged 701 end (1100, 2100) → 704 start (1150, 2100), 50 m; 703 is a lane;
     # 705 unreadable but the gap 703 end (1120) → 706 start (2000) is 880 m: left open, no diagonal.
     assert routes.lines[1].p == "1100,2100,1150,2100|1100,2100,1120,2100", routes.lines[1].p
@@ -166,6 +181,9 @@ print = function() end
     st2 = s["live_status"]
     print("diag:", st2.routes.missing, st2.routes.bridges, st2.routes.lanes, st2.routes.free, "warn:", st2.jobs.routes.warn)
     assert st2.routes.bridges == 1 and st2.routes.bigGaps == 1 and st2.routes.lanes == 1 and st2.routes.free == 1 and st2.jobs.routes.warn
+    lg = st2.routes.legs
+    print("legs:", lg.computed, lg.cached, lg.failed, "calls", g.LEGCALLS)
+    assert lg.failed == 1 and (lg.computed + lg.cached) >= 1
     ps = st2.routes.pathStats
     print("nodes:", st2.routes.nodes, "pathStats:", ps.paths, ps.edgesAvg, ps.edgesMax, ps.edgeIndexAvg, dict(ps.states))
     assert st2.routes.nodes == 1 and ps.edgesMax == 7 and ps.edgeIndexAvg == 3
@@ -184,7 +202,7 @@ print = function() end
     hist = s["live_history"]
     print("history:", hist.lines[1].tr, hist.stations[1].ld, "|", hist.stations[1].ul, "| diag", s["live_status"].history.n)
     assert hist.lines[1].tr == "1000,10;2000,25;3000,45" and hist.stations[1].ld == "1000,7" and hist.stations[1].ul == ""
-    assert s["live_status"].format == 5
+    assert s["live_status"].format == 6
     rt.execute('REQUEST.cmd = { seq = 1, action = "teleport", x = 300, y = -400, dist = 900 }')
     run(2)
     f = g.FOCUS

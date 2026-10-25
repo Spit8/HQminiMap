@@ -5,7 +5,7 @@
   import { orthoJob } from "$lib/state/orthoJob.svelte";
   import { runs } from "$lib/state/runs.svelte";
 
-  let { onGo }: { onGo: (tab: "grid" | "tiles" | "viewer") => void } = $props();
+  let { onGo, onHide }: { onGo: (tab: "grid" | "tiles" | "viewer") => void; onHide: () => void } = $props();
 
   type State = "done" | "todo" | "active" | "error" | "idle";
 
@@ -62,6 +62,7 @@
     </button>
     {#if s.n < 4}<span class="sep">›</span>{/if}
   {/each}
+  <button class="hide" title={t("steps.hideTitle")} onclick={onHide}>×</button>
 </div>
 
 <style>
@@ -81,5 +82,7 @@
   .step.error .badge { background: var(--err); color: #fff; }
   .text { overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
   .sep { color: var(--muted); }
+  .hide { margin-left: auto; padding: 0 8px; background: none; border: none; color: var(--muted); font-size: 16px; line-height: 1; }
+  .hide:hover { color: var(--text); }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 196, .7); } 50% { box-shadow: 0 0 0 5px rgba(59, 130, 196, 0); } }
 </style>

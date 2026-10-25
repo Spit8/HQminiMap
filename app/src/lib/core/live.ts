@@ -8,7 +8,7 @@ export const LIVE_KINDS = [
   "towns", "industries", "stations", "lines", "vehicles", "stats", "routes", "stocks", "townAreas", "history",
 ] as const;
 /** Format of the files written by the mod (live_status.format); older = the game runs an old mod. */
-export const LIVE_FORMAT = 5;
+export const LIVE_FORMAT = 6;
 export type LiveKind = (typeof LIVE_KINDS)[number];
 
 export interface Town { id: number; name: string; x: number; y: number; size: number }

@@ -7,6 +7,7 @@
   import { app } from "$lib/state/app.svelte";
   import History from "./History.svelte";
   import LiveSettings from "./LiveSettings.svelte";
+  import { mapStyle } from "$lib/state/mapStyle.svelte";
 
   let modInstalled = $state<boolean | null>(null);
   let detectMsg = $state<"settings.found" | "settings.notDetected" | null>(null);
@@ -97,6 +98,19 @@
         {/each}
       </section>
 
+      <section class="card">
+        <h3>{t("settings.map")}</h3>
+        {#each [["iconScale", 0.6, 2, 0.05], ["textScale", 0.6, 2, 0.05], ["lineOpacity", 0.2, 1, 0.05]] as const as [key, min, max, step] (key)}
+          <div class="kv">
+            <span class="k">{t(`settings.map.${key}`)}</span>
+            <input type="range" {min} {max} {step} value={mapStyle.current[key]}
+              oninput={(e) => mapStyle.set({ [key]: Number((e.target as HTMLInputElement).value) })} />
+            <span class="v mono">{Math.round(mapStyle.current[key] * 100)} %</span>
+          </div>
+        {/each}
+        <p class="note dim">{t("settings.map.hint")} <button class="link" onclick={() => mapStyle.reset()}>{t("settings.map.reset")}</button></p>
+      </section>
+
       <LiveSettings />
 
       <History />
@@ -118,6 +132,8 @@
   .btns { display: flex; gap: 4px; }
   .btns button { padding: 2px 8px; font-size: 12px; }
   .note { margin: 2px 0 4px 128px; font-size: 12px; }
+  .kv input[type="range"] { width: 100%; }
+  .link { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
   .pill { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: none; }
   .pill.on { background: var(--ok); }
   p { margin: 2px 0; }

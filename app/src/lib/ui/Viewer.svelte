@@ -2,13 +2,11 @@
   import { onMount, untrack } from "svelte";
   import Map from "ol/Map";
   import View from "ol/View";
-  import TileLayer from "ol/layer/Tile";
-  import TileImage from "ol/source/TileImage";
+  import WebGLTileLayer from "ol/layer/WebGLTile";
+  import ImageTileSource from "ol/source/ImageTile";
   import TileGrid from "ol/tilegrid/TileGrid";
   import Projection from "ol/proj/Projection";
-  import ImageTile from "ol/ImageTile";
   import { defaults as defaultInteractions } from "ol/interaction/defaults";
-  import type Tile from "ol/Tile";
   import "ol/ol.css";
   import { save } from "@tauri-apps/plugin-dialog";
   import { applyFilters, hiddenKey, industryLabel, LAYERS, type LayerId, type LiveData } from "$lib/core/filters";
@@ -25,6 +23,8 @@
   import { createLiveLayers, rgb, toWorld, type FeatureInfo, type Frame } from "./viewer/layers";
   import { insideRings } from "$lib/core/towns";
   import { TrackIndex, uncovered } from "$lib/core/routes";
+  import { autoAdjust, NEUTRAL, RANGES, type ImageAdjust } from "$lib/core/imageAdjust";
+  import { mapStyle } from "$lib/state/mapStyle.svelte";
 
   let { runId = null }: { runId?: string | null } = $props();
 
@@ -36,7 +36,9 @@
 
   let target: HTMLDivElement;
   let map: Map | null = null;
-  let tileLayer: TileLayer | null = null;
+  let tileLayer: WebGLTileLayer | null = null;
+  /** Extent of the shown map (fit button). */
+  let viewExtent: number[] | null = null;
   const liveLayers = createLiveLayers();
   let selectedId = $state<string | null>(null);
   let info = $state<PyramidJson | null>(null);
@@ -49,6 +51,7 @@
   /** The OL map exists (created in onMount). */
   let ready = $state(false);
   let exportOpen = $state(false);
+  let imageOpen = $state(false);
   let exportScale = $state<1 | 2 | 4>(2);
   let exportLegend = $state(true);
   let exportMsg = $state<{ ok: boolean; text: string } | null>(null);
@@ -162,10 +165,19 @@
       const r = view.getResolution();
       zoomFactor = r && info ? info.gsd / r : null;
     });
-    view.fit(extent, { padding: [20, 20, 20, 20] });
+    viewExtent = extent;
+    fitMap(false);
   }
 
-  function setTiles(layer: TileLayer | null): void {
+  /** Whole map in the window (keeps the rotation; leaves room for the layer panel). */
+  function fitMap(animate = true): void {
+    const view = map?.getView();
+    if (!view || !viewExtent) return;
+    const left = vf.panelOpen && hasView ? 320 : 20;
+    view.fit(viewExtent, { padding: [20, 20, 20, left], duration: animate ? 250 : 0 });
+  }
+
+  function setTiles(layer: WebGLTileLayer | null): void {
     if (!map) return;
     if (tileLayer) map.removeLayer(tileLayer);
     tileLayer = layer;
@@ -191,37 +203,39 @@
     const projection = new Projection({ code: `hq-${run.id}`, units: "m", extent });
     const tileRes = Array.from({ length: p.zMax + 1 }, (_, z) => p.gsd * 2 ** (p.zMax - z));
     const tileGrid = new TileGrid({ origin: [0, 0], resolutions: tileRes, tileSize: p.tileSize, extent });
-    const loadTile = (tile: Tile, key: string) => {
-      const img = (tile as ImageTile).getImage() as HTMLImageElement;
-      const [z, xy] = key.split("/");
-      const path = joinPath(run.dir, "pyramid", z, `${xy}.png`);
-      // A read can fail transiently (many tiles requested at once): retry before giving up.
-      const attempt = (left: number): Promise<void> =>
-        readBytes(path).then(
-          (bytes) => {
-            const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
-            img.onload = () => URL.revokeObjectURL(url);
-            img.src = url;
-          },
-          (err) => {
-            if (left > 0) return new Promise<void>((r) => setTimeout(r, 150)).then(() => attempt(left - 1));
+    // A read can fail transiently (many tiles requested at once): retry before giving up.
+    const loadTile = async (z: number, x: number, y: number): Promise<ImageBitmap> => {
+      const path = joinPath(run.dir, "pyramid", String(z), `${x}_${y}.png`);
+      for (let left = 2; ; left--) {
+        try {
+          return await createImageBitmap(new Blob([await readBytes(path)], { type: "image/png" }));
+        } catch (err) {
+          if (left <= 0) {
             console.warn("tile", path, err);
-            img.src = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-          },
-        );
-      void attempt(2);
+            throw err;
+          }
+          await new Promise((r) => setTimeout(r, 150));
+        }
+      }
     };
-    // One layer, no smoothing: the zoom snaps to the pyramid levels (1 tile pixel = 1 screen pixel)
-    // and, beyond full resolution, the finest tiles are magnified as crisp pixels.
+    // One WebGL layer, no smoothing: the zoom snaps to the pyramid levels (1 tile pixel = 1 screen
+    // pixel) and, beyond full resolution, the finest tiles are magnified as crisp pixels. The image
+    // adjustments are shader variables: applied to the whole displayed map at once.
     const resolutions = [...tileRes, ...Array.from({ length: EXTRA_ZOOM }, (_, k) => p.gsd / 2 ** (k + 1))];
-    setTiles(new TileLayer({
+    const adj = adjustFor(run.id);
+    setTiles(new WebGLTileLayer({
       preload: 1,
-      source: new TileImage({
-        projection, tileGrid, interpolate: false, transition: 0, cacheSize: 1024,
-        tileUrlFunction: (c) => (c ? `${c[0]}/${c[1]}_${c[2]}` : undefined),
-        tileLoadFunction: loadTile,
-      }),
+      source: new ImageTileSource({ projection, tileGrid, interpolate: false, transition: 0, loader: loadTile }),
+      style: {
+        variables: { ...adj },
+        brightness: ["var", "brightness"], contrast: ["var", "contrast"],
+        saturation: ["var", "saturation"], gamma: ["var", "gamma"],
+      },
     }));
+    imageRun = run.id;
+    imageAdjust = adj;
+    imageAuto = imageModes[run.id] !== "manual";
+    if (imageModes[run.id] !== "manual") void computeAuto(run);
     setView(new View({
       projection, extent, resolutions, constrainResolution: true, showFullExtent: true,
       constrainOnlyCenter: true, enableRotation: true, rotation: (rotationDeg * Math.PI) / 180,
@@ -360,8 +374,9 @@
     const fl = fills;
     const areas = live.townAreas;
     const labelsOn = vf.current.labels;
+    const ms = mapStyle.current;
     if (!frame) return;
-    liveLayers.update(frame, d, routes, tr, fl, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs) });
+    liveLayers.update(frame, d, routes, tr, fl, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs), ...ms });
     // Keep the selection (fresh figures) across data refreshes.
     const sel = untrack(() => selected);
     if (sel) selected = liveLayers.infoOf(`${sel.layer}:${sel.id}`) ?? sel;
@@ -395,8 +410,81 @@
     return [];
   });
 
-  // The export menu closes on a click outside it and on Escape.
+  // ---- image adjustments of the ortho (whole image, WebGL shader variables), saved per run
+  const LS_IMAGE = "hq.imageAdjust";
+  type ImageStore = Record<string, { mode: "auto" | "manual"; adj: ImageAdjust }>;
+  const loadImageStore = (): ImageStore => {
+    try {
+      return JSON.parse(localStorage.getItem(LS_IMAGE) ?? "{}") as ImageStore;
+    } catch {
+      return {};
+    }
+  };
+  let imageStore = loadImageStore();
+  const imageModes = $derived(Object.fromEntries(Object.entries(imageStore).map(([k, v]) => [k, v.mode])) as Record<string, string>);
+  let imageRun = $state<string | null>(null);
+  let imageAdjust = $state<ImageAdjust>({ ...NEUTRAL });
+  let imageAuto = $state(false);
+
+  function adjustFor(runId: string): ImageAdjust {
+    return { ...NEUTRAL, ...(imageStore[runId]?.adj ?? {}) };
+  }
+
+  function applyImage(adj: ImageAdjust, mode: "auto" | "manual"): void {
+    imageAdjust = adj;
+    tileLayer?.updateStyleVariables({ ...adj });
+    if (!imageRun) return;
+    imageStore = { ...imageStore, [imageRun]: { mode, adj } };
+    imageAuto = mode === "auto";
+    try {
+      localStorage.setItem(LS_IMAGE, JSON.stringify(imageStore));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
+  /** Auto settings from the run's global overview (ortho.png, the whole map scaled down). */
+  async function computeAuto(run: NonNullable<typeof current>): Promise<void> {
+    try {
+      const bytes = await readBytes(joinPath(run.dir, "ortho.png"));
+      const bmp = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+      const scale = Math.min(1, 512 / Math.max(bmp.width, bmp.height));
+      const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+      ctx.drawImage(bmp, 0, 0, w, h);
+      bmp.close();
+      if (imageRun !== run.id) return;
+      applyImage(autoAdjust(ctx.getImageData(0, 0, w, h).data), "auto");
+    } catch (err) {
+      console.warn("auto image", err);
+    }
+  }
+
+  function setImage(key: keyof ImageAdjust, v: number): void {
+    applyImage({ ...imageAdjust, [key]: v }, "manual");
+  }
+
+  // The export and image menus close on a click outside them and on Escape.
   let exportBox = $state<HTMLDivElement | null>(null);
+  let imageBox = $state<HTMLDivElement | null>(null);
+  $effect(() => {
+    if (!imageOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (imageBox && !imageBox.contains(e.target as Node)) imageOpen = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") imageOpen = false;
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  });
   $effect(() => {
     if (!exportOpen) return;
     const onDown = (e: PointerEvent) => {
@@ -413,10 +501,15 @@
     };
   });
 
-  // Resize the map when the chrome appears / disappears.
+  // Resize the map when the chrome appears / disappears, then fit the whole map in the new size.
+  let fsSeen: boolean | null = null;
   $effect(() => {
-    void app.fullscreen;
-    queueMicrotask(() => map?.updateSize());
+    const fs = app.fullscreen;
+    queueMicrotask(() => {
+      map?.updateSize();
+      if (fsSeen !== null && fsSeen !== fs) setTimeout(() => fitMap(), 60);
+      fsSeen = fs;
+    });
   });
 
   onMount(() => {
@@ -468,8 +561,10 @@
         toggleFullscreen();
       } else if (e.key === "l" || e.key === "L") {
         vf.setPanel(!vf.panelOpen);
+      } else if (e.key === "0") {
+        fitMap();
       } else if (e.key === "Escape") {
-        if (exportOpen) return;
+        if (exportOpen || imageOpen) return;
         if (selected) select(null);
         else if (app.fullscreen) void app.setFullscreen(false);
       }
@@ -492,8 +587,28 @@
   <div class="group">
     <button title={t("viewer.zoomOut")} onclick={() => zoomBy(-1)}>−</button>
     <button title={t("viewer.zoomIn")} onclick={() => zoomBy(1)}>+</button>
+    <button title={t("viewer.fitTitle")} onclick={() => fitMap()} disabled={!hasView}>⛶ {t("viewer.fit")}</button>
     {#if zoomFactor}<span class="dim">{fmtZoom(zoomFactor)}</span>{/if}
   </div>
+  {#if current}
+    <div class="group exp" bind:this={imageBox}>
+      <button onclick={() => (imageOpen = !imageOpen)} title={t("image.title")}>◐ {t("image.button")}</button>
+      {#if imageOpen}
+        <div class="pop">
+          {#each ["brightness", "contrast", "saturation", "gamma"] as const as k (k)}
+            <label class="slider"><span class="sl"><span>{t(`image.${k}`)}</span><span class="mono">{imageAdjust[k].toFixed(2)}</span></span>
+              <input type="range" min={RANGES[k].min} max={RANGES[k].max} step={RANGES[k].step} value={imageAdjust[k]}
+                oninput={(e) => setImage(k, Number((e.target as HTMLInputElement).value))} /></label>
+          {/each}
+          <div class="prow">
+            <button class:on={imageAuto} onclick={() => current && void computeAuto(current)}>{t("image.auto")}</button>
+            <button onclick={() => applyImage({ ...NEUTRAL }, "manual")}>{t("image.neutral")}</button>
+          </div>
+          <p class="dim">{imageAuto ? t("image.isAuto") : t("image.isManual")}</p>
+        </div>
+      {/if}
+    </div>
+  {/if}
   <div class="group">
     <button title={t("viewer.rotL")} onclick={() => rotate(-15)}>⟲ 15°</button>
     <button title={t("viewer.rotR")} onclick={() => rotate(15)}>⟳ 15°</button>
@@ -583,6 +698,11 @@
   .pop { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; display: flex; flex-direction: column; gap: 6px;
     width: 220px; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
   .saved { font-size: 12px; }
+  .slider { display: flex; flex-direction: column; gap: 1px; font-size: 12px; }
+  .slider .sl { display: flex; justify-content: space-between; color: var(--muted); }
+  .slider input { width: 100%; margin: 0; }
+  .prow { display: flex; gap: 6px; }
+  .prow button.on { border-color: var(--accent); }
   .pop p { margin: 0; font-size: 12px; word-break: break-all; }
   .toast { position: absolute; z-index: 7; left: 50%; top: 14px; transform: translateX(-50%); padding: 6px 14px; border-radius: 6px;
     background: rgba(24, 27, 34, .95); border: 1px solid var(--line); font-size: 13px; pointer-events: none; }

@@ -55,7 +55,7 @@ Le mod n'est pas (encore) publié sur mod.io : il est fourni dans chaque release
    `<données TF3>/staging_area/`. Sous Windows, c'est par défaut `C:\Users\Public\Documents\Steam\RUNE\3493540\local\staging_area\`.
 3. Dans le jeu, active **HQminiMap** dans la liste des mods de la partie.
 
-Au premier lancement, l'app détecte le dossier de données du jeu. Si elle ne le trouve pas, choisis-le dans **Réglages** (le dossier `…/Steam/RUNE/3493540/local`).
+Au premier lancement, l'app détecte le dossier de données du jeu. Si elle ne le trouve pas, choisis-le dans **Options** (le dossier `…/Steam/RUNE/3493540/local`).
 
 **Après une mise à jour du mod, recharge ta sauvegarde** : le jeu garde l'ancien code du mod jusque-là. L'app affiche un bandeau tant que le jeu exécute une version plus ancienne qu'elle.
 
@@ -69,10 +69,11 @@ Au premier lancement, l'app détecte le dossier de données du jeu. Si elle ne l
    - termine par **Écrire dans le mod**.
 3. **Dans le jeu** : **Capturer** (inutile de recharger la partie). L'app récupère les captures toute seule.
 4. **TileLab** : choisis l'interpolation, puis **Calculer l'ortho**. La durée et la taille sont estimées à l'avance ; le calcul continue même si tu changes d'onglet.
-5. **Visualiseur** : zoom jusqu'au pixel, rotation, plein écran (touche **F**).
+5. **Visualiseur** : zoom jusqu'au pixel, rotation, plein écran (touche **F**), **Ajuster** pour voir toute la carte (touche **0**).
+   Le menu **Image** règle la luminosité, le contraste, la saturation et le gamma de toute la carte : en automatique (calculé sur la carte entière) ou à la main.
 
 ### Données en direct
-Le mod publie les données de la partie aux cadences réglées dans **Réglages → Données en direct**. La colonne « Coût » donne le temps de calcul par mise à jour, la colonne « Charge » la part du temps du jeu utilisée. Le minimum est de 1 s pour les véhicules.
+Le mod publie les données de la partie aux cadences réglées dans **Options → Données en direct**. La colonne « Coût » donne le temps de calcul par mise à jour, la colonne « Charge » la part du temps du jeu utilisée. Le minimum est de 1 s pour les véhicules.
 
 Dans le **Visualiseur**, le panneau **Calques et filtres** (touche **L**) propose :
 - des calques **villes** (contours), **lignes** (tracés réels, couleur du jeu), **gares et arrêts** (aux couleurs des lignes qui les desservent), **véhicules** (animés, avec leur chargement), **industries** et **entrepôts** (stocks) ;
@@ -83,7 +84,9 @@ Dans le **Visualiseur**, le panneau **Calques et filtres** (touche **L**) propos
 Sur la carte et dans les fiches :
 - **clic** sur un objet : sa fiche (chiffres, stocks, historique en mini-courbes), avec **Cadrer**, **Masquer** et **Téléporter ici** ;
 - **double-clic** sur la carte : la caméra du jeu s'y déplace ;
-- **Exporter la vue** : PNG ×1, ×2 ou ×4 de la vue actuelle, filtres appliqués, avec une légende en option.
+- **Exporter la vue** : PNG ×1, ×2 ou ×4 de la vue actuelle, filtres et réglages d'image appliqués, avec une légende en option.
+
+Dans **Options → Carte** : la taille des icônes et des textes de la carte, et l'opacité des lignes.
 
 ### Limites connues
 - Les **tracés des lignes** viennent des trajets des véhicules. Ils se complètent au fil des passages : une ligne récente peut avoir des portions provisoires, en trait fin ou en tirets.

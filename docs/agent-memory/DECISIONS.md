@@ -259,3 +259,23 @@
 - **Release** (`release.yml`, tag `v*`) : vérification de version, tauri-action en release **brouillon** (Windows NSIS/MSI, Linux AppImage/deb, macOS universel), zip du mod joint. Installeurs non signés.
 - **Mod** : pas publié sur mod.io ; installation manuelle dans `<userdata>/staging_area/`.
 - **Viewer** : contours de villes avec fermeture +90/−70 m, DP 25 m, 2 passes de Chaikin, anneaux < 0,02 km² retirés ; noms des villes en arrière-plan (zIndex 6, hors declutter).
+
+### HQ-024 — Étapes par pathfinding, réglages d'image WebGL, styles de carte, étiquettes de lignes, Options
+- **Date :** 2026-10-25 · **Statut :** accepted (sim_live, check, 61 tests, build et `cargo check` OK ; NOT TESTED en jeu ni dans l'app)
+- **Constat** (`pathStats`) : chemins de 54 arêtes en moyenne, `edgeIndex` moyen de 26. Les chemins des véhicules couvrent **toute l'étape**. Les trous (ex. `passenger_SAINT-BRICQ-LAHA`, tronçon D → E → F) viennent d'étapes jamais relevées pendant qu'un véhicule y circulait.
+- **Mod (FORMAT 6)** :
+  - chaque étape (arrêt *i* → *i+1*, et retour au premier) passe par `findPathNodeToNode` : `STATION.terminals[t+1].vehicleNodeId` des deux arrêts, recréés par `api.type.NodeId.new`, avec les modes de la ligne ;
+  - mise en cache par paire de nœuds, recalcul toutes les 10 passes ;
+  - diagnostic dans `routes.legs` ;
+  - les chemins des véhicules restent cumulés en complément.
+- **Image** :
+  - l'ortho passe en `WebGLTileLayer` + `ImageTileSource` (loader → `ImageBitmap`) ;
+  - variables de shader `brightness` / `contrast` / `saturation` / `gamma`, appliquées à toute l'image ;
+  - l'auto (`core/imageAdjust.ts`) se calcule sur `ortho.png` : percentiles 1–99 %, médiane vers 0,5 et saturation des images ternes ;
+  - réglages enregistrés par run dans `hq.imageAdjust`.
+- **Options → Carte** (`state/mapStyle.svelte.ts`) : `iconScale`, `textScale`, `lineOpacity` (une ligne sélectionnée reste opaque).
+- **Étiquettes de lignes** : calque séparé avec declutter, une étiquette par nom (lignes bidirectionnelles), sur le plus long morceau du tracé ; ajoutées par trafic décroissant, la ligne sélectionnée en premier.
+- **Points d'arrêt de la ligne sélectionnée** : couleur `inkOn(couleur de la ligne)`.
+- **Bouton « Ajuster »** (touche 0) ; ajustement automatique à l'entrée et à la sortie du plein écran.
+- **Bande des étapes** (`state/stepsBar.svelte.ts`) : × la masque pour la grille courante (`hq.stepsHidden`) ; elle revient à la grille suivante ou par le bouton « Étapes » de l'en-tête.
+- L'onglet « Réglages » devient **« Options »** (FR et EN).

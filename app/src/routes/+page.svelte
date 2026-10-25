@@ -10,6 +10,7 @@
   import { orthoJob } from "$lib/state/orthoJob.svelte";
   import { live } from "$lib/state/live.svelte";
   import { runs } from "$lib/state/runs.svelte";
+  import { stepsBar } from "$lib/state/stepsBar.svelte";
 
   const TABS = [
     { id: "grid", label: "tabs.grid" },
@@ -47,6 +48,9 @@
         <button class:active={tab === t.id} onclick={() => (tab = t.id)}>{t_(t.label)}</button>
       {/each}
     </nav>
+    {#if app.paths && !stepsBar.visible}
+      <button class="steps-btn" title={t_("steps.showTitle")} onclick={() => stepsBar.show()}>☰ {t_("steps.show")}</button>
+    {/if}
     {#if orthoJob.running}
       <button class="job" title={t_("header.orthoTitle")} onclick={() => (tab = "tiles")}>
         {t_("header.ortho", { pct: Math.round(orthoJob.running.progress * 100), elapsed: fmtClock(orthoJob.elapsed) })}
@@ -54,7 +58,7 @@
       </button>
     {/if}
   </header>
-  <div>{#if app.paths}<Steps onGo={(t) => (tab = t)} />{/if}</div>
+  <div>{#if app.paths && stepsBar.visible}<Steps onGo={(t) => (tab = t)} onHide={() => stepsBar.hide()} />{/if}</div>
   <main>
     {#if tab === "grid"}<GridLab />{/if}
     {#if tab === "settings"}<Settings />{/if}
@@ -98,6 +102,7 @@
   nav button.active { border-bottom-color: var(--accent); color: #fff; }
   main { min-height: 0; overflow: hidden; }
   .pane { height: 100%; }
+  .steps-btn { margin-left: 8px; padding: 2px 10px; font-size: 12px; color: var(--muted); }
   .pane.hidden { display: none; }
   .job { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   .job progress { width: 90px; }

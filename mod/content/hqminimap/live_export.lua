@@ -21,7 +21,7 @@ local RETRY_SEC = 30
 local KINDS = { "vehicles", "lines", "stations", "stats", "routes", "stocks", "towns", "industries", "townAreas", "history" }
 -- Version of the files written here; the app warns when the game still runs an older mod
 -- (ug_require keeps the old code until the save is reloaded).
-local FORMAT = 5
+local FORMAT = 6
 -- Straight bridges over unreadable path edges only up to this length (m): longer ones are left open.
 local MAX_BRIDGE = 80
 -- Town outlines: building positions binned on a CELL m grid.
@@ -598,15 +598,90 @@ local function walkPath(path, le, d)
 	end
 end
 
+--- Transport modes the game's pathfinding may use for a line's mode (legs between its stops).
+local LEG_MODES = {
+	rail = { "TRAIN", "ELECTRIC_TRAIN" }, road = { "BUS", "TRUCK", "CAR" }, tram = { "TRAM", "ELECTRIC_TRAM" },
+}
+--- A leg's path is recomputed after this many routes passes (track changes).
+local LEG_REFRESH = 10
+--- "nodeA>nodeB" → { pass, path = {{EdgeId, dir}} } (false path: no route found).
+local legCache = {}
+local routesPass = 0
+
+--- Vehicle node of a line stop's terminal (where its vehicles stop): entity, index.
+local function stopNode(stop)
+	local sg = comp(stop.stationGroup, "STATION_GROUP")
+	local st = sg and sg.stations and sg.stations[(stop.station or 0) + 1]
+	local station = st and comp(st, "STATION")
+	local term = station and station.terminals and station.terminals[(stop.terminal or 0) + 1]
+	local n = term and term.vehicleNodeId
+	if n and n.entity then
+		return n.entity, n.index or 0
+	end
+	return nil
+end
+
+--- Path of every leg of a line (stop i → stop i+1, last → first) from the game's pathfinding, so a
+--- leg shows even when no vehicle was seen on it. Cached; `d` counts computed / cached / failed.
+local function walkLegs(line, mode, le, d)
+	local names = LEG_MODES[mode]
+	local stops = line and line.stops or {}
+	if names == nil or #stops < 2 then
+		return
+	end
+	local modes = {}
+	for _, n in ipairs(names) do
+		local ok, m = pcall(function()
+			return api.type.enum.TransportMode[n]
+		end)
+		if ok and m ~= nil then
+			modes[#modes + 1] = m
+		end
+	end
+	for i = 1, #stops do
+		local ea, ia = stopNode(stops[i])
+		local eb, ib = stopNode(stops[i % #stops + 1])
+		if ea and eb then
+			local key = ea .. ":" .. ia .. ">" .. eb .. ":" .. ib
+			local c = legCache[key]
+			if c == nil or routesPass - c.pass >= LEG_REFRESH then
+				local ok, path = pcall(function()
+					local P = api.engine.util.pathfinding
+					return P.findPathNodeToNode({ api.type.NodeId.new(ea, ia) }, { api.type.NodeId.new(eb, ib) }, modes)
+				end)
+				if ok and type(path) == "table" and #path > 0 then
+					c = { pass = routesPass, path = path }
+					d.legsComputed = d.legsComputed + 1
+				else
+					c = { pass = routesPass, path = false }
+					if not ok then
+						warn("routes", "leg " .. key .. ": " .. tostring(path))
+					end
+				end
+				legCache[key] = c
+			else
+				d.legsCached = d.legsCached + 1
+			end
+			if c.path then
+				walkPath({ edges = c.path }, le, d)
+			else
+				d.legsFailed = d.legsFailed + 1 -- no route between these stops (counted every pass)
+			end
+		end
+	end
+end
+
 --- Line tracks: a line stores only its stops, so the paths of its vehicles are accumulated
 --- (each path covers the current leg); the whole route fills in as vehicles run. Ships and aircraft
 --- (MOVE_PATH_AIRCRAFT): network paths at the ports + the free leg (path1) sampled every ~50 m.
 jobs.routes = {
 	begin = function()
+		routesPass = routesPass + 1
 		return {
 			lines = playerLines(), i = 1, out = {}, used = {}, usedOrder = {},
 			d = {
 				missing = 0, bridges = 0, lanes = 0, free = 0, bigGaps = 0, nodes = 0, samples = {},
+				legsComputed = 0, legsCached = 0, legsFailed = 0,
 				paths = 0, edgesSum = 0, edgesMax = 0, idxSum = 0, idxN = 0, states = {},
 			},
 		}
@@ -627,6 +702,11 @@ jobs.routes = {
 		if le == nil or le.fp ~= fp then
 			le = { fp = fp, edges = {}, extra = {} }
 			lineEdges[ln] = le
+		end
+		-- Every leg from the pathfinding, then the vehicles' actual paths (detours, other terminals).
+		local okL, errL = pcall(walkLegs, line, lineMode[ln], le, s.d)
+		if not okL then
+			warn("routes", "legs of line " .. tostring(ln) .. ": " .. tostring(errL))
 		end
 		for _, v in ipairs(lineVehicles(ln)) do
 			pcall(function()
@@ -702,6 +782,7 @@ jobs.routes = {
 		routesDiag = {
 			missing = d.missing, bridges = d.bridges, lanes = d.lanes, free = d.free, bigGaps = d.bigGaps, nodes = d.nodes,
 			samples = d.samples,
+			legs = { computed = d.legsComputed, cached = d.legsCached, failed = d.legsFailed },
 			pathStats = {
 				paths = d.paths, edgesAvg = d.paths > 0 and math.floor(d.edgesSum / d.paths + 0.5) or 0, edgesMax = d.edgesMax,
 				edgeIndexAvg = d.idxN > 0 and math.floor(d.idxSum / d.idxN + 0.5) or 0, states = d.states,
