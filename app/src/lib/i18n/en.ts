@@ -364,9 +364,12 @@ export const en: Record<MessageKey, string> = {
   "grid.resolutionDetected": "Detected resolution: {w} × {h} ({a}).",
   "grid.resolutionUse": "Use",
   "grid.resolutionOk": "Matches the game's latest screenshot.",
-  "grid.resolutionNone": "No screenshot found: take one in the game, then click Detect.",
+  "grid.resolutionNone": "Resolution not detected (no game screenshot): take a screenshot in the game, then click Detect.",
   "tiles.resolutionMismatch": "Captures are {w} × {h} ({a}) but the grid expected {pw} × {ph} ({pa}): pick the right resolution in GridLab, write the grid again, then capture again.",
   "ortho.err.resolutionMismatch": "the captures do not have the screen shape the grid expected",
+
+  "grid.resolutionAuto": "Auto: {res}",
+  "grid.resolutionAutoOk": "Detected from the game's latest screenshot.",
 
   "history.title": "Capture history",
   "history.empty": "No capture recorded.",

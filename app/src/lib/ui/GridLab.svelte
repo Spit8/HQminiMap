@@ -42,6 +42,8 @@
   const resKey = $derived(`${cfg.screenW}x${cfg.screenH}`);
   const isPreset = $derived(RESOLUTIONS.some(([w, h]) => w === cfg.screenW && h === cfg.screenH));
   let customRes = $state(false);
+  /** Resolution taken from the game's screenshots (default) rather than chosen by hand. */
+  const autoRes = $derived(cfg.SCREEN_AUTO !== false);
 
   /** Size of the newest screenshot of the game (the player's own, else the last capture). */
   async function detectResolution(): Promise<void> {
@@ -59,6 +61,10 @@
           if (size) {
             detected = size;
             detectState = "idle";
+            // Default: the grid uses the detected resolution.
+            if (autoRes && (size.width !== cfg.screenW || size.height !== cfg.screenH)) {
+              app.setConfig({ screenW: size.width, screenH: size.height });
+            }
             return;
           }
         } catch {
@@ -72,8 +78,16 @@
     }
   }
 
+  /** Resolution chosen by hand: stops following the detection. */
   function setResolution(w: number, h: number): void {
-    if (w > 0 && h > 0) app.setConfig({ screenW: Math.round(w), screenH: Math.round(h) });
+    if (w > 0 && h > 0) app.setConfig({ screenW: Math.round(w), screenH: Math.round(h), SCREEN_AUTO: false });
+  }
+
+  /** Back to the default: follow the game's latest screenshot. */
+  function useAutoResolution(): void {
+    customRes = false;
+    app.setConfig({ SCREEN_AUTO: true, ...(detected ? { screenW: detected.width, screenH: detected.height } : {}) });
+    void detectResolution();
   }
   const mo = $derived.by<Mosaic | null>(() => {
     if (!app.map) return null;
@@ -225,6 +239,8 @@
   async function writeToMod(): Promise<void> {
     writeMsg = null;
     const p = app.paths;
+    // The player may have changed resolution since: detect again before writing the grid.
+    if (autoRes) await detectResolution();
     if (!mo || !app.map || !p || blocker) return;
     if (!(await fileExists(joinPath(p.modDir, "content", "hqminimap")))) {
       writeMsg = { ok: false, text: t("grid.modMissing", { dir: p.modDir }) };
@@ -298,19 +314,21 @@
 
       <h3>{t("grid.resolution")} <span class="dim">{aspectName(cfg.screenW, cfg.screenH)}</span></h3>
       <div class="res">
-        <select value={customRes || !isPreset ? "custom" : resKey} onchange={(e) => {
+        <select value={autoRes ? "auto" : customRes || !isPreset ? "custom" : resKey} onchange={(e) => {
           const v = (e.target as HTMLSelectElement).value;
-          if (v === "custom") { customRes = true; return; }
+          if (v === "auto") { useAutoResolution(); return; }
+          if (v === "custom") { customRes = true; app.setConfig({ SCREEN_AUTO: false }); return; }
           customRes = false;
           const [w, h] = v.split("x").map(Number);
           setResolution(w!, h!);
         }}>
+          <option value="auto">{t("grid.resolutionAuto", { res: `${cfg.screenW} × ${cfg.screenH} (${aspectName(cfg.screenW, cfg.screenH)})` })}</option>
           {#each RESOLUTIONS as [w, h] (`${w}x${h}`)}<option value={`${w}x${h}`}>{w} × {h} ({aspectName(w, h)})</option>{/each}
           <option value="custom">{t("grid.resolutionOther")}</option>
         </select>
         <button onclick={detectResolution} disabled={detectState === "busy"} title={t("grid.resolutionDetectTitle")}>{t("grid.resolutionDetect")}</button>
       </div>
-      {#if customRes || !isPreset}
+      {#if !autoRes && (customRes || !isPreset)}
         <div class="g2">
           <label>{t("grid.width")}<input type="number" min="320" max="16384" step="1" value={cfg.screenW}
             onchange={(e) => setResolution(num(e), cfg.screenH)} /></label>
@@ -319,13 +337,15 @@
         </div>
       {/if}
       {#if detected && (detected.width !== cfg.screenW || detected.height !== cfg.screenH)}
+        <!-- Chosen by hand and different from the game's screenshots: offer the detected one. -->
         <p class="warn">{t("grid.resolutionDetected", { w: detected.width, h: detected.height, a: aspectName(detected.width, detected.height) })}
-          <button onclick={() => { setResolution(detected!.width, detected!.height); customRes = !RESOLUTIONS.some(([w, h]) => w === detected!.width && h === detected!.height); }}>
-            {t("grid.resolutionUse")}</button></p>
+          <button onclick={useAutoResolution}>{t("grid.resolutionUse")}</button></p>
+      {:else if detected && autoRes}
+        <p class="dim">{t("grid.resolutionAutoOk")}</p>
       {:else if detected}
         <p class="dim">{t("grid.resolutionOk")}</p>
       {:else if detectState === "none"}
-        <p class="dim">{t("grid.resolutionNone")}</p>
+        <p class="warn">{t("grid.resolutionNone")}</p>
       {/if}
 
       <h3>{t("grid.camera")}</h3>

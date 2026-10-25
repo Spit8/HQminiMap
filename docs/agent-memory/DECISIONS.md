@@ -323,3 +323,6 @@
   - `exportOrtho` : même format mais autre taille → le plan prend la taille réelle (même FOV, reprojection identique, testée à ×1,5) ; format différent → `resolutionMismatch`.
 - Les vignettes de TileLab prennent le format du plan.
 - Le mod ne change pas (`takeScreenshot(1)` = résolution du jeu).
+- **Complément (HQ-027)** : par défaut, la grille **suit** la résolution détectée (`MosaicConfig.SCREEN_AUTO`, absent = vrai).
+  - Elle est appliquée en silence à l'ouverture de GridLab et redétectée avant chaque « Écrire dans le mod ».
+  - Choisir un préréglage ou une taille libre passe en manuel (`SCREEN_AUTO = false`) ; l'entrée « Auto » de la liste, ou « Utiliser » dans le bandeau, y revient.

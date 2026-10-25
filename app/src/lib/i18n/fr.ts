@@ -365,9 +365,12 @@ export const fr = {
   "grid.resolutionDetected": "Résolution détectée : {w} × {h} ({a}).",
   "grid.resolutionUse": "Utiliser",
   "grid.resolutionOk": "Correspond à la dernière capture d'écran du jeu.",
-  "grid.resolutionNone": "Aucune capture d'écran trouvée : prends-en une dans le jeu, puis clique sur Détecter.",
+  "grid.resolutionNone": "Résolution non détectée (aucune capture d'écran du jeu) : prends une capture d'écran dans le jeu, puis clique sur Détecter.",
   "tiles.resolutionMismatch": "Captures en {w} × {h} ({a}) alors que la grille prévoyait {pw} × {ph} ({pa}) : choisis la bonne résolution dans GridLab, réécris la grille, puis refais la capture.",
   "ortho.err.resolutionMismatch": "les captures n'ont pas le format d'écran prévu par la grille",
+
+  "grid.resolutionAuto": "Auto : {res}",
+  "grid.resolutionAutoOk": "Détectée sur la dernière capture d'écran du jeu.",
 
   "history.title": "Historique des captures",
   "history.empty": "Aucune capture enregistrée.",

@@ -41,6 +41,8 @@ export interface MosaicConfig {
   ENV_SETTLE_SEC?: number;
   /** Name of the timing preset (traced in the plan). */
   SPEED_PRESET?: string;
+  /** Screen size follows the game's latest screenshot (default); false once chosen by hand. */
+  SCREEN_AUTO?: boolean;
 }
 
 export const DEFAULT_CONFIG: MosaicConfig = {
