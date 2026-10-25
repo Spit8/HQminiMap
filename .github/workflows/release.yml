@@ -157,3 +157,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" dist/hqminimap-mod-*.zip --clobber
+      # docs/release-notes/<tag>.md, when present, gives the draft its title (first line
+      # "title: …") and its text; otherwise the generic text set by tauri-action stays.
+      - name: Release title and notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes="docs/release-notes/$TAG.md"
+          if [ -f "$notes" ]; then
+            title="$(sed -n '1s/^title: //p' "$notes")"
+            sed '1{/^title: /d}' "$notes" | sed '1{/^$/d}' > /tmp/notes.md
+            gh release edit "$TAG" --title "${title:-HQminiMap $TAG}" --notes-file /tmp/notes.md
+          fi
