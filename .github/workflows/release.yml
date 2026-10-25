@@ -101,7 +101,9 @@ jobs:
             *HQminiMap* in the game. See the README for details.
 
             **Windows portable** — `HQminiMap_*_x64-portable.zip`: extract it anywhere and run
-            `HQminiMap.exe`, no installation (needs the WebView2 runtime, built into Windows 10/11).
+            `HQminiMap.exe`, no installation. It needs the WebView2 runtime (built into Windows 11 and
+            most Windows 10); if the app does not start, run the included `MicrosoftEdgeWebview2Setup.exe`.
+            The Windows installers set WebView2 up by themselves when it is missing.
 
             The installers are not signed yet: Windows SmartScreen ("More info" → "Run anyway") and
             macOS Gatekeeper (right click → Open) will ask for a confirmation the first time.
@@ -119,6 +121,24 @@ jobs:
           New-Item -ItemType Directory -Force portable | Out-Null
           Copy-Item $exe portable/HQminiMap.exe
           Copy-Item LICENSE portable/LICENSE.txt
+          # Microsoft's WebView2 Evergreen bootstrapper (redistributable), for the rare Windows
+          # without the runtime: checked to be signed by Microsoft before shipping it.
+          $setup = "portable/MicrosoftEdgeWebview2Setup.exe"
+          Invoke-WebRequest "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $setup
+          $sig = Get-AuthenticodeSignature $setup
+          if ($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "O=Microsoft Corporation") {
+            throw "WebView2 bootstrapper: unexpected signature ($($sig.Status), $($sig.SignerCertificate.Subject))"
+          }
+          @(
+            "HQminiMap $version (portable)",
+            "",
+            "Lancer HQminiMap.exe. / Run HQminiMap.exe.",
+            "",
+            "Si l'application ne demarre pas, installer le runtime Microsoft WebView2 avec",
+            "MicrosoftEdgeWebview2Setup.exe (deja present sur Windows 11 et la plupart des Windows 10).",
+            "If the app does not start, install the Microsoft WebView2 runtime with",
+            "MicrosoftEdgeWebview2Setup.exe (already present on Windows 11 and most Windows 10)."
+          ) | Set-Content -Encoding utf8 portable/LISEZMOI-README.txt
           $zip = "HQminiMap_${version}_x64-portable.zip"
           Compress-Archive -Path portable/* -DestinationPath $zip -Force
           gh release upload $env:TAG $zip --clobber

@@ -46,6 +46,12 @@
     "homepage": "https://github.com/Spit8/HQminiMap",
     "category": "Utility",
     "license": "GPL-3.0-only",
-    "longDescription": "Application compagnon du mod HQminiMap pour Transport Fever 3 : calcul de la grille de capture, orthomosaïque haute résolution et visualiseur interactif des données en direct du jeu (villes, industries, gares, lignes, véhicules)."
+    "longDescription": "Application compagnon du mod HQminiMap pour Transport Fever 3 : calcul de la grille de capture, orthomosaïque haute résolution et visualiseur interactif des données en direct du jeu (villes, industries, gares, lignes, véhicules).",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      }
+    }
   }
 }
