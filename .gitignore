@@ -1,0 +1,10 @@
+node_modules/
+app/build/
+app/.svelte-kit/
+app/src-tauri/target/
+app/src-tauri/gen/schemas/
+# Real map fixtures and their goldens stay local (regenerate with test/tools/make_golden.py --real-dir).
+app/test/fixtures/real/
+app/test/fixtures/golden_real.json
+__pycache__/
+*.log

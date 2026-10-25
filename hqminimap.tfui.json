@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "mod": {
+    "modId": "hqminimap",
+    "modRoot": "mod",
+    "guiDir": "gui"
+  },
+  "screens": [
+    {
+      "id": "4dc86e94-4742-4058-80ea-aa3b22080034",
+      "fileBase": "hqminimap_gui",
+      "recipeName": "HQminiMapMainWindow",
+      "kind": "window",
+      "state": [
+        {
+          "name": "progress",
+          "initial": 0
+        },
+        {
+          "name": "status",
+          "initial": ""
+        }
+      ],
+      "root": {
+        "id": "00b5b065-7d0c-4343-8205-a87ecfe9618b",
+        "type": "Window",
+        "name": "HQminiMapMainWindow",
+        "props": {
+          "title": {
+            "kind": "literal",
+            "value": "HQminiMap"
+          },
+          "initialX": {
+            "kind": "literal",
+            "value": 0.15
+          },
+          "initialY": {
+            "kind": "literal",
+            "value": 0.12
+          },
+          "closable": {
+            "kind": "literal",
+            "value": true
+          },
+          "movable": {
+            "kind": "literal",
+            "value": true
+          },
+          "expanded": {
+            "kind": "literal",
+            "value": true
+          }
+        },
+        "meta": {
+          "id": "hqminimap.main",
+          "class": [
+            "hqminimap-main-window"
+          ]
+        },
+        "slots": {
+          "content": [
+            {
+              "id": "07015e8e-3cf7-4f15-a985-a2afba4ca08b",
+              "type": "BoxLayout",
+              "name": "Root",
+              "props": {
+                "orientation": {
+                  "kind": "enum",
+                  "value": "Orientation.Vertical"
+                }
+              },
+              "meta": {
+                "class": [
+                  "hq-root"
+                ]
+              },
+              "slots": {
+                "children": [
+                  {
+                    "id": "303c1fde-f85f-446b-ba3f-b19b67924da3",
+                    "type": "TextView",
+                    "name": "Status",
+                    "props": {
+                      "text": {
+                        "kind": "lua",
+                        "code": "handlers.statusText(status)"
+                      }
+                    },
+                    "meta": {},
+                    "slots": {}
+                  },
+                  {
+                    "id": "472abff4-b7cc-486b-816f-2376c3717900",
+                    "type": "BoxLayout",
+                    "name": "Actions",
+                    "props": {
+                      "orientation": {
+                        "kind": "enum",
+                        "value": "Orientation.Horizontal"
+                      }
+                    },
+                    "meta": {},
+                    "slots": {
+                      "children": [
+                        {
+                          "id": "8635f2a1-2c72-47f2-ae10-62caf6abe826",
+                          "type": "Button",
+                          "name": "ExportButton",
+                          "props": {
+                            "onClick": {
+                              "kind": "handler",
+                              "fn": "onExport"
+                            }
+                          },
+                          "meta": {},
+                          "slots": {
+                            "content": [
+                              {
+                                "id": "831115ce-550e-4141-ace1-2851f6e577c4",
+                                "type": "TextView",
+                                "name": "ExportLabel",
+                                "props": {
+                                  "text": {
+                                    "kind": "lua",
+                                    "code": "handlers.t(\"export_button\")"
+                                  }
+                                },
+                                "meta": {},
+                                "slots": {}
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "id": "41f9b00b-7598-4430-ac28-fed452f50e8f",
+                          "type": "Button",
+                          "name": "CaptureButton",
+                          "props": {
+                            "onClick": {
+                              "kind": "handler",
+                              "fn": "onCapture"
+                            }
+                          },
+                          "meta": {},
+                          "slots": {
+                            "content": [
+                              {
+                                "id": "aa01aba4-96e6-4aa2-9df1-01c94cc25095",
+                                "type": "TextView",
+                                "name": "CaptureLabel",
+                                "props": {
+                                  "text": {
+                                    "kind": "lua",
+                                    "code": "handlers.t(\"capture_button\")"
+                                  }
+                                },
+                                "meta": {},
+                                "slots": {}
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "id": "117fdece-18df-4939-ab42-8fe61bd955cf",
+                          "type": "ProgressBar",
+                          "name": "Progress",
+                          "props": {
+                            "value": {
+                              "kind": "lua",
+                              "code": "(function()\n\t-- Evaluated during the Window render: installs the capture tick (react.onStep) here.\n\tif type(handlers.bindWindow) == \"function\" then\n\t\treturn handlers.bindWindow(react, progress, status)\n\tend\n\treturn progress:old()\nend)()"
+                            }
+                          },
+                          "meta": {},
+                          "slots": {}
+                        }
+                      ],
+                      "child": []
+                    }
+                  },
+                  {
+                    "id": "6920c69b-324e-443d-8cb8-264e710817f1",
+                    "type": "TextView",
+                    "name": "Help",
+                    "props": {
+                      "text": {
+                        "kind": "lua",
+                        "code": "handlers.t(\"help\")"
+                      }
+                    },
+                    "meta": {},
+                    "slots": {}
+                  }
+                ],
+                "child": []
+              }
+            }
+          ],
+          "header": []
+        }
+      },
+      "previewViewport": {
+        "w": 1920,
+        "h": 1080
+      }
+    },
+    {
+      "id": "12257bc0-e501-4848-91c3-bb2a262096d9",
+      "fileBase": "hqminimap_gui",
+      "recipeName": "HQminiMapModButton",
+      "kind": "plugin",
+      "plugin": {
+        "extensionPoint": "MainModButtonAreaExtension",
+        "pluginName": "HQminiMapModButton",
+        "order": 100,
+        "buttonLabel": "HQminiMap"
+      },
+      "state": [],
+      "root": {
+        "id": "688baf6d-be35-4893-8529-1f17a8c6a6c6",
+        "type": "BoxLayout",
+        "name": "BoxLayout",
+        "props": {
+          "orientation": {
+            "kind": "enum",
+            "value": "Orientation.Horizontal"
+          }
+        },
+        "meta": {},
+        "slots": {
+          "children": [
+            {
+              "id": "66fda867-761a-4c57-9d65-24e98c7f7614",
+              "type": "Button",
+              "name": "Button",
+              "props": {
+                "onClick": {
+                  "kind": "lua",
+                  "code": "function()\n\t\t\t\t\tlocal wapi = game_react_globals.getDefaultWindowApi()\n\t\t\t\t\tif wapi == nil then\n\t\t\t\t\t\treturn\n\t\t\t\t\tend\n\t\t\t\t\twapi.addSingletonWindow(recipes.HQminiMapMainWindow, {})\n\t\t\t\t\tpcall(function()\n\t\t\t\t\t\tapi.gui.byId.setVisible(\"hqminimap.main\", true)\n\t\t\t\t\tend)\n\t\t\t\t\twapi.moveSingletonWindowToFront(recipes.HQminiMapMainWindow)\n\t\t\t\tend"
+                }
+              },
+              "meta": {
+                "class": [
+                  "secondary"
+                ],
+                "tooltip": "HQminiMap"
+              },
+              "slots": {
+                "content": [
+                  {
+                    "id": "e633d3fe-f2ab-41b3-8119-85691b48020e",
+                    "type": "TextView",
+                    "name": "TextView",
+                    "props": {
+                      "text": {
+                        "kind": "lua",
+                        "code": "handlers.buttonLabel(react)"
+                      }
+                    },
+                    "meta": {
+                      "class": [
+                        "font-scale-body"
+                      ]
+                    },
+                    "slots": {}
+                  }
+                ]
+              }
+            }
+          ],
+          "child": []
+        }
+      },
+      "previewViewport": {
+        "w": 400,
+        "h": 80
+      }
+    }
+  ],
+  "styleRules": [
+    {
+      "id": "61decea8-b3ca-4775-a153-e4e289cde38f",
+      "selector": "BoxLayout!hq-root",
+      "props": {
+        "innerSpacing": [
+          12,
+          10
+        ]
+      }
+    },
+    {
+      "id": "64e9b8a9-f1dd-4c91-b411-69ffba4ed63d",
+      "selector": "Window!hqminimap-main-window!window-expanded",
+      "props": {
+        "size": [
+          620,
+          200
+        ]
+      }
+    },
+    {
+      "id": "105f35d2-6fca-4ddb-a60f-eedc2d59a211",
+      "selector": "Window!hqminimap-main-window Window::Content",
+      "props": {
+        "padding": [
+          8,
+          8,
+          8,
+          8
+        ]
+      }
+    },
+    {
+      "id": "487ee407-d084-4ae7-80fe-4fad6f9e3e8a",
+      "selector": "",
+      "props": {
+        "padding": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "innerSpacing": [
+          10,
+          0
+        ]
+      },
+      "ownerNodeId": "472abff4-b7cc-486b-816f-2376c3717900"
+    },
+    {
+      "id": "4ba1f383-1381-465d-a9a4-b12aa4cda7af",
+      "selector": "",
+      "props": {
+        "backgroundColor1": {
+          "kind": "palette",
+          "name": "AccentDark"
+        },
+        "padding": [
+          8,
+          8,
+          8,
+          8
+        ],
+        "gravity": [
+          0,
+          0.5
+        ]
+      },
+      "ownerNodeId": "8635f2a1-2c72-47f2-ae10-62caf6abe826"
+    },
+    {
+      "id": "088a93e8-3ce7-4118-bd2e-f1067217be52",
+      "selector": "",
+      "props": {
+        "color": {
+          "kind": "palette",
+          "name": "NeutralLightest"
+        }
+      },
+      "ownerNodeId": "831115ce-550e-4141-ace1-2851f6e577c4"
+    },
+    {
+      "id": "c02f9f6d-7409-4b76-8579-cc856c5f04c9",
+      "selector": "",
+      "props": {
+        "backgroundColor1": {
+          "kind": "palette",
+          "name": "AccentDark"
+        },
+        "padding": [
+          8,
+          8,
+          8,
+          8
+        ],
+        "gravity": [
+          0,
+          0.5
+        ]
+      },
+      "ownerNodeId": "41f9b00b-7598-4430-ac28-fed452f50e8f"
+    },
+    {
+      "id": "0a60f53e-2f72-4068-810e-dc5fb932bbb6",
+      "selector": "",
+      "props": {
+        "color": {
+          "kind": "palette",
+          "name": "NeutralLightest"
+        }
+      },
+      "ownerNodeId": "aa01aba4-96e6-4aa2-9df1-01c94cc25095"
+    },
+    {
+      "id": "9d6283f3-12ff-4229-a6ee-20bcdee57290",
+      "selector": "",
+      "props": {
+        "gravity": [
+          -1,
+          0.5
+        ],
+        "size": [
+          -1,
+          10
+        ]
+      },
+      "ownerNodeId": "117fdece-18df-4939-ab42-8fe61bd955cf"
+    },
+    {
+      "id": "48da5aa3-751b-41a1-81a1-f7f7748437a5",
+      "selector": "",
+      "props": {
+        "fontSize": 12
+      },
+      "ownerNodeId": "6920c69b-324e-443d-8cb8-264e710817f1"
+    }
+  ],
+  "catalogHash": "d5cd9379486f473b",
+  "lastWrittenFiles": [
+    "hqminimap_gui.script.lua",
+    "hqminimap_gui.css.lua",
+    "hqminimap_gui_button.res.lua"
+  ]
+}

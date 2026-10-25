@@ -1,0 +1,15 @@
+{
+  "authors": [
+    {
+      "name": "Wilfried Lambert",
+      "role": "CREATOR"
+    }
+  ],
+  "description": "Exporte la carte et capture une mosaïque top-down pour l'application HQminiMap.",
+  "name": "HQminiMap",
+  "summary": "Carte haute qualité (export + capture pour l'app HQminiMap)",
+  "tags": [
+    "Script Mod"
+  ],
+  "url": ""
+}
