@@ -249,3 +249,13 @@
   - seules les traces des bateaux et avions sont gardées sur disque.
 - **Villes** : fermeture morphologique (+50 m / −35 m), puis Douglas-Peucker 12 m et un seul passage de Chaikin.
 - **Arrêts** : pictogramme d'arrêt du mode (panneau, quai, T, ancre, tour), dans la couleur des lignes visibles qui les desservent (bandes si plusieurs, la plus fréquentée en premier). Gris si aucune ligne.
+
+### HQ-023 — Première publication : GPL-3.0, CI, releases brouillons, zip du mod
+- **Date :** 2026-10-25 · **Statut :** accepted (check, 58 tests, build, `cargo check`, sim_live OK ; workflows non exécutés tant que rien n'est poussé)
+- **Licence** : GPL-3.0-only (`LICENSE`, `package.json`, `Cargo.toml`). Le paquet Cargo s'appelle `hqminimap` ; la bibliothèque reste `app_lib`.
+- **Version unique** : `tools/bump-version.mjs <x.y.z> [--check]` pour `package.json` (+ lock), `tauri.conf.json` et `Cargo.toml` (+ lock). `modinfo.json` n'a **pas** de champ `version` (format du jeu non vérifié) : la version du mod est dans le nom du zip.
+- **Zip du mod** : `tools/pack-mod.mjs` → `dist/hqminimap-mod-<version>.zip` (dossier `hqminimap/`, sans `mosaic_plan.lua` ni `cutscenes/`), en zip écrit par Node, sans outil externe.
+- **CI** (`ci.yml`) : check, tests, build, `sim_live`, versions, zip.
+- **Release** (`release.yml`, tag `v*`) : vérification de version, tauri-action en release **brouillon** (Windows NSIS/MSI, Linux AppImage/deb, macOS universel), zip du mod joint. Installeurs non signés.
+- **Mod** : pas publié sur mod.io ; installation manuelle dans `<userdata>/staging_area/`.
+- **Viewer** : contours de villes avec fermeture +90/−70 m, DP 25 m, 2 passes de Chaikin, anneaux < 0,02 km² retirés ; noms des villes en arrière-plan (zIndex 6, hors declutter).

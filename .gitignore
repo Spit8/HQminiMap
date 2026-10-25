@@ -8,3 +8,5 @@ app/test/fixtures/real/
 app/test/fixtures/golden_real.json
 __pycache__/
 *.log
+# Release packages (tools/pack-mod.mjs)
+dist/

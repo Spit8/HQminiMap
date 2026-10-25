@@ -1,0 +1,119 @@
+name: Release
+
+# Push a tag vX.Y.Z (after `node tools/bump-version.mjs X.Y.Z` + commit): the installers for
+# Windows, Linux and macOS and the mod zip are built into a DRAFT release, published by hand.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build (vX.Y.Z)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  check:
+    name: Version check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Tag matches the app version
+        run: node tools/bump-version.mjs "${TAG#v}" --check
+
+  installers:
+    name: Installers (${{ matrix.name }})
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            args: ""
+          - name: Linux
+            os: ubuntu-22.04
+            args: ""
+          - name: macOS (universal)
+            os: macos-latest
+            args: "--target universal-apple-darwin"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - name: Install
+        working-directory: app
+        run: npm ci
+
+      - name: Tests
+        working-directory: app
+        run: npm test
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          tagName: ${{ env.TAG }}
+          releaseName: "HQminiMap ${{ env.TAG }}"
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          releaseBody: |
+            ## Installation
+
+            **Application** — download the installer for your system below:
+            - Windows: `HQminiMap_*_x64-setup.exe` (or the `.msi`)
+            - Linux: `.AppImage` (portable) or `.deb`
+            - macOS: `.dmg` (Apple Silicon and Intel)
+
+            **Mod** — download `hqminimap-mod-*.zip`, extract it and copy the `hqminimap` folder into
+            the game's local mods folder (`…/Steam/RUNE/3493540/local/staging_area/`), then enable
+            *HQminiMap* in the game. See the README for details.
+
+            The installers are not signed yet: Windows SmartScreen ("More info" → "Run anyway") and
+            macOS Gatekeeper (right click → Open) will ask for a confirmation the first time.
+
+  mod:
+    name: Mod package
+    needs: installers
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Build the mod zip
+        run: node tools/pack-mod.mjs
+      - name: Attach it to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" dist/hqminimap-mod-*.zip --clobber

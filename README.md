@@ -1,25 +1,137 @@
 # HQminiMap
 
-Carte haute qualité pour Transport Fever 3 : un mod léger (export de la carte + capture d'une
-mosaïque top-down) et une application de bureau (Windows / Linux / Mac) qui calcule la grille,
-range les captures, produit l'orthomosaïque et l'affiche.
+**Carte haute qualité et données en direct pour Transport Fever 3.**
+
+HQminiMap se compose de deux parties qui travaillent ensemble :
+
+- **un mod léger** pour le jeu. Il exporte la carte (limites, relief), prend une mosaïque de captures vues du dessus et publie en continu les données de ta partie : villes, industries, entrepôts, gares, lignes, véhicules, trafic et stocks ;
+- **une application de bureau** pour Windows, Linux et macOS. Elle calcule la grille de capture, assemble une **orthomosaïque** haute résolution et l'affiche dans un **visualiseur** interactif, avec toutes les données du jeu par-dessus.
+
+```
+ Transport Fever 3                         Application HQminiMap
+┌───────────────────────┐   fichiers      ┌──────────────────────────────────────┐
+│ mod HQminiMap          │  userdata TF3   │ GridLab   grille de capture          │
+│  • export de la carte  │ ──────────────► │ TileLab   captures → orthomosaïque   │
+│  • captures (cutscene) │                 │ Visualiseur  ortho + données en      │
+│  • données en direct   │ ◄────────────── │             direct, filtres, export  │
+└───────────────────────┘ grille, cadences,└──────────────────────────────────────┘
+                           téléportation
+```
+
+L'app et le mod communiquent uniquement par fichiers, dans le dossier de données du jeu. Aucun serveur ni compte n'est nécessaire.
+
+> **English summary** — HQminiMap is a Transport Fever 3 companion: a lightweight mod that exports
+> the map, captures a top-down screenshot mosaic and streams live game data, plus a desktop app
+> (Windows / Linux / macOS) that plans the capture grid, builds a high-resolution orthomosaic and
+> shows it in an interactive viewer with towns, industries, stations, line tracks and moving
+> vehicles. Download the installer and the mod zip from the
+> [Releases](https://github.com/Spit8/HQminiMap/releases) page. The UI is available in French and
+> English.
+
+## Installation
+
+### Application
+Télécharge l'installeur de ton système depuis la page [Releases](https://github.com/Spit8/HQminiMap/releases) :
+
+| Système | Fichier |
+|---|---|
+| Windows | `HQminiMap_<version>_x64-setup.exe` (ou le `.msi`) |
+| Linux | `.AppImage` (portable) ou `.deb` |
+| macOS | `.dmg` (Apple Silicon et Intel) |
+
+Les installeurs ne sont **pas encore signés**. La première fois :
+- **Windows** : SmartScreen demande une confirmation (« Informations complémentaires » → « Exécuter quand même ») ;
+- **macOS** : Gatekeeper aussi (clic droit sur l'app → « Ouvrir »).
+
+### Mod
+Le mod n'est pas (encore) publié sur mod.io : il est fourni dans chaque release.
+1. Télécharge `hqminimap-mod-<version>.zip` et décompresse-le.
+2. Copie le dossier `hqminimap` dans le dossier des mods locaux du jeu :
+   `<données TF3>/staging_area/`. Sous Windows, c'est par défaut `C:\Users\Public\Documents\Steam\RUNE\3493540\local\staging_area\`.
+3. Dans le jeu, active **HQminiMap** dans la liste des mods de la partie.
+
+Au premier lancement, l'app détecte le dossier de données du jeu. Si elle ne le trouve pas, choisis-le dans **Réglages** (le dossier `…/Steam/RUNE/3493540/local`).
+
+**Après une mise à jour du mod, recharge ta sauvegarde** : le jeu garde l'ancien code du mod jusque-là. L'app affiche un bandeau tant que le jeu exécute une version plus ancienne qu'elle.
 
 ## Utilisation
-1. Dans le jeu, fenêtre **HQminiMap** → **Exporter la carte**.
-2. Dans l'app, **GridLab** : régler l'altitude, le FOV (10…66°) et la grille → **Écrire dans le mod**.
-3. Dans le jeu → **Capturer** (sans recharger la partie : le mod relit la grille à chaque capture).
-   L'app récupère les captures toute seule.
-4. **TileLab** → **Calculer l'ortho**, puis **Visualiseur**.
+
+### Orthomosaïque de la carte
+1. **Dans le jeu** : fenêtre HQminiMap (bouton de la barre des mods) → **Exporter la carte**.
+2. **GridLab** :
+   - règle l'altitude de la caméra, le champ de vision (10 à 66°) et la grille ;
+   - le bouton **Min** propose la plus petite grille qui couvre la carte, et la taille finale de l'image est estimée avant la capture ;
+   - termine par **Écrire dans le mod**.
+3. **Dans le jeu** : **Capturer** (inutile de recharger la partie). L'app récupère les captures toute seule.
+4. **TileLab** : choisis l'interpolation, puis **Calculer l'ortho**. La durée et la taille sont estimées à l'avance ; le calcul continue même si tu changes d'onglet.
+5. **Visualiseur** : zoom jusqu'au pixel, rotation, plein écran (touche **F**).
+
+### Données en direct
+Le mod publie les données de la partie aux cadences réglées dans **Réglages → Données en direct**. La colonne « Coût » donne le temps de calcul par mise à jour, la colonne « Charge » la part du temps du jeu utilisée. Le minimum est de 1 s pour les véhicules.
+
+Dans le **Visualiseur**, le panneau **Calques et filtres** (touche **L**) propose :
+- des calques **villes** (contours), **lignes** (tracés réels, couleur du jeu), **gares et arrêts** (aux couleurs des lignes qui les desservent), **véhicules** (animés, avec leur chargement), **industries** et **entrepôts** (stocks) ;
+- des **filtres** : recherche par nom, mode de transport, trafic minimal, stock minimal, sélection de lignes, lignes inactives ;
+- des **étiquettes** par calque (🏷) et la visibilité (👁) ;
+- des **configurations** de filtres nommées : enregistrer, charger au démarrage, importer ou exporter en JSON.
+
+Sur la carte et dans les fiches :
+- **clic** sur un objet : sa fiche (chiffres, stocks, historique en mini-courbes), avec **Cadrer**, **Masquer** et **Téléporter ici** ;
+- **double-clic** sur la carte : la caméra du jeu s'y déplace ;
+- **Exporter la vue** : PNG ×1, ×2 ou ×4 de la vue actuelle, filtres appliqués, avec une légende en option.
+
+### Limites connues
+- Les **tracés des lignes** viennent des trajets des véhicules. Ils se complètent au fil des passages : une ligne récente peut avoir des portions provisoires, en trait fin ou en tirets.
+- Les **contours de villes** sont recalculés toutes les 2 minutes environ à partir des bâtiments.
+- Les installeurs ne sont pas signés (voir plus haut).
 
 ## Développement
-```
+
+**Prérequis** :
+- [Node.js](https://nodejs.org) 22 ;
+- [Rust](https://rustup.rs) stable ;
+- les [dépendances Tauri](https://tauri.app/start/prerequisites/) de ton système (WebView2 sous Windows ; `libwebkit2gtk-4.1-dev` et compagnie sous Linux) ;
+- pour les simulations du mod, Python 3 avec `pip install lupa`.
+
+```bash
 cd app && npm install
-npm run tauri dev        # app en mode dev
-npm test                 # tests (concordance avec le gen miniMapper, ortho, pyramide)
-npm run check            # svelte-check / TypeScript
-npm run tauri build      # installeurs
-node tools/deploy-dev.mjs   # copie mod/ dans <userdata>/staging_area/hqminimap
-python tools/sim_mod.py <mosaic_plan.lua>   # simulation hors-jeu du mod (pip install lupa)
+npm run tauri dev          # l'app en mode développement
+npm test                   # tests (vitest)
+npm run check              # svelte-check / TypeScript
+npm run tauri build        # installeurs locaux
 ```
-UI du mod : `hqminimap.tfui.json` (s'ouvre dans TFUI), régénérée avec le générateur de TFUI (voir
-`docs/agent-memory/DECISIONS.md`, HQ-004). Mémoire projet : `docs/agent-memory/`.
+
+Outils (depuis la racine du dépôt) :
+
+```bash
+node tools/deploy-dev.mjs                 # copie mod/ dans <userdata>/staging_area/hqminimap
+python tools/sim_live.py                  # simulation hors jeu des données en direct
+python tools/sim_mod.py <capture_plan>    # simulation hors jeu de la capture
+node tools/pack-mod.mjs                   # dist/hqminimap-mod-<version>.zip
+node tools/bump-version.mjs <x.y.z>       # même version partout (app, Tauri, Cargo)
+```
+
+**Structure du dépôt** :
+
+| Chemin | Contenu |
+|---|---|
+| `mod/` | le mod Transport Fever 3 (Lua) : export, capture, données en direct |
+| `hqminimap.tfui.json` | l'interface du mod, éditable avec TFUI |
+| `app/` | l'application Tauri 2 + SvelteKit (Svelte 5, TypeScript, OpenLayers) |
+| `app/src/lib/core/` | logique pure et testée : grille, ortho, données en direct, filtres, tracés, contours |
+| `tools/` | déploiement, simulations, packaging, version |
+| `docs/` | traduction, notes de conception (`docs/agent-memory/`) |
+
+### Publier une version
+1. `node tools/bump-version.mjs 0.2.0`, puis commit.
+2. `git tag v0.2.0 && git push origin main v0.2.0`.
+3. La CI (`.github/workflows/release.yml`) construit les installeurs Windows, Linux et macOS et le zip du mod, dans une **release brouillon**.
+4. Relis la release sur GitHub, puis publie-la.
+
+## Traduire
+Le français et l'anglais sont fournis. Pour ajouter une langue, voir [docs/TRANSLATING.md](docs/TRANSLATING.md).
+
+## Licence
+[GPL-3.0](LICENSE) © 2026 Wilfried Lambert.
+
+Transport Fever est une marque d'Urban Games. HQminiMap est un projet de fan indépendant, ni affilié ni approuvé par Urban Games.

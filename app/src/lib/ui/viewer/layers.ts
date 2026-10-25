@@ -165,7 +165,11 @@ export function createLiveLayers(): LiveLayers {
     const area = f.get("hasArea") as boolean;
     return new Style({
       image: area ? undefined : new Circle({ radius: 4, fill: new Fill({ color: "#fff" }), stroke: new Stroke({ color: "#222", width: 1.5 }) }),
-      text: showLabel("towns", res) ? label(f.get("name"), area ? 0 : -px, px, 600) : undefined,
+      // Background name: light, under every other object and label (they are drawn on top).
+      text: showLabel("towns", res) ? new Text({
+        text: f.get("name"), font: `600 ${px}px system-ui, sans-serif`, offsetY: area ? 0 : -px,
+        fill: new Fill({ color: "rgba(255,255,255,.7)" }), stroke: new Stroke({ color: "rgba(10,12,16,.55)", width: 2.5 }),
+      }) : undefined,
     });
   };
 
@@ -246,7 +250,9 @@ export function createLiveLayers(): LiveLayers {
     mk("warehouses", warehouseStyle, 11, true),
     mk("stations", stationStyle, 12, true),
     mk("vehicles", vehicleStyle, 13),
-    mk("towns", townStyle, 14, true),
+    // Town names sit in the background: just above the outlines, below lines and stops, and out of
+    // the declutter so they never hide the other labels.
+    mk("towns", townStyle, 6),
     new VectorLayer({
       source: selection, zIndex: 20,
       style: (f) => (f.get("kind") === "stops" ? new Style({

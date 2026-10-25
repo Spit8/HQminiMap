@@ -67,10 +67,12 @@ describe("clean town outlines", () => {
     };
     const one = townOutline(block(0, 0, 20, 10), 20);
     expect(one).toHaveLength(1);
-    expect(one[0]!.length).toBeLessThanOrEqual(32); // a dozen corners (rounded by the closing), each cut once by Chaikin
+    expect(one[0]!.length).toBeLessThanOrEqual(24 * 4); // < 24 corners before the two Chaikin passes (×4)
     expect(insideRings(one, 200, 100)).toBe(true);
-    // Two blocks 40 m apart are joined; a building 300 m away stays a separate ring.
+    // Two blocks 40 m apart are joined; an isolated building gives no ring at all.
     const two = townOutline([...block(0, 0, 10, 10), ...block(12, 0, 10, 10), [40, 40]], 20);
-    expect(two).toHaveLength(2);
+    expect(two).toHaveLength(1);
+    expect(insideRings(two, 300, 100)).toBe(true);
+    expect(insideRings(two, 810, 810)).toBe(false);
   });
 });

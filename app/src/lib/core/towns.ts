@@ -133,16 +133,21 @@ export function simplifyRing(r: Pt[], tol: number): Pt[] {
   return [...a.slice(0, -1), ...b.slice(0, -1)];
 }
 
+/** Rings smaller than this (m², about a block) are dropped: isolated buildings, scraps. */
+const MIN_RING_AREA = 20_000;
+
 /**
- * Outline rings of a town from its building cells (size m): closing (≈ +50 m / −35 m), boundary
- * tracing, Douglas-Peucker (12 m) and a single Chaikin pass — a clean shape, no staircase or waves.
+ * Outline rings of a town from its building cells (size m): strong closing (≈ +90 m / −70 m) so
+ * streets and yards do not notch the edge, boundary tracing, Douglas-Peucker (25 m) and two Chaikin
+ * passes — a regular shape with no staircase or waves; tiny rings are dropped.
  */
 export function townOutline(cells: Cell[], size: number): Pt[][] {
-  const grow = Math.max(1, Math.round(50 / size)), shrink = Math.max(0, Math.round(35 / size));
+  const grow = Math.max(1, Math.round(90 / size)), shrink = Math.max(0, Math.round(70 / size));
   return cellRings(closeCells(cells, grow, shrink), size)
-    .map((r) => simplifyRing(r, 12))
+    .filter((r) => ringArea(r) >= MIN_RING_AREA)
+    .map((r) => simplifyRing(r, 25))
     .filter((r) => r.length >= 3)
-    .map((r) => chaikin(r, 1));
+    .map((r) => chaikin(r, 2));
 }
 
 /** Point in any of the rings (even-odd). */
