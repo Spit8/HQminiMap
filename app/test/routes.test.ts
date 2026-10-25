@@ -72,15 +72,32 @@ describe("gap filling from vehicle trails", () => {
   });
 });
 
-describe("shared edges (concentric bands)", () => {
-  it("lists the edges used by several lines, busiest line first", async () => {
-    const { routeParts, sharedEdges } = await import("../src/lib/core/routes");
-    const parts = routeParts(parseRoutes(`function data() return { edges = "1,0,0,10,0,10,0,10,0;2,10,0,10,0,20,0,10,0;3,20,0,10,0,30,0,10,0",
-      lines = { { e = "1,2", id = 7, p = "" }, { e = "2,3", id = 8, p = "" }, { e = "2", id = 9, p = "" } }, t = 1 } end`)!);
-    const s = sharedEdges(parts, [{ id: 7, rank: 5 }, { id: 8, rank: 50 }, { id: 9, rank: 1 }]);
-    expect([...s.keys()]).toEqual([2]);
-    expect(s.get(2)).toEqual([8, 7, 9]);
-    expect(sharedEdges(parts, [{ id: 7, rank: 1 }])).toEqual(new Map());
+describe("edge strokes (as in the game)", () => {
+  const parts = async () => {
+    const { routeParts } = await import("../src/lib/core/routes");
+    return routeParts(parseRoutes(`function data() return { edges = "1,0,0,10,0,10,0,10,0;2,10,0,10,0,20,0,10,0",
+      lines = { { e = "1,-1,2", id = 7, p = "" }, { e = "1,2", id = 8, p = "" }, { e = "-2", id = 9, p = "" } }, t = 1 } end`)!);
+  };
+
+  it("a street used both ways gets two side-by-side strokes; shared sides list their lines, busiest first", async () => {
+    const { edgeStrokes } = await import("../src/lib/core/routes");
+    const st = edgeStrokes(await parts(), [
+      { id: 7, rank: 5, twoWay: true }, { id: 8, rank: 50, twoWay: true }, { id: 9, rank: 1, twoWay: true },
+    ]);
+    const e1 = st.filter((s) => s.edge === 1), e2 = st.filter((s) => s.edge === 2);
+    expect(e1).toEqual([{ edge: 1, side: 1, lines: [8, 7] }, { edge: 1, side: -1, lines: [7] }]);
+    expect(e2).toEqual([{ edge: 2, side: 1, lines: [8, 7] }, { edge: 2, side: -1, lines: [9] }]);
+  });
+
+  it("rail (not two-way streets) stays one centred stroke with every line", async () => {
+    const { edgeStrokes } = await import("../src/lib/core/routes");
+    const st = edgeStrokes(await parts(), [{ id: 7, rank: 5, twoWay: false }, { id: 8, rank: 50, twoWay: false }]);
+    expect(st).toEqual([{ edge: 1, side: 0, lines: [8, 7] }, { edge: 2, side: 0, lines: [8, 7] }]);
+  });
+
+  it("offsets a polyline to the right of its direction", async () => {
+    const { offsetLine } = await import("../src/lib/core/routes");
+    expect(offsetLine([[0, 0], [10, 0]], 2)).toEqual([[0, -2], [10, -2]]); // heading +x, y up: right is −y
   });
 });
 

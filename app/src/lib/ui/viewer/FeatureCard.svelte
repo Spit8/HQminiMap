@@ -49,7 +49,7 @@
   <strong>{info.name}</strong>
   <dl>
     {#each Object.entries({ ...info.details, ...extra }) as [k, v] (k)}
-      <dt>{term(k)}</dt>
+      <dt>{#if k === "pax" || k === "freight"}<span class="bdg" style:background={k === "pax" ? "#9fd3ff" : "#ffc861"}></span>{/if}{term(k)}</dt>
       <dd>{typeof v === "number" ? fmtNum(v) : v}</dd>
     {/each}
     <dt>X · Y</dt><dd class="mono">{info.x.toFixed(0)} · {info.y.toFixed(0)}</dd>
@@ -82,6 +82,7 @@
   .x { padding: 0 7px; }
   dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0; font-size: 12px; }
   dt { color: var(--muted); }
+  .bdg { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
   dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
   .spark { margin: 6px 0; }
   .sl { display: flex; justify-content: space-between; font-size: 11.5px; }

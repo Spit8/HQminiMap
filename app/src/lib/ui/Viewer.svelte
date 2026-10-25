@@ -153,6 +153,15 @@
     let point: Hit | null = null, town: Hit | null = null;
     const lines = new globalThis.Map<number, Hit>();
     map?.forEachFeatureAtPixel(pixel, (f) => {
+      // An edge stroke carries every line drawn on it (shared stretch).
+      const strokeLines = f.get("lines") as number[] | undefined;
+      if (strokeLines) {
+        for (const id of strokeLines) {
+          const li = liveLayers.infoOf(`lines:${id}`);
+          if (li && !lines.has(id)) lines.set(id, { info: li, hover: li.name });
+        }
+        return;
+      }
       const info = f.get("info") as FeatureInfo | undefined;
       if (!info) return;
       const h = { info, hover: f.get("hover") as string };

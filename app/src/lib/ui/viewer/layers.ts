@@ -14,7 +14,7 @@ import type { Extent } from "ol/extent";
 import type { FeatureLike } from "ol/Feature";
 import { industryLabel, LAYERS, stationTraffic, stockTotal, type LayerId, type LiveData } from "$lib/core/filters";
 import type { Line, StationMode, Stock, Vehicle } from "$lib/core/live";
-import { chain, sharedEdges, stopLegs, type Pt, type RouteParts } from "$lib/core/routes";
+import { chain, edgeStrokes, offsetLine, stopLegs, type Pt, type RouteParts } from "$lib/core/routes";
 import { inkOn, iconUri, stopGlyph, type IconOpts } from "./icons";
 import LineString from "ol/geom/LineString";
 
@@ -95,10 +95,15 @@ function icon(glyph: Parameters<typeof iconUri>[0], color: string, o: IconOpts &
   return i;
 }
 
-/** "👤 12/40 · 📦 3/10": passengers and cargo on board / capacity. */
+/** "🧑 12/40 · 📦 3/10": passengers and cargo on board / capacity (colour pictograms, readable on dark). */
 export function loadText(v: Pick<Vehicle, "pax" | "freight">): string {
-  return [v.pax ? `👤 ${v.pax.n}/${v.pax.cap}` : "", v.freight ? `📦 ${v.freight.n}/${v.freight.cap}` : ""].filter(Boolean).join(" · ");
+  return [v.pax ? `🧑 ${v.pax.n}/${v.pax.cap}` : "", v.freight ? `📦 ${v.freight.n}/${v.freight.cap}` : ""].filter(Boolean).join(" · ");
 }
+
+/** Load badge colours: passengers light blue, cargo amber (also in the card and the legend). */
+export const BADGE = { pax: "#9fd3ff", freight: "#ffc861" };
+/** Badges show from this resolution (m/px) down: not on the whole-map view. */
+const BADGE_RES = 40;
 
 export interface Labels {
   /** Name of the town nearest to (x, y) (industries have no name of their own). */
@@ -118,6 +123,8 @@ export interface LiveOptions {
   iconScale: number;
   textScale: number;
   lineOpacity: number;
+  /** Load badges on the vehicle pictograms. */
+  vehicleBadge: "none" | "pax" | "freight" | "both";
 }
 
 /** Short stock summary: "Coal 120 → Steel 40" (inputs → outputs), storage as "Goods 250 · Coal 30". */
@@ -156,7 +163,7 @@ export function createLiveLayers(): LiveLayers {
   let selectedLine: number | null = null;
   let opts: LiveOptions = {
     labels: { towns: true, industries: false, warehouses: false, stations: true, lines: false, vehicles: false }, glideMs: 2000,
-    iconScale: 1, textScale: 1, lineOpacity: 0.75,
+    iconScale: 1, textScale: 1, lineOpacity: 0.75, vehicleBadge: "none",
   };
   /** Sizes scaled by Options → Map. */
   const isz = (px: number) => Math.round(px * opts.iconScale);
@@ -229,21 +236,14 @@ export function createLiveLayers(): LiveLayers {
   const lineStyle = (f: FeatureLike, res: number) => {
     const sel = selectedLine === f.get("lineId");
     const dim = selectedLine !== null && !sel;
-    const kind = f.get("approx") as "" | "legs" | "trail" | "fill" | "band";
-    if (kind === "band") {
-      // Edge shared by several lines: concentric bands, the busiest line outside (widest), each
-      // next one 2.6 px thinner on top, a thin dark casing between two bands.
-      const n = f.get("bands") as number, k = f.get("band") as number;
-      const w = 3 + (n - 1 - k) * 2.6 + (sel ? 1.5 : 0);
-      const z = sel ? 60 : 10 + k * 2;
-      return [
-        new Style({ stroke: new Stroke({ color: `rgba(10,12,16,${0.7 * (dim ? 0.3 : 1)})`, width: w + 1.6 }), zIndex: z }),
-        new Style({ stroke: new Stroke({ color: rgb(f.get("color"), sel ? 1 : dim ? 0.25 * opts.lineOpacity : Math.max(0.85, opts.lineOpacity)), width: w }), zIndex: z + 1 }),
-      ];
-    }
-    if (f.get("sharedOnly")) return []; // all its edges are drawn as bands
-    // Opacity from Options → Map (overlapping lines show through); a selected line is opaque.
+    const kind = f.get("approx") as "" | "legs" | "trail" | "fill" | "stroke";
+    if (kind === "stroke") return strokeStyle(f, res);
+    // Opacity from Options → Map; a selected line is opaque.
     const alpha = sel ? 1 : dim ? 0.25 * opts.lineOpacity : opts.lineOpacity;
+    // A routed line's network edges are drawn as edge strokes: here only its halo (whole track)
+    // and its own pieces (station lanes, bridges, free legs).
+    const halo = sel ? new Style({ geometry: f.get("full") ?? undefined, stroke: new Stroke({ color: rgb(f.get("color"), 0.35), width: 13 }), zIndex: 2 }) : null;
+    if (f.get("strokesOnly")) return halo ? [halo] : [];
     if (kind === "fill") {
       // Gap filled from the vehicles' trails: thin solid line in the line's colour, not selectable.
       return new Style({ stroke: new Stroke({ color: rgb(f.get("color"), alpha * 0.85), width: sel ? 3.5 : 2 }), zIndex: sel ? 3 : 1 });
@@ -253,18 +253,81 @@ export function createLiveLayers(): LiveLayers {
       stroke: new Stroke({ color: rgb(f.get("color"), alpha), width: sel ? 5 : kind === "trail" ? 2 : 3, lineDash: dash }),
       zIndex: sel ? 3 : 1,
     });
-    return sel ? [new Style({ stroke: new Stroke({ color: rgb(f.get("color"), 0.35), width: 13 }), zIndex: 2 }), main] : main;
+    return halo ? [halo, main] : main;
+  };
+
+  /** Dash length (px) of shared strokes: each line of a shared stretch takes one dash in turn. */
+  const DASH = 10;
+  /** Side offset (px) of the two strokes of a two-way street. */
+  const SIDE_PX = 3;
+
+  // Edge stroke, as in the game: one line → solid; k lines → one stroke of k alternating coloured
+  // dashes (a line leaving the stretch is no longer in it); two-way streets → one stroke per side.
+  const strokeStyle = (f: FeatureLike, res: number) => {
+    const ids = f.get("lines") as number[];
+    const colors = f.get("colors") as string[];
+    const side = f.get("side") as number;
+    let geometry: LineString | undefined;
+    if (side) {
+      // Offset in pixels, so that both directions stay apart at every zoom (cached per resolution).
+      const cached = f.get("offset") as { res: number; g: LineString } | undefined;
+      if (cached?.res === res) geometry = cached.g;
+      else {
+        const pts = (f.getGeometry() as LineString).getCoordinates() as Pt[];
+        geometry = new LineString(offsetLine(pts, side * SIDE_PX * opts.iconScale * res));
+        (f as Feature).set("offset", { res, g: geometry }, true);
+      }
+    }
+    const width = 3;
+    const selIdx = selectedLine === null ? -1 : ids.indexOf(selectedLine);
+    if (selIdx >= 0) {
+      return new Style({ geometry, stroke: new Stroke({ color: colors[selIdx]!, width: 5, lineCap: "butt" }), zIndex: 3 });
+    }
+    const alpha = selectedLine !== null ? 0.25 * opts.lineOpacity : opts.lineOpacity;
+    const withAlpha = (c: string) => c.replace(/rgba\(([^)]*),\s*[\d.]+\)/, `rgba($1,${alpha})`);
+    if (ids.length === 1) return new Style({ geometry, stroke: new Stroke({ color: withAlpha(colors[0]!), width }), zIndex: 1 });
+    const n = ids.length;
+    return colors.map((c, i) => new Style({
+      geometry,
+      stroke: new Stroke({ color: withAlpha(c), width, lineCap: "butt", lineDash: [DASH, (n - 1) * DASH], lineDashOffset: (n - i) * DASH }),
+      zIndex: 1,
+    }));
   };
 
   // Vehicle: mode pictogram on a disc of its line's colour.
   const vehicleStyle = (f: FeatureLike, res: number) => {
     const big = selectedLine !== null && f.get("line") === selectedLine;
     const text = showLabel("vehicles", res) ? [f.get("vname"), f.get("loadText")].filter(Boolean).join(" · ") : "";
-    return new Style({
-      image: icon(f.get("mode"), rgb(f.get("color")), { size: isz(big ? 20 : 15), ring: big ? "#ffffff" : undefined }),
-      text: text ? lbl(text, 0, 10, 600, big ? 13 : 10) : undefined,
+    const size = isz(big ? 20 : 15);
+    const main = new Style({
+      image: icon(f.get("mode"), rgb(f.get("color")), { size, ring: big ? "#ffffff" : undefined }),
+      // With badges, the label moves below the icon (badges take its right side).
+      text: text ? (opts.vehicleBadge !== "none" ? lbl(text, size * 0.75 / opts.textScale + 6, 10, 600) : lbl(text, 0, 10, 600, big ? 13 : 10)) : undefined,
       zIndex: big ? 2 : 1,
     });
+    if (opts.vehicleBadge === "none" || res >= BADGE_RES) return main;
+    // Load badges at the icon's top-right corner: passengers (blue), cargo (amber), side by side.
+    const pax = f.get("pax") as { n: number } | null, freight = f.get("freight") as { n: number } | null;
+    const want = [
+      ...(opts.vehicleBadge !== "freight" && pax ? [{ n: pax.n, bg: BADGE.pax }] : []),
+      ...(opts.vehicleBadge !== "pax" && freight ? [{ n: freight.n, bg: BADGE.freight }] : []),
+    ];
+    const fs = 9.5 * opts.textScale;
+    let x = size / 2 - 2;
+    const badges = want.map((b) => {
+      const txt = fmtK(b.n);
+      const st = new Style({
+        text: new Text({
+          text: txt, font: `700 ${fs}px system-ui, sans-serif`, offsetX: x, offsetY: -size / 2, textAlign: "left",
+          fill: new Fill({ color: "#111418" }), backgroundFill: new Fill({ color: b.bg }),
+          backgroundStroke: new Stroke({ color: "rgba(10,12,16,.6)", width: 1 }), padding: [0, 2, 0, 2],
+        }),
+        zIndex: big ? 3 : 2,
+      });
+      x += txt.length * fs * 0.62 + 6;
+      return st;
+    });
+    return [main, ...badges];
   };
 
   const mk = (layer: LayerId, style: (f: FeatureLike, res: number) => Style | Style[], z: number, declutter = false) =>
@@ -394,20 +457,22 @@ export function createLiveLayers(): LiveLayers {
       const lineColor = new Map<number, Line["color"]>();
       for (const l of d.lines) lineColor.set(l.id, l.color);
       const labelCands: { name: string; rank: number; piece: Pt[] }[] = [];
-      // Edges shared by several shown lines (bands); the rest stays in each line's own geometry.
+      // Network edges of the routed lines are drawn edge by edge (edgeStrokes): shared stretches as
+      // alternating dashes, two-way streets as two strokes. Each line keeps its own pieces.
       const lineRank = (l: Line) => (l.traffic?.transported ?? 0) * 1000 + l.vehicles;
-      const shared = parts ? sharedEdges(parts, d.lines.filter((l) => routes.has(l.id)).map((l) => ({ id: l.id, rank: lineRank(l) }))) : new Map<number, number[]>();
-      const bandFeatures: Feature[] = [];
+      const routed = parts ? d.lines.filter((l) => routes.has(l.id)) : [];
+      const strokes = parts ? edgeStrokes(parts, routed.map((l) => ({ id: l.id, rank: lineRank(l), twoWay: l.mode === "road" || l.mode === "tram" }))) : [];
+      const byStroke = new Set(routed.map((l) => l.id));
+      const strokeFeatures: Feature[] = [];
       const pieceLen = (p: Pt[]) => p.reduce((a, q, i) => (i ? a + Math.hypot(q[0] - p[i - 1]![0], q[1] - p[i - 1]![1]) : 0), 0);
       src.lines.addFeatures(d.lines.flatMap((l) => {
         const route = routes.get(l.id);
         const trail = !route && (l.mode === "water" || l.mode === "air") ? trails.get(l.id) : undefined;
         const fullParts = route ?? (trail?.length ? trail : stopLegs(l));
-        // With shared edges: this line's own geometry leaves them out (they become bands).
-        const ownEdges = route && parts ? (parts.lineEdges.get(l.id) ?? []).filter((e) => !shared.has(e)) : null;
-        const hasShared = !!route && !!parts && (parts.lineEdges.get(l.id) ?? []).some((e) => shared.has(e));
-        const own = hasShared ? chain([...(parts!.linePolys.get(l.id) ?? []), ...ownEdges!.map((e) => parts!.edges.get(e)!).filter(Boolean)]) : null;
-        const sharedOnly = hasShared && !own!.length;
+        // Drawn by edge strokes: this line's own geometry is only its extra pieces.
+        const hasShared = byStroke.has(l.id);
+        const own = hasShared ? chain(parts!.linePolys.get(l.id) ?? []) : null;
+        const strokesOnly = hasShared && !own!.length;
         const parts_ = own && own.length ? own : fullParts;
         if (!fullParts.length) return [];
         const c = l.stops[0] ?? { x: fullParts[0]![0]![0], y: fullParts[0]![0]![1] };
@@ -424,23 +489,23 @@ export function createLiveLayers(): LiveLayers {
         return [...extra, info(new Feature({
           geometry: new MultiLineString(parts_.map((p) => p.map(([x, y]) => m(x, y)))),
           full: hasShared ? new MultiLineString(fullParts.map((p) => p.map(([x, y]) => m(x, y)))) : undefined,
-          sharedOnly, color: l.color, lineId: l.id, name: l.name, approx: route ? "" : trail?.length ? "trail" : "legs",
+          strokesOnly, color: l.color, lineId: l.id, name: l.name, approx: route ? "" : trail?.length ? "trail" : "legs",
           stopPts: l.stops.map((s) => m(s.x, s.y)),
         }), { layer: "lines", id: l.id, name: l.name, x: c.x, y: c.y, details }, l.name, rgb(l.color))];
       }));
-      for (const [e, ls] of shared) {
-        const pts = parts!.edges.get(e);
+      for (const st of strokes) {
+        const pts = parts!.edges.get(st.edge);
         if (!pts) continue;
-        ls.forEach((lid, k) => {
-          const lineF = byKey.get(`lines:${lid}`);
-          if (!lineF) return;
-          bandFeatures.push(new Feature({
-            geometry: new LineString(pts.map(([x, y]) => m(x, y))), approx: "band", band: k, bands: ls.length,
-            color: lineF.get("color"), lineId: lid, info: lineF.get("info"), key: lineF.get("key"), hover: lineF.get("hover"),
-          }));
-        });
+        const ids = st.lines.filter((id) => byKey.has(`lines:${id}`));
+        if (!ids.length) continue;
+        // A stroke against the edge runs the other way: its offset side follows its own direction.
+        const mapped = pts.map(([x, y]) => m(x, y));
+        strokeFeatures.push(new Feature({
+          geometry: new LineString(st.side < 0 ? mapped.reverse() : mapped), approx: "stroke", side: st.side ? 1 : 0,
+          lines: ids, colors: ids.map((id) => rgb(byKey.get(`lines:${id}`)!.get("color"), 1)),
+        }));
       }
-      src.lines.addFeatures(bandFeatures);
+      src.lines.addFeatures(strokeFeatures);
       // One label per name (a two-way line, or two lines sharing a name), busiest first: when labels
       // collide, the declutter keeps the earliest ones.
       const seenNames = new Set<string>();
@@ -472,7 +537,7 @@ export function createLiveLayers(): LiveLayers {
         const color = lineColor.get(v.line) ?? null;
         const lt = loadText(v);
         const f = info(new Feature({
-          geometry: new Point(m(pos.x, pos.y)), color, line: v.line, vname: v.name, loadText: lt,
+          geometry: new Point(m(pos.x, pos.y)), color, line: v.line, vname: v.name, loadText: lt, pax: v.pax, freight: v.freight,
           mode: labels.lineMode(v.line),
         }), { layer: "vehicles", id: v.id, name: `${title} — ${lineName}`, x: v.x, y: v.y, details, lineId: v.line },
         `${title} · ${lineName}${lt ? ` · ${lt}` : ""}`, rgb(color));

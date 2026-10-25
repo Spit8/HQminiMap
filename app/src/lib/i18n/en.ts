@@ -346,6 +346,15 @@ export const en: Record<MessageKey, string> = {
   "viewer.linesHint": "Click again at the same spot: next line",
   "tiles.history": "History and clean-up",
 
+  "settings.map.vehicleBadge": "Load on vehicles",
+  "settings.map.badge.none": "Nothing",
+  "settings.map.badge.pax": "Passengers",
+  "settings.map.badge.freight": "Cargo",
+  "settings.map.badge.both": "Passengers and cargo",
+  "lp.legend.shared": "Stretch shared by several lines",
+  "lp.legend.twoWay": "Street used both ways",
+  "lp.legend.badges": "On board: passengers (blue) · cargo (amber)",
+
   "history.title": "Capture history",
   "history.empty": "No capture recorded.",
   "history.selectAll": "Select all",

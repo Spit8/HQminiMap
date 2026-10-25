@@ -61,6 +61,8 @@ comps = {
   [704] = { BASE_EDGE = { position0 = { x = 1150, y = 2100 }, position1 = { x = 1300, y = 2100 },
                           tangent0 = { x = 100, y = 0 }, tangent1 = { x = 100, y = 0 } } },
   [502] = { NAME = { name = "Bac" }, LINE = { stops = { { stationGroup = 301, station = 0, terminal = 0 } } } },
+  -- Same line, the other way along 701.
+  [603] = { TRANSPORT_VEHICLE = { carrier = 1, line = 501 }, MOVE_PATH = { path = { edges = { { { entity = 701, index = 0 }, false } } } } },
   [602] = { TRANSPORT_VEHICLE = { carrier = 5, line = 502 },
             MOVE_PATH_AIRCRAFT = { path0 = { edges = {} }, path2 = { edges = {} },
               path1 = { { { type = "CUBIC_SPLINE", length = 500, cubicSpline = { pos = { { x = 0, y = 0 }, { x = 0, y = 500 } },
@@ -121,7 +123,7 @@ api = {
     system = {
       lineSystem = { getLinesForPlayer = function() return { 501, 502 } end, getLinesForStationGroup = function() return { 501 } end },
       simEntityAtTerminalSystem = { getLineStopSimEntitiesCount = function(l, k, c) return c == 0 and 3 or 2 end },
-      transportVehicleSystem = { getLineVehicles = function(l) return l == 501 and { 601 } or { 602 } end },
+      transportVehicleSystem = { getLineVehicles = function(l) return l == 501 and { 601, 603 } or { 602 } end },
       townBuildingSystem = { getLandUsePersonCapacities = function() return { 100, 50, 10 } end },
       simEntityAtVehicleSystem = { getVehicleSimEntitiesCountForCargoType = function(v, c) return c == 0 and 12 or 3 end },
       simEntityAtStockSystem = { getStockCount = function(sl, i) return sl == 801 and (i == 0 and 30 or 12) or 250 end },
@@ -174,7 +176,8 @@ print = function() end
     assert (sl.transported, sl.waitP, sl.waitC) == (1234, 6, 8) and (ss.loaded, ss.unloaded, ss.waitP) == (50, 70, 9)
     routes = s["live_routes"]
     print("routes:", routes.edges, "| line 501:", routes.lines[1].e, routes.lines[1].p, "| ship:", routes.lines[2].p)
-    assert routes.lines[1].e == "701,704,706,708", routes.lines[1].e  # 708: from the pathfinding
+    # Signed ids: 701 both ways (601 along it, 603 against it); 708 from the pathfinding.
+    assert routes.lines[1].e == "701,-701,704,706,708", routes.lines[1].e
     # 702 unreadable: bridged 701 end (1100, 2100) → 704 start (1150, 2100), 50 m; 703 is a lane;
     # 705 unreadable but the gap 703 end (1120) → 706 start (2000) is 880 m: left open, no diagonal.
     assert routes.lines[1].p == "1100,2100,1150,2100|1100,2100,1120,2100", routes.lines[1].p
@@ -197,14 +200,14 @@ print = function() end
     assert w["live_routes"] == 1, "unchanged routes are not rewritten"
     assert s["live_status"].jobs.stations.warn is None
     # 601: passengers 12 / 40, cargo 3 / 10; 602 has no config: unknown
-    assert s["live_vehicles"].v.startswith("601,501,1500,2501,12,40,3,10,Bus  1;602,502,1500,2501,-1,-1,-1,-1,"), s["live_vehicles"].v
+    assert s["live_vehicles"].v.startswith("601,501,1500,2501,12,40,3,10,Bus  1;603,501,1500,2501,-1,-1,-1,-1,;602,502,1500,2501,-1,-1,-1,-1,"), s["live_vehicles"].v
     ta = s["live_townAreas"].towns[1]
     print("town area:", ta.id, ta.cells, ta.pop)
     assert (ta.id, ta.cells, ta.pop) == (101, "0,0;3,0", 160)
     hist = s["live_history"]
     print("history:", hist.lines[1].tr, hist.stations[1].ld, "|", hist.stations[1].ul, "| diag", s["live_status"].history.n)
     assert hist.lines[1].tr == "1000,10;2000,25;3000,45" and hist.stations[1].ld == "1000,7" and hist.stations[1].ul == ""
-    assert s["live_status"].format == 7
+    assert s["live_status"].format == 8
     rt.execute('REQUEST.cmd = { seq = 1, action = "teleport", x = 300, y = -400, dist = 900 }')
     run(2)
     f = g.FOCUS

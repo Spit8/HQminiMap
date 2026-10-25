@@ -347,6 +347,15 @@ export const fr = {
   "viewer.linesHint": "Recliquer au même endroit : ligne suivante",
   "tiles.history": "Historique et nettoyage",
 
+  "settings.map.vehicleBadge": "Chargement sur les véhicules",
+  "settings.map.badge.none": "Rien",
+  "settings.map.badge.pax": "Passagers",
+  "settings.map.badge.freight": "Fret",
+  "settings.map.badge.both": "Passagers et fret",
+  "lp.legend.shared": "Tronçon commun à plusieurs lignes",
+  "lp.legend.twoWay": "Rue parcourue dans les deux sens",
+  "lp.legend.badges": "À bord : passagers (bleu) · fret (ambre)",
+
   "history.title": "Historique des captures",
   "history.empty": "Aucune capture enregistrée.",
   "history.selectAll": "Tout sélectionner",

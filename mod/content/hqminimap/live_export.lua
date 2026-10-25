@@ -21,7 +21,7 @@ local RETRY_SEC = 30
 local KINDS = { "vehicles", "lines", "stations", "stats", "routes", "stocks", "towns", "industries", "townAreas", "history" }
 -- Version of the files written here; the app warns when the game still runs an older mod
 -- (ug_require keeps the old code until the save is reloaded).
-local FORMAT = 7
+local FORMAT = 8
 -- Straight bridges over unreadable path edges only up to this length (m): longer ones are left open.
 local MAX_BRIDGE = 80
 -- Town outlines: building positions binned on a CELL m grid.
@@ -538,7 +538,14 @@ local function walkPath(path, le, d)
 		elseif entity and entity >= 0 then
 			local g = edgeGeometry(entity)
 			if g then
-				le.edges[entity] = true
+				-- Direction mask: 1 = along the edge geometry (position0 → position1), 2 = against it.
+				local mask = le.edges[entity] or 0
+				if fwd and mask % 2 == 0 then
+					mask = mask + 1
+				elseif not fwd and mask < 2 then
+					mask = mask + 2
+				end
+				le.edges[entity] = mask
 				local n = {}
 				for v in g:gmatch("-?%d+") do
 					n[#n + 1] = tonumber(v)
@@ -749,18 +756,30 @@ jobs.routes = {
 			end)
 		end
 		local ids = {}
-		for edge in pairs(le.edges) do
+		for edge, mask in pairs(le.edges) do
 			if not exists(edge) then
 				le.edges[edge] = nil
 			elseif edgeGeometry(edge) then
-				ids[#ids + 1] = edge
+				-- Signed ids: edge travelled along its geometry, -edge against it (both: both).
+				if mask == true or mask % 2 == 1 then
+					ids[#ids + 1] = edge
+				end
+				if mask ~= true and mask >= 2 then
+					ids[#ids + 1] = -edge
+				end
 				if not s.used[edge] then
 					s.used[edge] = true
 					s.usedOrder[#s.usedOrder + 1] = edge
 				end
 			end
 		end
-		table.sort(ids)
+		table.sort(ids, function(a, b)
+			local x, y = math.abs(a), math.abs(b)
+			if x ~= y then
+				return x < y
+			end
+			return a > b
+		end)
 		local keys = {}
 		for k in pairs(le.extra) do
 			keys[#keys + 1] = k

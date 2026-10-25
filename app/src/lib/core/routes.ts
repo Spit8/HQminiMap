@@ -59,13 +59,14 @@ export function chain(pieces: Pt[][]): Pt[][] {
   return out;
 }
 
-/** line id → track polylines (world). Lines without known edges are absent. */
+/** line id → track polylines (world). Lines without known edges are absent. Edge ids are signed
+ * (−id: travelled against the edge geometry); here only the place matters. */
 export function buildRoutes(routes: LiveRoutes): Map<number, Pt[][]> {
   const sampled = new Map<number, Pt[]>();
   const out = new Map<number, Pt[][]>();
   for (const [line, { edges: ids, polys }] of routes.lines) {
     const pieces: Pt[][] = [...polys];
-    for (const id of ids) {
+    for (const id of new Set(ids.map(Math.abs))) {
       let s = sampled.get(id);
       if (!s) {
         const e = routes.edges.get(id);
@@ -80,26 +81,27 @@ export function buildRoutes(routes: LiveRoutes): Map<number, Pt[][]> {
   return out;
 }
 
-/** Per-edge view of the tracks: lines sharing an edge are drawn as concentric bands there. */
+/** Per-edge view of the tracks (drawn edge by edge: shared stretches, two-way streets). */
 export interface RouteParts {
-  /** edge id → polyline (world). */
+  /** edge id → polyline (world), along the edge geometry. */
   edges: Map<number, Pt[]>;
-  /** line → its network edges. */
-  lineEdges: Map<number, number[]>;
+  /** line → its network edges with the direction(s) travelled (1 along the geometry, −1 against). */
+  lineEdges: Map<number, { id: number; dir: 1 | -1 }[]>;
   /** line → its own extra polylines (lanes, bridges, free legs): never shared. */
   linePolys: Map<number, Pt[][]>;
 }
 
 export function routeParts(routes: LiveRoutes): RouteParts {
   const edges = new Map<number, Pt[]>();
-  const lineEdges = new Map<number, number[]>(), linePolys = new Map<number, Pt[][]>();
+  const lineEdges: RouteParts["lineEdges"] = new Map(), linePolys = new Map<number, Pt[][]>();
   for (const [line, { edges: ids, polys }] of routes.lines) {
-    const own: number[] = [];
-    for (const id of ids) {
+    const own: { id: number; dir: 1 | -1 }[] = [];
+    for (const signed of ids) {
+      const id = Math.abs(signed);
       const e = routes.edges.get(id);
       if (!e) continue;
       if (!edges.has(id)) edges.set(id, sampleEdge(e));
-      own.push(id);
+      own.push({ id, dir: signed < 0 ? -1 : 1 });
     }
     lineEdges.set(line, own);
     linePolys.set(line, polys);
@@ -108,18 +110,50 @@ export function routeParts(routes: LiveRoutes): RouteParts {
 }
 
 /**
- * Edges used by several of the given lines → those lines, busiest first (the order of the bands,
- * from the outer, widest one to the inner one).
+ * One stroke of the map: an edge, its side and the lines drawn on it.
+ * side 0 = centred; on a street used both ways, +1 = traffic along the edge (right-hand side),
+ * −1 = against it (left of the geometry).
  */
-export function sharedEdges(parts: RouteParts, lines: { id: number; rank: number }[]): Map<number, number[]> {
-  const users = new Map<number, number[]>();
+export interface EdgeStroke { edge: number; side: -1 | 0 | 1; lines: number[] }
+
+/**
+ * Strokes of the shown lines, as in the game: a street (road / tram) with traffic both ways gets
+ * one stroke per direction, side by side; otherwise (one way, rail tracks…) a single centred
+ * stroke. Lines of a stroke are busiest first (order of the dashes).
+ */
+export function edgeStrokes(parts: RouteParts, lines: { id: number; rank: number; twoWay: boolean }[]): EdgeStroke[] {
   const rank = new Map(lines.map((l) => [l.id, l.rank]));
-  for (const { id } of lines) {
-    for (const e of new Set(parts.lineEdges.get(id) ?? [])) (users.get(e) ?? users.set(e, []).get(e)!).push(id);
+  const byEdge = new Map<number, { fwd: Set<number>; bwd: Set<number>; twoWay: boolean }>();
+  for (const l of lines) {
+    for (const { id, dir } of parts.lineEdges.get(l.id) ?? []) {
+      let e = byEdge.get(id);
+      if (!e) byEdge.set(id, (e = { fwd: new Set(), bwd: new Set(), twoWay: false }));
+      (dir > 0 ? e.fwd : e.bwd).add(l.id);
+      e.twoWay ||= l.twoWay;
+    }
   }
-  const out = new Map<number, number[]>();
-  for (const [e, ls] of users) if (ls.length > 1) out.set(e, ls.sort((a, b) => rank.get(b)! - rank.get(a)! || a - b));
+  const order = (ids: Iterable<number>) => [...ids].sort((a, b) => rank.get(b)! - rank.get(a)! || a - b);
+  const out: EdgeStroke[] = [];
+  for (const [edge, e] of byEdge) {
+    if (e.twoWay && e.fwd.size && e.bwd.size) {
+      out.push({ edge, side: 1, lines: order(e.fwd) }, { edge, side: -1, lines: order(e.bwd) });
+    } else {
+      out.push({ edge, side: 0, lines: order(new Set([...e.fwd, ...e.bwd])) });
+    }
+  }
   return out;
+}
+
+/** Polyline offset sideways by d (positive: to the right of its direction of travel). */
+export function offsetLine(pts: Pt[], d: number): Pt[] {
+  if (pts.length < 2 || !d) return pts;
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)]!, b = pts[Math.min(pts.length - 1, i + 1)]!;
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    // Right-hand normal of (dx, dy) in a y-up frame.
+    return [p[0] + (dy / len) * d, p[1] - (dx / len) * d];
+  });
 }
 
 /** Spatial index of a line's track: points every ~STEP m, binned on a CELL m grid. */

@@ -294,3 +294,20 @@
   - le `full` de l'entité ligne sert au cadrage.
 - **Clic sur plusieurs lignes** : menu au curseur ; un nouveau clic au même endroit (≤ 4 px) passe à la ligne suivante. L'infobulle liste les lignes. Un point garde la priorité, et la ville passe en dernier.
 - **Historique des captures** : déplacé d'Options vers TileLab, en section repliable (colonnes grille et images masquées).
+
+### HQ-026 — Tracés comme dans le jeu : pointillés multicolores, deux sens côte à côte, pastilles de chargement
+- **Date :** 2026-10-25 · **Statut :** accepted (sim_live, check, 65 tests, build et `cargo check` OK ; NOT TESTED en jeu ni dans l'app). **Remplace** les bandes concentriques de HQ-025, jugées trop épaisses.
+- **Mod (FORMAT 8)** : masque de sens par arête (1 = le long de la géométrie `position0 → position1`, 2 = à contresens). Export en ids signés : `id`, `-id`, ou les deux.
+- **App** :
+  - `routeParts.lineEdges` donne `{ id, dir }` ;
+  - `edgeStrokes()` produit un trait par (arête, côté) : une rue (road / tram) parcourue dans les deux sens donne deux côtés (avant à droite, circulation à droite), sinon un trait centré ;
+  - les lignes d'un trait sont triées par trafic.
+- **Dessin** :
+  - une ligne : trait plein ;
+  - k lignes : `lineDash [10, (k−1)·10]` avec `lineDashOffset (k−i)·10`, une couleur par tiret ;
+  - décalage latéral de 3 px × `iconScale`, calculé en pixels (`offsetLine` × résolution, mis en cache) ;
+  - la ligne sélectionnée est tracée en plein sur ses traits, avec son halo sur `full` ;
+  - les entités de trait portent `lines`, et `hitsAt` les déplie (menu de choix).
+- **Véhicules** :
+  - pastilles de chargement (`mapStyle.vehicleBadge` : rien / passagers / fret / les deux), passagers `#9fd3ff`, fret `#ffc861`, sous 40 m/px ;
+  - la vignette passagers 👤 devient 🧑, en couleur.

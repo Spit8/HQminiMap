@@ -302,6 +302,12 @@
       <span>{t("live.kind.warehouses")}</span>
       <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="#6aa7e8" stroke-width="3"/></svg></span>
       <span>{t("lp.legend.track")}</span>
+      <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="#e2574c" stroke-width="3" stroke-dasharray="5 5"/><line x1="1" y1="5" x2="23" y2="5" stroke="#6aa7e8" stroke-width="3" stroke-dasharray="5 5" stroke-dashoffset="5"/></svg></span>
+      <span>{t("lp.legend.shared")}</span>
+      <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="3" x2="23" y2="3" stroke="#6aa7e8" stroke-width="2.4"/><line x1="1" y1="7.5" x2="23" y2="7.5" stroke="#6aa7e8" stroke-width="2.4"/></svg></span>
+      <span>{t("lp.legend.twoWay")}</span>
+      <span class="sym"><svg viewBox="0 0 24 12" width="22" height="12"><rect x="1" y="2" width="10" height="8" rx="2" fill="#9fd3ff"/><rect x="13" y="2" width="10" height="8" rx="2" fill="#ffc861"/></svg></span>
+      <span>{t("lp.legend.badges")}</span>
       <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="#6aa7e8" stroke-width="3" stroke-dasharray="5 3"/></svg></span>
       <span>{t("lp.legend.legs")}</span>
       <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="#3fa7e0" stroke-width="2" stroke-dasharray="1 3" stroke-linecap="round"/></svg></span>
