@@ -7,6 +7,7 @@
   import { viewerFilters as vf } from "$lib/state/viewerFilters.svelte";
   import { iconSvg } from "./icons";
   import { MODE_COLOR, WAREHOUSE_COLOR } from "./layers";
+  import { stopGlyph } from "./icons";
 
   let { all, shown, names, selectedKey, onselect }: {
     /** Unfiltered data (lists, totals). */
@@ -105,7 +106,7 @@
     towns: `<svg viewBox="0 0 16 16" width="16" height="16"><path d="M3 4.5c2-1.6 5-.8 6.4-1.4 1.8-.8 3.8.6 3.6 3-.2 2 1 3.4-.6 5.4-1.6 2-4.6 1.4-6.8 1.4C3 12.9 1.7 10.6 2 8.4c.2-1.6 0-2.6 1-3.9z" fill="rgba(255,255,255,.12)" stroke="#fff" stroke-width="1.2"/></svg>`,
     industries: iconSvg("factory", "hsl(28, 60%, 48%)", { size: 16, shape: "square" }),
     warehouses: iconSvg("warehouse", WAREHOUSE_COLOR, { size: 16, shape: "square" }),
-    stations: iconSvg("rail", MODE_COLOR.rail, { size: 16, shape: "square" }),
+    stations: iconSvg("stop_road", "#6aa7e8", { size: 16, shape: "square" }),
     lines: `<svg viewBox="0 0 16 16" width="16" height="16"><path d="M1.5 12c3-1 3.5-7 7-7s3.5 4 6 3" fill="none" stroke="#6aa7e8" stroke-width="2.6" stroke-linecap="round"/></svg>`,
     vehicles: iconSvg("road", "#6aa7e8"),
   };
@@ -284,11 +285,14 @@
       {#each ["rail", "road", "tram", "water", "air"] as const as m (m)}
         <span class="sym">{@html iconSvg(m, MODE_COLOR[m], 14)}</span><span>{t(`lp.mode.${m}`)}</span>
       {/each}
-      <span class="sym">{@html iconSvg("road", MODE_COLOR.road, { size: 14, shape: "square" })}</span>
-      <span>{t("lp.legend.passengers")}</span>
-      <span class="sym">{@html iconSvg("road", MODE_COLOR.road, { size: 14, shape: "square", corner: true })}</span>
+      {#each ["rail", "road", "tram", "water", "air"] as const as m (m)}
+        <span class="sym">{@html iconSvg(stopGlyph(m), "#6aa7e8", { size: 14, shape: "square" })}</span><span>{t(`lp.stop.${m}`)}</span>
+      {/each}
+      <span class="sym">{@html iconSvg("stop_road", "#6aa7e8", { size: 14, shape: "square", stripes: ["#e2574c", "#6aa7e8", "#f2c94c"] })}</span>
+      <span>{t("lp.legend.multi")}</span>
+      <span class="sym">{@html iconSvg("stop_road", "#6aa7e8", { size: 14, shape: "square", corner: true })}</span>
       <span>{t("lp.legend.cargo")}</span>
-      <span class="sym">{@html iconSvg("road", MODE_COLOR.road, { size: 14, shape: "square", double: true })}</span>
+      <span class="sym">{@html iconSvg("stop_road", "#6aa7e8", { size: 14, shape: "square", double: true })}</span>
       <span>{t("lp.legend.both")}</span>
       <span class="sym">{@html iconSvg("road", "#6aa7e8", 14)}</span>
       <span>{t("lp.legend.vehicleDisc")}</span>
@@ -302,6 +306,8 @@
       <span>{t("lp.legend.legs")}</span>
       <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="#3fa7e0" stroke-width="2" stroke-dasharray="1 3" stroke-linecap="round"/></svg></span>
       <span>{t("lp.legend.trail")}</span>
+      <span class="sym"><svg viewBox="0 0 24 10" width="22" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="#6aa7e8" stroke-width="1.6" stroke-opacity=".8"/></svg></span>
+      <span>{t("lp.legend.fill")}</span>
     </div>
   </details>
 

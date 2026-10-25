@@ -17,9 +17,12 @@ const LS_SETTINGS = "hq.live";
 const POLL_MS = 700;
 /** A command not acknowledged within this delay is reported as failed (mod not running?). */
 const CMD_TIMEOUT_MS = 6000;
-/** Boat / aircraft trails (fallback tracks): one point per TRAIL_STEP m, at most TRAIL_MAX per vehicle. */
-const TRAIL_STEP = 40;
-const TRAIL_MAX = 2000;
+/**
+ * Vehicle trails: fallback tracks of ships / aircraft and gap filling of the other lines. One point
+ * per step (m), at most max points per vehicle; only ships' / aircraft's trails are kept on disk.
+ */
+const TRAIL = { free: { step: 40, max: 2000 }, network: { step: 25, max: 800 } };
+const freeMode = (m: string | undefined) => m === "water" || m === "air";
 
 const LS_TRAILS = "hq.trails";
 type Trails = Map<number, Map<number, Pt[]>>;
@@ -35,12 +38,12 @@ function loadTrails(): Trails {
 }
 
 let trailsTimer: ReturnType<typeof setTimeout> | null = null;
-function saveTrailsSoon(trails: Trails): void {
+function saveTrailsSoon(trails: Trails, keep: Set<number>): void {
   if (trailsTimer) return;
   trailsTimer = setTimeout(() => {
     trailsTimer = null;
     try {
-      localStorage.setItem(LS_TRAILS, JSON.stringify([...trails].map(([l, vs]) => [l, [...vs]])));
+      localStorage.setItem(LS_TRAILS, JSON.stringify([...trails].filter(([l]) => keep.has(l)).map(([l, vs]) => [l, [...vs]])));
     } catch {
       /* storage unavailable or full */
     }
@@ -221,13 +224,13 @@ class LiveState {
     }
   }
 
-  /** Grow the trails of vehicles on water / air lines (a point every TRAIL_STEP m). */
+  /** Grow the trails of every vehicle (a point each time it moved `step` m). */
   private recordTrails(): void {
     const modes = new Map(this.lines.map((l) => [l.id, l.mode]));
     let grew = false;
     for (const v of this.vehicles) {
       const mode = modes.get(v.line);
-      if (mode !== "water" && mode !== "air") continue;
+      const { step: TRAIL_STEP, max: TRAIL_MAX } = freeMode(mode) ? TRAIL.free : TRAIL.network;
       let byVehicle = this.trails.get(v.line);
       if (!byVehicle) this.trails.set(v.line, (byVehicle = new Map()));
       let pts = byVehicle.get(v.id);
@@ -241,7 +244,7 @@ class LiveState {
     }
     if (grew) {
       this.trailsVersion++;
-      saveTrailsSoon(this.trails);
+      saveTrailsSoon(this.trails, new Set(this.lines.filter((l) => freeMode(l.mode)).map((l) => l.id)));
     }
   }
 

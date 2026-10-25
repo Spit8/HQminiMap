@@ -48,6 +48,9 @@ comps = {
   [703] = { TRANSPORT_NETWORK = { edges = { { geometry = { type = "STRAIGHT", straight = { pos = { { x = 1100, y = 2100 }, { x = 1120, y = 2100 } } },
               length = 20 } } } } },
   [705] = {},
+  -- A crossing: its turn lane must not be drawn.
+  [707] = { BASE_NODE = {}, TRANSPORT_NETWORK = { edges = { { geometry = { type = "STRAIGHT",
+              straight = { pos = { { x = 1100, y = 2100 }, { x = 1105, y = 2110 } } }, length = 11 } } } } },
   [706] = { BASE_EDGE = { position0 = { x = 2000, y = 2100 }, position1 = { x = 2100, y = 2100 },
                           tangent0 = { x = 100, y = 0 }, tangent1 = { x = 100, y = 0 } } },
   [704] = { BASE_EDGE = { position0 = { x = 1150, y = 2100 }, position1 = { x = 1300, y = 2100 },
@@ -67,7 +70,8 @@ comps = {
   [501] = { NAME = { name = "Ligne 1" }, COLOR = { color = { x = 0.1, y = 0.5, z = 1 } },
             LINE = { stops = { { stationGroup = 301, station = 0, terminal = 0 }, { stationGroup = 301, station = 1, terminal = 0 } } } },
   [601] = { NAME = { name = "Bus; 1" }, TRANSPORT_VEHICLE = { carrier = 1, line = 501, config = { capacities = { 40, 0, 10 } } },
-            MOVE_PATH = { path = { edges = { { { entity = 701, index = 0 }, true }, { { entity = 702, index = 0 }, true },
+            MOVE_PATH = { state = 2, dyn = { pathPos = { edgeIndex = 3 } }, path = { edges = { { { entity = 701, index = 0 }, true },
+              { { entity = 707, index = 0 }, true }, { { entity = 702, index = 0 }, true },
               { { entity = 704, index = 0 }, true }, { { entity = 703, index = 0 }, true },
               { { entity = 705, index = 0 }, true }, { { entity = 706, index = 0 }, true } } } } },
 }
@@ -162,6 +166,9 @@ print = function() end
     st2 = s["live_status"]
     print("diag:", st2.routes.missing, st2.routes.bridges, st2.routes.lanes, st2.routes.free, "warn:", st2.jobs.routes.warn)
     assert st2.routes.bridges == 1 and st2.routes.bigGaps == 1 and st2.routes.lanes == 1 and st2.routes.free == 1 and st2.jobs.routes.warn
+    ps = st2.routes.pathStats
+    print("nodes:", st2.routes.nodes, "pathStats:", ps.paths, ps.edgesAvg, ps.edgesMax, ps.edgeIndexAvg, dict(ps.states))
+    assert st2.routes.nodes == 1 and ps.edgesMax == 7 and ps.edgeIndexAvg == 3
     print("samples:", list(st2.routes.samples.values()))
     stocks = s["live_stocks"]
     si, sw = stocks.industries[1], stocks.warehouses[1]
@@ -173,11 +180,11 @@ print = function() end
     assert s["live_vehicles"].v.startswith("601,501,1500,2501,12,40,3,10,Bus  1;602,502,1500,2501,-1,-1,-1,-1,"), s["live_vehicles"].v
     ta = s["live_townAreas"].towns[1]
     print("town area:", ta.id, ta.cells, ta.pop)
-    assert (ta.id, ta.cells, ta.pop) == (101, "0,0;1,0", 160)
+    assert (ta.id, ta.cells, ta.pop) == (101, "0,0;3,0", 160)
     hist = s["live_history"]
     print("history:", hist.lines[1].tr, hist.stations[1].ld, "|", hist.stations[1].ul, "| diag", s["live_status"].history.n)
     assert hist.lines[1].tr == "1000,10;2000,25;3000,45" and hist.stations[1].ld == "1000,7" and hist.stations[1].ul == ""
-    assert s["live_status"].format == 4
+    assert s["live_status"].format == 5
     rt.execute('REQUEST.cmd = { seq = 1, action = "teleport", x = 300, y = -400, dist = 900 }')
     run(2)
     f = g.FOCUS

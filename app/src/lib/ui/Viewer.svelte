@@ -24,6 +24,7 @@
   import { exportViewPng } from "./viewer/exportView";
   import { createLiveLayers, rgb, toWorld, type FeatureInfo, type Frame } from "./viewer/layers";
   import { insideRings } from "$lib/core/towns";
+  import { TrackIndex, uncovered } from "$lib/core/routes";
 
   let { runId = null }: { runId?: string | null } = $props();
 
@@ -99,12 +100,38 @@
     cargoName: (id: number) => live.stocks?.cargo.get(id) ?? `#${id}`,
   };
 
-  /** Boat / aircraft trails (fallback tracks), refreshed when they grow. */
+  /** Vehicle trails per line (ships' fallback track, gap filling), refreshed when they grow. */
   const trails = $derived.by(() => {
     void live.trailsVersion;
     const out = new globalThis.Map<number, [number, number][][]>();
     for (const [line, byVehicle] of live.trails) out.set(line, [...byVehicle.values()].filter((p) => p.length >= 2).map((p) => [...p]));
     return out;
+  });
+
+  /**
+   * Gap filling: pieces of the vehicles' trails that run away from the recorded track (portions the
+   * mod's paths did not cover). Recomputed at most every 10 s.
+   */
+  let fills = $state(new globalThis.Map<number, [number, number][][]>());
+  let fillsAt = 0, fillsTimer: ReturnType<typeof setTimeout> | null = null;
+  function computeFills(): void {
+    fillsTimer = null;
+    fillsAt = Date.now();
+    const routes = live.routes, out = new globalThis.Map<number, [number, number][][]>();
+    for (const [line, byVehicle] of live.trails) {
+      const route = routes.get(line);
+      if (!route) continue;
+      const index = new TrackIndex(route);
+      const pieces = [...byVehicle.values()].flatMap((tr) => uncovered(tr, index));
+      if (pieces.length) out.set(line, pieces);
+    }
+    fills = out;
+  }
+  $effect(() => {
+    void live.trailsVersion;
+    void live.routes;
+    if (fillsTimer) return;
+    fillsTimer = setTimeout(computeFills, Math.max(0, 10_000 - (Date.now() - fillsAt)));
   });
 
   // Hover tooltip (name, line of a vehicle, stock, waiting).
@@ -330,10 +357,11 @@
     const d = shown;
     const routes = live.routes;
     const tr = trails;
+    const fl = fills;
     const areas = live.townAreas;
     const labelsOn = vf.current.labels;
     if (!frame) return;
-    liveLayers.update(frame, d, routes, tr, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs) });
+    liveLayers.update(frame, d, routes, tr, fl, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs) });
     // Keep the selection (fresh figures) across data refreshes.
     const sel = untrack(() => selected);
     if (sel) selected = liveLayers.infoOf(`${sel.layer}:${sel.id}`) ?? sel;

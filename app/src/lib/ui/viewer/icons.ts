@@ -4,7 +4,11 @@
  */
 import type { StationMode } from "$lib/core/live";
 
-export type Glyph = StationMode | "factory" | "warehouse";
+export type StopGlyph = "stop_road" | "stop_rail" | "stop_tram" | "stop_water" | "stop_air" | "stop_other";
+export type Glyph = StationMode | "factory" | "warehouse" | StopGlyph;
+
+/** Stop pictogram of a mode (different from the vehicle's). */
+export const stopGlyph = (m: StationMode): StopGlyph => `stop_${m}`;
 
 /** White glyph paths per kind; `cut` parts are drawn in the disc colour (windows, door). */
 const GLYPHS: Record<Glyph, { body: string; cut?: string; stroke?: string }> = {
@@ -34,6 +38,25 @@ const GLYPHS: Record<Glyph, { body: string; cut?: string; stroke?: string }> = {
     body: "M2.8 13V7.6l2.8 1.7V7.6l2.8 1.7V7.6l2.8 1.7V3.4h1.6V13z",
     cut: "M4.2 10.6h1.4V12H4.2zM7 10.6h1.4V12H7zM9.8 10.6h1.4V12H9.8z",
   },
+  stop_road: {
+    body: "M7.3 7.4h1.4V14H7.3zM4.4 2h7.2a.8.8 0 0 1 .8.8v4a.8.8 0 0 1-.8.8H4.4a.8.8 0 0 1-.8-.8v-4a.8.8 0 0 1 .8-.8z",
+    cut: "M5.7 3h1v1.5h2.6V3h1v3.6h-1V5.4H6.7v1.2h-1z",
+  },
+  stop_tram: {
+    body: "M7.3 7.4h1.4V14H7.3zM4.4 2h7.2a.8.8 0 0 1 .8.8v4a.8.8 0 0 1-.8.8H4.4a.8.8 0 0 1-.8-.8v-4a.8.8 0 0 1 .8-.8z",
+    cut: "M5.5 3h5v1.1H8.6v2.5H7.4V4.1H5.5z",
+  },
+  stop_rail: {
+    body: "M2.2 5.6L8 2.4l5.8 3.2zM3.4 5.6h1.2v5.8H3.4zM11.4 5.6h1.2v5.8h-1.2zM1.8 11.4h12.4v2H1.8z",
+  },
+  stop_water: {
+    body: "M8 1.6a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z",
+    stroke: "M8 4.6v8.8M5.2 6.6h5.6M3.2 9.4a4.8 4.8 0 0 0 9.6 0",
+  },
+  stop_air: {
+    body: "M4.2 3.2h7.6l-1.2 2.9H5.4zM6.2 6.1h3.6l-.5 7.7H6.7z",
+  },
+  stop_other: { body: "M5 5h6v6H5z" },
   warehouse: {
     body: "M2.6 6.8L8 3.2l5.4 3.6V13H2.6z",
     cut: "M5.8 8.6h4.4V13H5.8z",
@@ -78,6 +101,8 @@ export interface IconOpts {
   corner?: boolean;
   /** Passengers and cargo: a second outline. */
   double?: boolean;
+  /** Square only: vertical bands of these colours (stations served by several lines). */
+  stripes?: string[];
 }
 
 /** SVG markup of a pictogram: glyph in black or white (contrast) on a disc / rounded square. */
@@ -85,16 +110,23 @@ export function iconSvg(glyph: Glyph, color: string, sizeOrOpts: number | IconOp
   const o: IconOpts = typeof sizeOrOpts === "number" ? { size: sizeOrOpts, ring: ringArg } : sizeOrOpts;
   const size = o.size ?? 16, ring = o.ring ?? "#0b0d10";
   const g = GLYPHS[glyph];
-  const ink = inkOn(color);
+  const bands = o.shape === "square" && o.stripes && o.stripes.length > 1 ? o.stripes.slice(0, 3) : null;
+  // Ink readable on all the bands (the lightest one decides).
+  const ink = bands ? (bands.some((c) => inkOn(c) !== "#ffffff") ? "#111418" : "#ffffff") : inkOn(color);
+  const bandsSvg = bands
+    ? `<clipPath id="c"><rect x="1" y="1" width="14" height="14" rx="3.2"/></clipPath><g clip-path="url(#c)">`
+      + bands.map((c, i) => `<rect x="${1 + (14 * i) / bands.length}" y="1" width="${14 / bands.length + 0.2}" height="14" fill="${c}"/>`).join("")
+      + `</g><rect x="1" y="1" width="14" height="14" rx="3.2" fill="none" stroke="${ring}" stroke-width="1.2"/>`
+    : "";
   const bg = o.shape === "square"
-    ? `<rect x="1" y="1" width="14" height="14" rx="3.2" fill="${color}" stroke="${ring}" stroke-width="1.2"/>`
+    ? (bandsSvg || `<rect x="1" y="1" width="14" height="14" rx="3.2" fill="${color}" stroke="${ring}" stroke-width="1.2"/>`)
       + (o.double ? `<rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2" fill="none" stroke="${ink}" stroke-opacity=".55" stroke-width=".8"/>` : "")
       + (o.corner ? `<path d="M10 1.6h3.4a1 1 0 0 1 1 1V6z" fill="${ink}" fill-opacity=".85"/>` : "")
     : `<circle cx="8" cy="8" r="7.3" fill="${color}" stroke="${ring}" stroke-width="1.2"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 16 16">` + bg
     + `<g transform="translate(8 8) scale(${o.shape === "square" ? 0.82 : 1}) translate(-8 -8)">`
     + `<path d="${g.body}" fill="${ink}"/>`
-    + (g.cut ? `<path d="${g.cut}" fill="${color}"/>` : "")
+    + (g.cut ? `<path d="${g.cut}" fill="${bands ? (ink === "#ffffff" ? "#111418" : "#ffffff") : color}"/>` : "")
     + (g.stroke ? `<path d="${g.stroke}" stroke="${glyph === "warehouse" ? color : ink}" stroke-width="1.1" stroke-linecap="round" fill="none"/>` : "")
     + `</g></svg>`;
 }
@@ -102,7 +134,7 @@ export function iconSvg(glyph: Glyph, color: string, sizeOrOpts: number | IconOp
 const uris = new Map<string, string>();
 /** Cached data URI of a pictogram (OpenLayers Icon source). */
 export function iconUri(glyph: Glyph, color: string, o: IconOpts = {}): string {
-  const key = `${glyph}|${color}|${o.size}|${o.ring}|${o.shape}|${o.corner}|${o.double}`;
+  const key = `${glyph}|${color}|${o.size}|${o.ring}|${o.shape}|${o.corner}|${o.double}|${o.stripes?.join(";") ?? ""}`;
   let u = uris.get(key);
   if (!u) {
     u = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(glyph, color, o))}`;

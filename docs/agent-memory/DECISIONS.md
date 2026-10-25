@@ -231,3 +231,21 @@
   - lieux en carré arrondi (coin marqué = fret, double liseré = mixte), véhicules en rond ;
   - `declutterMode: "obstacle"` : les icônes ne sont plus masquées par le declutter.
 - **Lignes inactives** (aucun véhicule, ou moins de 2 arrêts) : masquées par défaut (`showInactiveLines`).
+
+### HQ-022 — Sans voies de carrefour, comblement par traces, contours nets, arrêts aux couleurs des lignes
+- **Date :** 2026-10-25 · **Statut :** accepted (sim_live, check, 58 tests et build OK ; NOT TESTED en jeu)
+- **Constats en jeu (format 4)** :
+  - `missing 0`, `lanes 7378`, `free 31` ;
+  - les « lanes » étaient les voies de virage des carrefours (`BASE_NODE`, 2–49 m), d'où les arrondis ;
+  - il restait des trous de 600–800 m sur les tracés centraux, alors qu'aucun chemin relevé ne les couvre.
+- **Mod (FORMAT 5)** :
+  - arêtes de carrefour ignorées sans trou (les tronçons voisins se touchent au nœud) ;
+  - voies internes des constructions dessinées en segment droit ;
+  - `routes.pathStats` (arêtes par chemin, `edgeIndex`, états) pour savoir si un chemin est une fenêtre ou un trajet complet — **à lire au prochain test** ;
+  - cases des villes de 20 m.
+- **App** :
+  - traces de tous les véhicules (25 m entre deux points, 800 au plus) ;
+  - `uncovered()` (`core/routes.ts`) garde les morceaux de trace à plus de 20 m du tracé connu, dessinés en trait fin de la couleur de la ligne, recalculés toutes les 10 s au plus ;
+  - seules les traces des bateaux et avions sont gardées sur disque.
+- **Villes** : fermeture morphologique (+50 m / −35 m), puis Douglas-Peucker 12 m et un seul passage de Chaikin.
+- **Arrêts** : pictogramme d'arrêt du mode (panneau, quai, T, ancre, tour), dans la couleur des lignes visibles qui les desservent (bandes si plusieurs, la plus fréquentée en premier). Gris si aucune ligne.

@@ -15,7 +15,7 @@ import type { FeatureLike } from "ol/Feature";
 import { industryLabel, LAYERS, stationTraffic, stockTotal, type LayerId, type LiveData } from "$lib/core/filters";
 import type { Line, StationMode, Stock, Vehicle } from "$lib/core/live";
 import { stopLegs, type Pt } from "$lib/core/routes";
-import { iconUri, type IconOpts } from "./icons";
+import { iconUri, stopGlyph, type IconOpts } from "./icons";
 
 export interface Frame {
   minX: number;
@@ -41,6 +41,8 @@ export const MODE_COLOR: Record<StationMode, string> = {
   rail: "#e2574c", road: "#f2a33a", tram: "#c86dd7", water: "#3fa7e0", air: "#9ad06b", other: "#9aa3ad",
 };
 export const WAREHOUSE_COLOR = "#6b7686";
+/** Stop served by no shown line. */
+export const STOP_NO_LINE = "#8a929e";
 
 export const rgb = (c: [number, number, number] | null, a = 1) =>
   c ? `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${a})` : `rgba(200,200,200,${a})`;
@@ -82,7 +84,7 @@ function ringStyle(color: string): Style[] {
 const iconStyles = new Map<string, Icon>();
 /** Pictogram style, cached. Icons are never hidden by decluttering: only labels give way. */
 function icon(glyph: Parameters<typeof iconUri>[0], color: string, o: IconOpts & { size: number }): Icon {
-  const key = `${glyph}|${color}|${o.size}|${o.ring}|${o.shape}|${o.corner}|${o.double}`;
+  const key = `${glyph}|${color}|${o.size}|${o.ring}|${o.shape}|${o.corner}|${o.double}|${o.stripes?.join(";") ?? ""}`;
   let i = iconStyles.get(key);
   if (!i) {
     i = new Icon({ src: iconUri(glyph, color, o), width: o.size, height: o.size, declutterMode: "obstacle" });
@@ -128,7 +130,7 @@ export type TownAreas = Map<number, { rings: Pt[][]; pop: number | null }>;
 export interface LiveLayers {
   layers: VectorLayer[];
   /** Rebuild every feature from the filtered data. */
-  update(frame: Frame, data: LiveData, routes: Map<number, Pt[][]>, trails: Map<number, Pt[][]>, areas: TownAreas,
+  update(frame: Frame, data: LiveData, routes: Map<number, Pt[][]>, trails: Map<number, Pt[][]>, fills: Map<number, Pt[][]>, areas: TownAreas,
     labels: Labels, opts: LiveOptions): void;
   /** Move vehicles along their current glide (from where they were drawn to their latest position). */
   animate(frame: Frame, nowMs: number): void;
@@ -183,9 +185,9 @@ export function createLiveLayers(): LiveLayers {
     text: showLabel("warehouses", res) ? label(f.get("stockLabel") || f.get("name"), -15, 10.5) : undefined,
   });
 
-  // Stations and stops: mode pictogram on a rounded square (vehicles are discs), sized by traffic;
-  // cargo stations have a marked corner, mixed ones a second outline. Name when labels are on,
-  // figures only when zoomed in.
+  // Stations and stops: stop pictogram of the mode (vehicles have their own) on a rounded square in
+  // the colour of the line(s) serving it (bands when several), sized by traffic; cargo stations have
+  // a marked corner, mixed ones a second outline. Name when labels are on, figures when zoomed in.
   const stationStyle = (f: FeatureLike, res: number) => {
     const mode = f.get("mode") as StationMode;
     const size = Math.round(14 + Math.min(6, Math.log10(1 + (f.get("traffic") as number)) * 1.3));
@@ -196,7 +198,9 @@ export function createLiveLayers(): LiveLayers {
       text = label(figures ? `${f.get("name")}\n${figures}` : f.get("name"), -size / 2 - (figures ? 14 : 8));
     }
     return new Style({
-      image: icon(mode, MODE_COLOR[mode], { size, shape: "square", corner: cargo && !passengers, double: cargo && passengers }),
+      image: icon(stopGlyph(mode), (f.get("colors") as string[])[0] ?? STOP_NO_LINE, {
+        size, shape: "square", corner: cargo && !passengers, double: cargo && passengers, stripes: f.get("colors"),
+      }),
       text,
     });
   };
@@ -206,7 +210,11 @@ export function createLiveLayers(): LiveLayers {
   const lineStyle = (f: FeatureLike, res: number) => {
     const sel = selectedLine === f.get("lineId");
     const dim = selectedLine !== null && !sel;
-    const kind = f.get("approx") as "" | "legs" | "trail";
+    const kind = f.get("approx") as "" | "legs" | "trail" | "fill";
+    if (kind === "fill") {
+      // Gap filled from the vehicles' trails: thin solid line in the line's colour, not selectable.
+      return new Style({ stroke: new Stroke({ color: rgb(f.get("color"), dim ? 0.22 : 0.8), width: sel ? 3.5 : 2 }), zIndex: sel ? 3 : 1 });
+    }
     const dash = kind === "legs" ? [8, 6] : kind === "trail" ? [2, 5] : undefined;
     const main = new Style({
       stroke: new Stroke({ color: rgb(f.get("color"), dim ? 0.22 : 0.95), width: sel ? 5 : kind === "trail" ? 2 : 3, lineDash: dash }),
@@ -284,7 +292,7 @@ export function createLiveLayers(): LiveLayers {
 
   return {
     layers,
-    update(frame, d, routes, trails, areas, labels, o) {
+    update(frame, d, routes, trails, fills, areas, labels, o) {
       opts = o;
       byKey.clear();
       for (const s of Object.values(src)) s.clear();
@@ -320,6 +328,11 @@ export function createLiveLayers(): LiveLayers {
       }));
       // Busiest stations first: they keep their label when labels collide (declutter).
       const stations = [...d.stations].sort((a, b) => stationTraffic(b) - stationTraffic(a));
+      // Colours of the shown lines stopping at each station group, busiest line first.
+      const servedBy = new Map<number, Line[]>();
+      for (const l of d.lines) for (const g of new Set(l.stops.map((s) => s.g))) (servedBy.get(g) ?? servedBy.set(g, []).get(g)!).push(l);
+      const colorsOf = (g: number) => (servedBy.get(g) ?? [])
+        .sort((a, b) => (b.traffic?.transported ?? 0) - (a.traffic?.transported ?? 0)).map((l) => rgb(l.color));
       src.stations.addFeatures(stations.map((s) => {
         const tr = s.traffic;
         const use = s.cargo && s.passengers ? "both" : s.cargo ? "cargo" : "passengers";
@@ -328,9 +341,9 @@ export function createLiveLayers(): LiveLayers {
         const figures = tr ? `${fmtK(tr.waitP + tr.waitC)} · ${fmtK(tr.loaded + tr.unloaded)}${labels.value("perYear", "")}` : "";
         return info(new Feature({
           geometry: new Point(m(s.x, s.y)), mode: s.mode, cargo: s.cargo, passengers: s.passengers,
-          traffic: stationTraffic(s), name: s.name, figures,
+          traffic: stationTraffic(s), name: s.name, figures, colors: colorsOf(s.id),
         }), { layer: "stations", id: s.id, name: s.name, x: s.x, y: s.y, details }, figures ? `${s.name}\n${figures}` : s.name,
-        MODE_COLOR[s.mode]);
+        colorsOf(s.id)[0] ?? STOP_NO_LINE);
       }));
       const lineColor = new Map<number, Line["color"]>();
       for (const l of d.lines) lineColor.set(l.id, l.color);
@@ -342,7 +355,11 @@ export function createLiveLayers(): LiveLayers {
         const c = l.stops[0] ?? { x: parts[0]![0]![0], y: parts[0]![0]![1] };
         const details: FeatureInfo["details"] = { mode: labels.value("mode", l.mode), stops: l.stops.length, vehicles: l.vehicles };
         if (l.traffic) Object.assign(details, { transported: l.traffic.transported, waitP: l.traffic.waitP, waitC: l.traffic.waitC });
-        return [info(new Feature({
+        const fill = route ? fills.get(l.id) : undefined;
+        const extra = fill?.length
+          ? [new Feature({ geometry: new MultiLineString(fill.map((p) => p.map(([x, y]) => m(x, y)))), color: l.color, lineId: l.id, approx: "fill" })]
+          : [];
+        return [...extra, info(new Feature({
           geometry: new MultiLineString(parts.map((p) => p.map(([x, y]) => m(x, y)))),
           color: l.color, lineId: l.id, name: l.name, approx: route ? "" : trail?.length ? "trail" : "legs",
           stopPts: l.stops.map((s) => m(s.x, s.y)),

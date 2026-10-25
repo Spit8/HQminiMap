@@ -272,7 +272,7 @@ export const fr = {
   "lp.labels.vehicles": "Étiquettes : chargement des véhicules",
   "lp.noWarehouses": "Aucun entrepôt (ou stocks pas encore lus).",
   "lp.legend": "Légende",
-  "lp.legend.passengers": "Gare / arrêt passagers (carré)",
+  "lp.legend.passengers": "Gare / arrêt passagers",
   "lp.legend.cargo": "Gare de fret",
   "lp.legend.both": "Passagers et fret",
   "lp.legend.track": "Tracé relevé",
@@ -309,6 +309,14 @@ export const fr = {
   "lp.legend.vehicleDisc": "Véhicule (rond, couleur de sa ligne)",
   "card.pax": "Passagers à bord",
   "card.freight": "Fret à bord",
+
+  "lp.stop.rail": "Gare",
+  "lp.stop.road": "Arrêt de bus / camion",
+  "lp.stop.tram": "Arrêt de tram",
+  "lp.stop.water": "Port",
+  "lp.stop.air": "Aéroport",
+  "lp.legend.multi": "Desservi par plusieurs lignes (bandes)",
+  "lp.legend.fill": "Portion relevée au passage des véhicules",
 
   "history.title": "Historique des captures",
   "history.empty": "Aucune capture enregistrée.",

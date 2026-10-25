@@ -56,3 +56,21 @@ describe("pictogram contrast", () => {
     expect(inkOn("rgba(0,90,30,0.95)")).toBe("#ffffff");
   });
 });
+
+describe("clean town outlines", () => {
+  it("a block of buildings → a simple shape; near blocks join, far ones stay apart", async () => {
+    const { townOutline, insideRings } = await import("../src/lib/core/towns");
+    const block = (x0: number, y0: number, w: number, h: number) => {
+      const c: [number, number][] = [];
+      for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) if ((x + y) % 3) c.push([x, y]); // gaps between buildings
+      return c;
+    };
+    const one = townOutline(block(0, 0, 20, 10), 20);
+    expect(one).toHaveLength(1);
+    expect(one[0]!.length).toBeLessThanOrEqual(32); // a dozen corners (rounded by the closing), each cut once by Chaikin
+    expect(insideRings(one, 200, 100)).toBe(true);
+    // Two blocks 40 m apart are joined; a building 300 m away stays a separate ring.
+    const two = townOutline([...block(0, 0, 10, 10), ...block(12, 0, 10, 10), [40, 40]], 20);
+    expect(two).toHaveLength(2);
+  });
+});

@@ -78,9 +78,71 @@ export function chaikin(r: Pt[], passes = 2): Pt[] {
   return cur;
 }
 
-/** Smoothed outline rings of a town. */
+/** Disk of cell offsets of radius r cells. */
+function disk(r: number): Cell[] {
+  const out: Cell[] = [];
+  for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) if (dx * dx + dy * dy <= r * r + r) out.push([dx, dy]);
+  return out;
+}
+
+/**
+ * Morphological closing of the occupied cells (dilate by `grow` cells, erode by `shrink`): joins
+ * neighbouring blocks and smooths the edge without inventing far-away land.
+ */
+export function closeCells(cells: Cell[], grow: number, shrink: number): Cell[] {
+  const key = (x: number, y: number) => `${x},${y}`;
+  const dilated = new Set<string>();
+  const dg = disk(grow), ds = disk(shrink);
+  for (const [x, y] of cells) for (const [dx, dy] of dg) dilated.add(key(x + dx, y + dy));
+  const out: Cell[] = [];
+  for (const k of dilated) {
+    const [x, y] = k.split(",").map(Number) as Cell;
+    if (ds.every(([dx, dy]) => dilated.has(key(x + dx, y + dy)))) out.push([x, y]);
+  }
+  return out;
+}
+
+function distToSegment(p: Pt, a: Pt, b: Pt): number {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0;
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+
+/** Douglas-Peucker on an open polyline. */
+function dp(pts: Pt[], tol: number): Pt[] {
+  if (pts.length < 3) return pts;
+  let idx = 0, max = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = distToSegment(pts[i]!, pts[0]!, pts[pts.length - 1]!);
+    if (d > max) [max, idx] = [d, i];
+  }
+  if (max <= tol) return [pts[0]!, pts[pts.length - 1]!];
+  return [...dp(pts.slice(0, idx + 1), tol).slice(0, -1), ...dp(pts.slice(idx), tol)];
+}
+
+/** Douglas-Peucker on a closed ring (split at its farthest point from the first). */
+export function simplifyRing(r: Pt[], tol: number): Pt[] {
+  if (r.length < 4) return r;
+  let far = 0, max = 0;
+  for (let i = 1; i < r.length; i++) {
+    const d = Math.hypot(r[i]![0] - r[0]![0], r[i]![1] - r[0]![1]);
+    if (d > max) [max, far] = [d, i];
+  }
+  const a = dp(r.slice(0, far + 1), tol), b = dp([...r.slice(far), r[0]!], tol);
+  return [...a.slice(0, -1), ...b.slice(0, -1)];
+}
+
+/**
+ * Outline rings of a town from its building cells (size m): closing (≈ +50 m / −35 m), boundary
+ * tracing, Douglas-Peucker (12 m) and a single Chaikin pass — a clean shape, no staircase or waves.
+ */
 export function townOutline(cells: Cell[], size: number): Pt[][] {
-  return cellRings(cells, size).map((r) => chaikin(r));
+  const grow = Math.max(1, Math.round(50 / size)), shrink = Math.max(0, Math.round(35 / size));
+  return cellRings(closeCells(cells, grow, shrink), size)
+    .map((r) => simplifyRing(r, 12))
+    .filter((r) => r.length >= 3)
+    .map((r) => chaikin(r, 1));
 }
 
 /** Point in any of the rings (even-odd). */

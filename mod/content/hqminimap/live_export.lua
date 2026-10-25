@@ -21,11 +21,11 @@ local RETRY_SEC = 30
 local KINDS = { "vehicles", "lines", "stations", "stats", "routes", "stocks", "towns", "industries", "townAreas", "history" }
 -- Version of the files written here; the app warns when the game still runs an older mod
 -- (ug_require keeps the old code until the save is reloaded).
-local FORMAT = 4
+local FORMAT = 5
 -- Straight bridges over unreadable path edges only up to this length (m): longer ones are left open.
 local MAX_BRIDGE = 80
 -- Town outlines: building positions binned on a CELL m grid.
-local CELL = 60
+local CELL = 20
 -- History: last HISTORY_POINTS points of each logbook series.
 local HISTORY_POINTS = 24
 local NAME_TTL = 30
@@ -512,6 +512,18 @@ end
 --- shape cannot be read, so the drawn track has no hole. `d` collects diagnostics.
 local DIAG_COMPONENTS = { "BASE_EDGE", "TRANSPORT_NETWORK", "CONSTRUCTION", "BASE_NODE", "BASE_EDGE_STREET", "BASE_EDGE_TRACK" }
 
+--- entity → true when it is a crossing (BASE_NODE): its turn lanes are not drawn, the edges on
+--- both sides already meet at the node.
+local nodeCache = {}
+local function isNode(entity)
+	local v = nodeCache[entity]
+	if v == nil then
+		v = comp(entity, "BASE_NODE") ~= nil
+		nodeCache[entity] = v
+	end
+	return v
+end
+
 local function walkPath(path, le, d)
 	local prevEnd, gap = nil, false
 	for _, e in ipairs(path and path.edges or {}) do
@@ -519,7 +531,11 @@ local function walkPath(path, le, d)
 		local entity, index = id and id.entity, id and id.index or 0
 		local fwd = e[2] ~= false
 		local first, last = nil, nil
-		if entity and entity >= 0 then
+		local skipped = false
+		if entity and entity >= 0 and isNode(entity) then
+			skipped = true
+			d.nodes = d.nodes + 1
+		elseif entity and entity >= 0 then
 			local g = edgeGeometry(entity)
 			if g then
 				le.edges[entity] = true
@@ -537,8 +553,9 @@ local function walkPath(path, le, d)
 					local edge = tn and tn.edges and tn.edges[index + 1]
 					local pts = edge and edge.geometry and samplePoints(edge.geometry, 4) or {}
 					if #pts >= 2 then
-						le.extra["tn:" .. entity .. ":" .. index] = ptsString(pts)
+						-- Lanes inside constructions (stations, depots): a straight piece, no arc.
 						first, last = pts[1], pts[#pts]
+						le.extra["tn:" .. entity .. ":" .. index] = ptsString({ first, last })
 						if not fwd then
 							first, last = last, first
 						end
@@ -575,7 +592,7 @@ local function walkPath(path, le, d)
 				end
 			end
 			prevEnd, gap = last, false
-		else
+		elseif not skipped then
 			gap = true
 		end
 	end
@@ -588,7 +605,10 @@ jobs.routes = {
 	begin = function()
 		return {
 			lines = playerLines(), i = 1, out = {}, used = {}, usedOrder = {},
-			d = { missing = 0, bridges = 0, lanes = 0, free = 0, bigGaps = 0, samples = {} },
+			d = {
+				missing = 0, bridges = 0, lanes = 0, free = 0, bigGaps = 0, nodes = 0, samples = {},
+				paths = 0, edgesSum = 0, edgesMax = 0, idxSum = 0, idxN = 0, states = {},
+			},
 		}
 	end,
 	step = function(s)
@@ -613,6 +633,18 @@ jobs.routes = {
 				local mp = comp(v, "MOVE_PATH")
 				if mp then
 					walkPath(mp.path, le, s.d)
+					-- Path coverage: is it the whole leg or a window ahead of the vehicle?
+					local n = mp.path and mp.path.edges and #mp.path.edges or 0
+					local d = s.d
+					d.paths, d.edgesSum, d.edgesMax = d.paths + 1, d.edgesSum + n, math.max(d.edgesMax, n)
+					local idx = mp.dyn and mp.dyn.pathPos and mp.dyn.pathPos.edgeIndex
+					if type(idx) == "number" then
+						d.idxSum, d.idxN = d.idxSum + idx, d.idxN + 1
+					end
+					if mp.state ~= nil then
+						local k = "state" .. tostring(mp.state)
+						d.states[k] = (d.states[k] or 0) + 1
+					end
 					return
 				end
 				local mpa = comp(v, "MOVE_PATH_AIRCRAFT")
@@ -667,7 +699,14 @@ jobs.routes = {
 			warn("routes", string.format("%d path edge(s) without geometry, %d bridged, %d gap(s) > %d m left open (e.g. %s)",
 				d.missing, d.bridges, d.bigGaps, MAX_BRIDGE, d.samples[1] or d.sample or "?"))
 		end
-		routesDiag = { missing = d.missing, bridges = d.bridges, lanes = d.lanes, free = d.free, bigGaps = d.bigGaps, samples = d.samples }
+		routesDiag = {
+			missing = d.missing, bridges = d.bridges, lanes = d.lanes, free = d.free, bigGaps = d.bigGaps, nodes = d.nodes,
+			samples = d.samples,
+			pathStats = {
+				paths = d.paths, edgesAvg = d.paths > 0 and math.floor(d.edgesSum / d.paths + 0.5) or 0, edgesMax = d.edgesMax,
+				edgeIndexAvg = d.idxN > 0 and math.floor(d.idxSum / d.idxN + 0.5) or 0, states = d.states,
+			},
+		}
 		table.sort(s.usedOrder)
 		local parts, sig = {}, {}
 		for _, edge in ipairs(s.usedOrder) do

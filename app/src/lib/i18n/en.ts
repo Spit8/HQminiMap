@@ -271,7 +271,7 @@ export const en: Record<MessageKey, string> = {
   "lp.labels.vehicles": "Labels: vehicle loads",
   "lp.noWarehouses": "No warehouse (or stocks not read yet).",
   "lp.legend": "Legend",
-  "lp.legend.passengers": "Passenger station / stop (square)",
+  "lp.legend.passengers": "Passenger station / stop",
   "lp.legend.cargo": "Cargo station",
   "lp.legend.both": "Passengers and cargo",
   "lp.legend.track": "Recorded track",
@@ -308,6 +308,14 @@ export const en: Record<MessageKey, string> = {
   "lp.legend.vehicleDisc": "Vehicle (disc, its line's colour)",
   "card.pax": "Passengers on board",
   "card.freight": "Cargo on board",
+
+  "lp.stop.rail": "Station",
+  "lp.stop.road": "Bus / truck stop",
+  "lp.stop.tram": "Tram stop",
+  "lp.stop.water": "Port",
+  "lp.stop.air": "Airport",
+  "lp.legend.multi": "Served by several lines (bands)",
+  "lp.legend.fill": "Portion recorded as vehicles pass",
 
   "history.title": "Capture history",
   "history.empty": "No capture recorded.",

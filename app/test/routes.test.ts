@@ -54,3 +54,20 @@ describe("routes", () => {
     expect(s.stations.get(7)).toEqual({ loaded: 50, unloaded: 70, waitP: 2, waitC: 1 });
   });
 });
+
+describe("gap filling from vehicle trails", () => {
+  it("keeps only the trail pieces away from the track, joined to it", async () => {
+    const { TrackIndex, uncovered } = await import("../src/lib/core/routes");
+    // Track: x 0 → 100 and x 300 → 400 along y = 0; the trail runs the whole way (gap 100 → 300).
+    const track = new TrackIndex([[[0, 0], [100, 0]], [[300, 0], [400, 0]]]);
+    const trail: [number, number][] = [];
+    for (let x = 0; x <= 400; x += 25) trail.push([x, 0]);
+    const pieces = uncovered(trail, track);
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]![0]).toEqual([100, 0]);
+    expect(pieces[0]![pieces[0]!.length - 1]).toEqual([300, 0]);
+    // On the track everywhere → nothing; a jump splits the run.
+    expect(uncovered([[0, 0], [50, 0], [100, 0]], track)).toEqual([]);
+    expect(uncovered([[150, 0], [175, 0], [900, 0], [925, 0]], track)).toHaveLength(2);
+  });
+});

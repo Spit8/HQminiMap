@@ -80,6 +80,67 @@ export function buildRoutes(routes: LiveRoutes): Map<number, Pt[][]> {
   return out;
 }
 
+/** Spatial index of a line's track: points every ~STEP m, binned on a CELL m grid. */
+export class TrackIndex {
+  private cells = new Map<string, Pt[]>();
+  constructor(polys: Pt[][], private cell = 20, step = 10) {
+    for (const poly of polys) {
+      for (let i = 0; i + 1 < poly.length; i++) {
+        const [x0, y0] = poly[i]!, [x1, y1] = poly[i + 1]!;
+        const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / step));
+        for (let k = 0; k <= n; k++) this.add([x0 + ((x1 - x0) * k) / n, y0 + ((y1 - y0) * k) / n]);
+      }
+      if (poly.length === 1) this.add(poly[0]!);
+    }
+  }
+  private key(x: number, y: number): string {
+    return `${Math.floor(x / this.cell)},${Math.floor(y / this.cell)}`;
+  }
+  private add(p: Pt): void {
+    const k = this.key(p[0], p[1]);
+    (this.cells.get(k) ?? this.cells.set(k, []).get(k)!).push(p);
+  }
+  /** Is (x, y) within `tol` (≤ cell) of the track? */
+  near(x: number, y: number, tol: number): boolean {
+    const cx = Math.floor(x / this.cell), cy = Math.floor(y / this.cell);
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        for (const p of this.cells.get(`${cx + i},${cy + j}`) ?? []) if (Math.hypot(p[0] - x, p[1] - y) <= tol) return true;
+      }
+    }
+    return false;
+  }
+}
+
+/**
+ * Pieces of a vehicle trail away from the known track (gaps the mod's paths did not cover): runs of
+ * points farther than `tol` from it, extended by one neighbour on each side so they join the
+ * track; a jump longer than `maxStep` m (depot, teleport) splits a run.
+ */
+export function uncovered(trail: Pt[], track: TrackIndex, tol = 20, maxStep = 300): Pt[][] {
+  const out: Pt[][] = [];
+  let run: Pt[] = [];
+  const flush = (next?: Pt) => {
+    if (run.length) {
+      if (next) run.push(next);
+      if (run.length >= 2) out.push(run);
+    }
+    run = [];
+  };
+  for (let i = 0; i < trail.length; i++) {
+    const p = trail[i]!, prev = trail[i - 1];
+    if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > maxStep) flush();
+    if (track.near(p[0], p[1], tol)) {
+      flush(p);
+    } else {
+      if (!run.length && prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) <= maxStep) run.push(prev);
+      run.push(p);
+    }
+  }
+  flush();
+  return out;
+}
+
 /** Fallback when no track is known (air, water, or not yet seen): straight legs between stops. */
 export function stopLegs(line: Pick<Line, "stops">): Pt[][] {
   if (line.stops.length < 2) return [];
