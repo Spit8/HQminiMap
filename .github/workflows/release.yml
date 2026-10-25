@@ -100,8 +100,28 @@ jobs:
             the game's local mods folder (`…/Steam/RUNE/3493540/local/staging_area/`), then enable
             *HQminiMap* in the game. See the README for details.
 
+            **Windows portable** — `HQminiMap_*_x64-portable.zip`: extract it anywhere and run
+            `HQminiMap.exe`, no installation (needs the WebView2 runtime, built into Windows 10/11).
+
             The installers are not signed yet: Windows SmartScreen ("More info" → "Run anyway") and
             macOS Gatekeeper (right click → Open) will ask for a confirmation the first time.
+
+      # The executable tauri-action just compiled, zipped alone: runs without installation.
+      - name: Windows portable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          $exe = "app/src-tauri/target/release/hqminimap.exe"
+          if (-not (Test-Path $exe)) { throw "portable build: $exe not found" }
+          New-Item -ItemType Directory -Force portable | Out-Null
+          Copy-Item $exe portable/HQminiMap.exe
+          Copy-Item LICENSE portable/LICENSE.txt
+          $zip = "HQminiMap_${version}_x64-portable.zip"
+          Compress-Archive -Path portable/* -DestinationPath $zip -Force
+          gh release upload $env:TAG $zip --clobber
 
   mod:
     name: Mod package

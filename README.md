@@ -36,6 +36,7 @@ Télécharge l'installeur de ton système depuis la page [Releases](https://gith
 | Système | Fichier |
 |---|---|
 | Windows | `HQminiMap_<version>_x64-setup.exe` (ou le `.msi`) |
+| Windows, portable | `HQminiMap_<version>_x64-portable.zip` : à décompresser n'importe où, puis lancer `HQminiMap.exe`, sans installation (nécessite WebView2, inclus dans Windows 10 et 11) |
 | Linux | `.AppImage` (portable) ou `.deb` |
 | macOS | `.dmg` (Apple Silicon et Intel) |
 
