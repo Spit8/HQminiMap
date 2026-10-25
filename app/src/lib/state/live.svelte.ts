@@ -8,7 +8,7 @@ import {
   type Industry, type Line, type LiveHistory, type LiveKind, type LiveRequest, type LiveStats, type LiveStatus, type LiveStocks,
   type Station, type Town, type Vehicle,
 } from "$lib/core/live";
-import { buildRoutes, type Pt } from "$lib/core/routes";
+import { buildRoutes, routeParts, type Pt, type RouteParts } from "$lib/core/routes";
 import { townOutline } from "$lib/core/towns";
 import { ensureDir, fileStat, joinPath, readText, writeText } from "$lib/platform/fsx";
 import type { GamePaths } from "$lib/platform/paths";
@@ -78,6 +78,8 @@ class LiveState {
   stats = $state<LiveStats | null>(null);
   /** line → track polylines (world), accumulated by the mod from its vehicles' paths. */
   routes = $state<Map<number, Pt[][]>>(new Map());
+  /** Same tracks per edge (shared edges are drawn as bands). */
+  routeParts = $state<RouteParts | null>(null);
   stocks = $state<LiveStocks | null>(null);
   /**
    * Fallback for ships / aircraft without a known track: positions of their vehicles, accumulated
@@ -136,6 +138,14 @@ class LiveState {
     await this.writeRequest({ seq: this.cmdSeq, action: "teleport", x: Math.round(x), y: Math.round(y), dist });
   }
 
+  /** Camera onto an object of the app (kind = layer, id = entity) and, if `open`, its in-game window. */
+  async focus(kind: string, id: number, x: number, y: number, open: boolean, dist = 500): Promise<void> {
+    this.cmdSeq = Math.max(this.cmdSeq, this.status?.lastCmdSeq ?? 0) + 1;
+    this.command = { seq: this.cmdSeq, state: "pending" };
+    this.cmdSentMs = Date.now();
+    await this.writeRequest({ seq: this.cmdSeq, action: "focus", x: Math.round(x), y: Math.round(y), dist, kind, id, open });
+  }
+
   private async writeRequest(cmd: LiveRequest["cmd"] = null): Promise<void> {
     const p = this.paths;
     if (!p) return;
@@ -187,7 +197,10 @@ class LiveState {
             continue;
           }
           this.updatedAt = { ...this.updatedAt, [kind]: parsed.t };
-          if (kind === "routes") this.routes = buildRoutes(parsed as Parameters<typeof buildRoutes>[0]);
+          if (kind === "routes") {
+            this.routes = buildRoutes(parsed as Parameters<typeof buildRoutes>[0]);
+            this.routeParts = routeParts(parsed as Parameters<typeof routeParts>[0]);
+          }
           else if (kind === "stocks") this.stocks = parsed as LiveStocks;
           else if (kind === "history") this.history = parsed as LiveHistory;
           else this.stats = parsed as LiveStats;

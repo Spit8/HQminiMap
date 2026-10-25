@@ -9,6 +9,7 @@
   import { orthoJob, type OrthoResult } from "$lib/state/orthoJob.svelte";
   import { runLabel, runs, type RunMeta } from "$lib/state/runs.svelte";
   import { makeThumb } from "./thumbs";
+  import History from "./History.svelte";
 
   let { onShowViewer }: { onShowViewer?: (runId: string) => void } = $props();
 
@@ -148,6 +149,13 @@
       {/each}
     </ul>
 
+    {#if runs.runs.length}
+      <details class="history">
+        <summary>{t("tiles.history")}</summary>
+        <History />
+      </details>
+    {/if}
+
     {#if selected}
       <section>
         <h3>{t("tiles.run")}</h3>
@@ -248,6 +256,15 @@
   .kv td { padding: 1px 0; vertical-align: top; }
   .kv td:first-child { color: var(--muted); width: 84px; }
   .grid-view { overflow: auto; padding: 12px; }
+  .history { margin: -8px 0 16px; font-size: 12.5px; }
+  .history summary { cursor: pointer; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .history :global(section) { margin: 6px 0 0; }
+  .history :global(section > h3) { display: none; }
+  .history :global(table) { font-size: 12px; }
+  .history :global(th), .history :global(td) { padding: 2px 4px; }
+  /* Narrow column: grid and image count are already in the run list above. */
+  .history :global(th:nth-child(3)), .history :global(td:nth-child(3)),
+  .history :global(th:nth-child(4)), .history :global(td:nth-child(4)) { display: none; }
   .grid { display: grid; gap: 2px; }
   .released { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; }
   .cell { aspect-ratio: 2560 / 1080; background: #12151b; display: flex; align-items: center; justify-content: center; overflow: hidden; }

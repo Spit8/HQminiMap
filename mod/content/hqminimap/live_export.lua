@@ -21,7 +21,7 @@ local RETRY_SEC = 30
 local KINDS = { "vehicles", "lines", "stations", "stats", "routes", "stocks", "towns", "industries", "townAreas", "history" }
 -- Version of the files written here; the app warns when the game still runs an older mod
 -- (ug_require keeps the old code until the save is reloaded).
-local FORMAT = 6
+local FORMAT = 7
 -- Straight bridges over unreadable path edges only up to this length (m): longer ones are left open.
 local MAX_BRIDGE = 80
 -- Town outlines: building positions binned on a CELL m grid.
@@ -1035,12 +1035,41 @@ jobs.history = {
 
 -- ------------------------------------------------------------------ commands
 
-local function runCommand(cmd)
-	if cmd.action == "teleport" and type(cmd.x) == "number" and type(cmd.y) == "number" then
-		local ok, err = pcall(function()
-			local z = api.engine.terrain.getHeightAt(api.type.Vec2f.new(cmd.x, cmd.y))
-			api.gui.camera.focusPosition(api.type.Vec3f.new(cmd.x, cmd.y, z), tonumber(cmd.dist) or 800)
+--- Entity whose in-game window shows an object of the app: industries and warehouses open their
+--- construction, stations their station group (the app's station id), the rest themselves.
+local function windowEntity(kind, id)
+	if kind == "industries" then
+		local ok, con = pcall(function()
+			return api.engine.system.streetConnectorSystem.getConstructionEntityForIndustry(id)
 		end)
+		return ok and con and con >= 0 and con or id
+	elseif kind == "warehouses" then
+		local w = comp(id, "WAREHOUSE")
+		return w and w.construction and w.construction >= 0 and w.construction or id
+	end
+	return id
+end
+
+local function runCommand(cmd, react)
+	local function focus()
+		local z = api.engine.terrain.getHeightAt(api.type.Vec2f.new(cmd.x, cmd.y))
+		api.gui.camera.focusPosition(api.type.Vec3f.new(cmd.x, cmd.y, z), tonumber(cmd.dist) or 800)
+	end
+	if cmd.action == "teleport" and type(cmd.x) == "number" and type(cmd.y) == "number" then
+		local ok, err = pcall(focus)
+		return { seq = cmd.seq, ok = ok, error = ok and nil or tostring(err) }
+	end
+	-- Double-click on an object of the app: camera on it, then (option) its in-game window.
+	if cmd.action == "focus" and type(cmd.x) == "number" and type(cmd.y) == "number" then
+		local ok, err = pcall(focus)
+		if ok and cmd.open and type(cmd.id) == "number" then
+			ok, err = pcall(function()
+				if react == nil or type(react.fireEvent) ~= "function" then
+					error("no GUI handle to open the window")
+				end
+				react.fireEvent(nil, "selectEntity", { entity = windowEntity(cmd.kind, cmd.id), stack = false })
+			end)
+		end
 		return { seq = cmd.seq, ok = ok, error = ok and nil or tostring(err) }
 	end
 	return { seq = cmd.seq, ok = false, error = "unknown action " .. tostring(cmd.action) }
@@ -1105,7 +1134,7 @@ local function advance(t)
 end
 
 --- One frame of work: read the request, run a pending command, run (or continue) at most one job.
-function M.tick()
+function M.tick(react)
 	local t = now()
 	frame = frame + 1
 	if frame == 1 or frame % REQUEST_FRAMES == 0 then
@@ -1113,7 +1142,7 @@ function M.tick()
 		local cmd = request and request.cmd
 		if type(cmd) == "table" and type(cmd.seq) == "number" and cmd.seq > lastCmdSeq then
 			lastCmdSeq = cmd.seq
-			cmdResult = runCommand(cmd)
+			cmdResult = runCommand(cmd, react)
 			writeStatus(t)
 			lastStatus = t
 		end

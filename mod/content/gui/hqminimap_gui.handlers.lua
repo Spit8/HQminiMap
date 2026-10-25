@@ -99,10 +99,13 @@ local buttonPumpFrame = 0
 -- buttonPumpFrame seen at the previous window step.
 local windowPumpFrame = 0
 
+--- Last react handle seen by a pump: lets live commands open in-game windows (selectEntity).
+local lastReact = nil
+
 local function liveTick()
 	local live = requireHq "hqminimap::/hqminimap/live_export.lua"
 	if live ~= nil then
-		local ok, err = pcall(live.tick)
+		local ok, err = pcall(live.tick, lastReact)
 		if not ok then
 			print("[hqminimap] live tick error: " .. tostring(err))
 		end
@@ -114,6 +117,9 @@ local buttonPumpLogged = false
 --- Mod-button label (TFUI: handlers.buttonLabel(react)). The button is always displayed, so its
 --- recipe also installs a step pump: live data / commands keep running with the window closed.
 function handlers.buttonLabel(react)
+	if react ~= nil then
+		lastReact = react
+	end
 	if react ~= nil and type(react.onStep) == "function" then
 		local ok = pcall(function()
 			react.onStep(function()
@@ -156,6 +162,9 @@ end
 --- Called from the ProgressBar value during the Window render: keeps the state refs and
 --- (re)registers the capture tick. Returns the progress value to display.
 function handlers.bindWindow(react, progress, status)
+	if react ~= nil and lastReact == nil then
+		lastReact = react
+	end
 	refs.progress = progress
 	refs.status = status
 	if react ~= nil and type(react.onStep) == "function" then

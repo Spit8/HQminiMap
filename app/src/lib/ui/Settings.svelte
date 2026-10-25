@@ -5,7 +5,6 @@
   import { fileExists, joinPath } from "$lib/platform/fsx";
   import { detectUserdata } from "$lib/platform/paths";
   import { app } from "$lib/state/app.svelte";
-  import History from "./History.svelte";
   import LiveSettings from "./LiveSettings.svelte";
   import { mapStyle } from "$lib/state/mapStyle.svelte";
 
@@ -108,12 +107,12 @@
             <span class="v mono">{Math.round(mapStyle.current[key] * 100)} %</span>
           </div>
         {/each}
+        <label class="check2"><input type="checkbox" checked={mapStyle.current.openInGame}
+          onchange={(e) => mapStyle.set({ openInGame: (e.target as HTMLInputElement).checked })} /> {t("settings.map.openInGame")}</label>
         <p class="note dim">{t("settings.map.hint")} <button class="link" onclick={() => mapStyle.reset()}>{t("settings.map.reset")}</button></p>
       </section>
 
       <LiveSettings />
-
-      <History />
     {/if}
   </div>
 </div>
@@ -133,6 +132,7 @@
   .btns button { padding: 2px 8px; font-size: 12px; }
   .note { margin: 2px 0 4px 128px; font-size: 12px; }
   .kv input[type="range"] { width: 100%; }
+  .check2 { display: flex; gap: 6px; align-items: center; font-size: 12.5px; margin: 6px 0 2px; }
   .link { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
   .pill { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: none; }
   .pill.on { background: var(--ok); }

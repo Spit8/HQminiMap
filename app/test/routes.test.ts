@@ -71,3 +71,26 @@ describe("gap filling from vehicle trails", () => {
     expect(uncovered([[150, 0], [175, 0], [900, 0], [925, 0]], track)).toHaveLength(2);
   });
 });
+
+describe("shared edges (concentric bands)", () => {
+  it("lists the edges used by several lines, busiest line first", async () => {
+    const { routeParts, sharedEdges } = await import("../src/lib/core/routes");
+    const parts = routeParts(parseRoutes(`function data() return { edges = "1,0,0,10,0,10,0,10,0;2,10,0,10,0,20,0,10,0;3,20,0,10,0,30,0,10,0",
+      lines = { { e = "1,2", id = 7, p = "" }, { e = "2,3", id = 8, p = "" }, { e = "2", id = 9, p = "" } }, t = 1 } end`)!);
+    const s = sharedEdges(parts, [{ id: 7, rank: 5 }, { id: 8, rank: 50 }, { id: 9, rank: 1 }]);
+    expect([...s.keys()]).toEqual([2]);
+    expect(s.get(2)).toEqual([8, 7, 9]);
+    expect(sharedEdges(parts, [{ id: 7, rank: 1 }])).toEqual(new Map());
+  });
+});
+
+describe("focus command", () => {
+  it("is written for the mod with its kind, entity and open flag", async () => {
+    const { renderRequest, DEFAULT_INTERVALS } = await import("../src/lib/core/live");
+    const { parseUserdata } = await import("../src/lib/core/luadata");
+    const text = renderRequest({ enabled: true, intervals: DEFAULT_INTERVALS,
+      cmd: { seq: 3, action: "focus", x: 10, y: 20, dist: 500, kind: "industries", id: 201, open: true } });
+    const back = parseUserdata(text) as { cmd: Record<string, unknown> };
+    expect(back.cmd).toMatchObject({ seq: 3, action: "focus", kind: "industries", id: 201, open: true });
+  });
+});

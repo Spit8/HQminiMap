@@ -142,7 +142,7 @@ export const fr = {
   "viewer.none": "Aucune ortho calculée : TileLab → « Calculer l'ortho ».",
   "viewer.noPyramid": "pyramid.json introuvable : recalculer l'ortho dans TileLab",
   "viewer.oldPyramid": "Ortho calculée avec une ancienne version (bords étirés) : recalcule-la dans TileLab",
-  "viewer.hint": "molette : zoom · glisser : déplacer · clic : fiche · double-clic : téléporter la caméra du jeu · Alt+Maj+glisser : tourner · L : filtres · F : plein écran",
+  "viewer.hint": "molette : zoom · glisser : déplacer · clic : fiche · double-clic : caméra du jeu (et fenêtre de l'objet) · Alt+Maj+glisser : tourner · L : filtres · F : plein écran",
 
   "settings.title": "Options",
   "settings.language": "Langue",
@@ -339,6 +339,13 @@ export const fr = {
   "steps.show": "Étapes",
   "steps.showTitle": "Réafficher la barre des étapes",
   "steps.hideTitle": "Masquer la barre des étapes (elle revient quand la grille change)",
+
+  "settings.map.openInGame": "Double-clic sur un objet : ouvrir aussi sa fenêtre en jeu",
+  "card.openInGame": "Ouvrir en jeu",
+  "card.openInGameTitle": "Centrer la caméra du jeu sur l'objet et ouvrir sa fenêtre",
+  "viewer.linesHere": "{n} lignes ici",
+  "viewer.linesHint": "Recliquer au même endroit : ligne suivante",
+  "tiles.history": "Historique et nettoyage",
 
   "history.title": "Historique des captures",
   "history.empty": "Aucune capture enregistrée.",

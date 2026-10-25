@@ -127,12 +127,14 @@ api = {
       simEntityAtStockSystem = { getStockCount = function(sl, i) return sl == 801 and (i == 0 and 30 or 12) or 250 end },
       streetConnectorSystem = { getConstructionEntityForStation = function(st) return st == 311 and 401 or 402 end,
         getConstructionEntityForTownBuilding = function(b) return b + 1000 end,
+        getConstructionEntityForIndustry = function(i) return i + 2000 end,
         getConstructionClosestTown = function(con) return con == 2001 and 101 or -1 end },
     },
   },
   gui = { camera = { focusPosition = function(p, d) FOCUS = { x = p.x, y = p.y, z = p.z, d = d } end,
                      getCameraData = function() return { x = 1, y = 2 } end } },
 }
+REACT = { fireEvent = function(src, name, p) OPENED = { name = name, entity = p.entity, stack = p.stack } end }
 ug_require = function(p) return assert(load(file(p:gsub("^hqminimap::/", ""))))() end
 print = function() end
 ''')
@@ -142,7 +144,7 @@ print = function() end
     def run(seconds: int, fps: int = 30) -> None:
         for _ in range(seconds):
             for _ in range(fps):
-                live.tick()
+                live.tick(g.REACT)
             g.T = g.T + 1
 
     run(3)
@@ -202,7 +204,7 @@ print = function() end
     hist = s["live_history"]
     print("history:", hist.lines[1].tr, hist.stations[1].ld, "|", hist.stations[1].ul, "| diag", s["live_status"].history.n)
     assert hist.lines[1].tr == "1000,10;2000,25;3000,45" and hist.stations[1].ld == "1000,7" and hist.stations[1].ul == ""
-    assert s["live_status"].format == 6
+    assert s["live_status"].format == 7
     rt.execute('REQUEST.cmd = { seq = 1, action = "teleport", x = 300, y = -400, dist = 900 }')
     run(2)
     f = g.FOCUS
@@ -212,6 +214,19 @@ print = function() end
     g.FOCUS = None
     run(2)
     assert g.FOCUS is None, "a command runs once"
+    # Double-click on an object: camera + its in-game window (industry → construction, warehouse →
+    # construction, vehicle → itself); open = false: camera only.
+    for seq, kind, oid, want in ((2, "industries", 201, 2201), (3, "warehouses", 901, 902), (4, "vehicles", 601, 601)):
+        g.OPENED = None
+        rt.execute(f'REQUEST.cmd = {{ seq = {seq}, action = "focus", x = 10, y = 20, dist = 500, kind = "{kind}", id = {oid}, open = true }}')
+        run(2)
+        o = g.OPENED
+        print("focus", kind, "->", o and o.name, o and o.entity, "ok", s["live_status"].cmd.ok)
+        assert o and o.name == "selectEntity" and o.entity == want and s["live_status"].cmd.ok
+    g.OPENED = None
+    rt.execute('REQUEST.cmd = { seq = 5, action = "focus", x = 1, y = 2, kind = "lines", id = 501, open = false }')
+    run(2)
+    assert g.OPENED is None and g.FOCUS.x == 1 and s["live_status"].cmd.ok
     print("OK")
 
 

@@ -141,7 +141,7 @@ export const en: Record<MessageKey, string> = {
   "viewer.none": "No ortho computed yet: TileLab → “Compute the ortho”.",
   "viewer.noPyramid": "pyramid.json not found: compute the ortho again in TileLab",
   "viewer.oldPyramid": "Ortho computed by an older version (stretched edges): compute it again in TileLab",
-  "viewer.hint": "wheel: zoom · drag: pan · click: details · double-click: teleport the game camera · Alt+Shift+drag: rotate · L: filters · F: fullscreen",
+  "viewer.hint": "wheel: zoom · drag: pan · click: details · double-click: game camera (and the object's window) · Alt+Shift+drag: rotate · L: filters · F: fullscreen",
 
   "settings.title": "Options",
   "settings.language": "Language",
@@ -338,6 +338,13 @@ export const en: Record<MessageKey, string> = {
   "steps.show": "Steps",
   "steps.showTitle": "Show the steps bar again",
   "steps.hideTitle": "Hide the steps bar (it comes back when the grid changes)",
+
+  "settings.map.openInGame": "Double-click on an object: also open its in-game window",
+  "card.openInGame": "Open in game",
+  "card.openInGameTitle": "Centre the game camera on the object and open its window",
+  "viewer.linesHere": "{n} lines here",
+  "viewer.linesHint": "Click again at the same spot: next line",
+  "tiles.history": "History and clean-up",
 
   "history.title": "Capture history",
   "history.empty": "No capture recorded.",

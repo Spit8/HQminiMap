@@ -140,6 +140,60 @@
   // Hover tooltip (name, line of a vehicle, stock, waiting).
   let hover = $state<{ text: string; x: number; y: number } | null>(null);
 
+  // Picking among lines that overlap (shared tracks).
+  let lineMenu = $state<{ x: number; y: number; items: FeatureInfo[]; idx: number } | null>(null);
+  let lastPick: { x: number; y: number; ids: number[]; idx: number } | null = null;
+  type Hit = { info: FeatureInfo; hover: string };
+
+  /**
+   * Everything under a pixel: the topmost point object (stop, vehicle, industry…), every distinct
+   * line (busiest first) and the town whose outline contains it.
+   */
+  function hitsAt(pixel: number[], tol: number): { point: Hit | null; lines: Hit[]; townInfo: FeatureInfo | null; town: Hit | null } {
+    let point: Hit | null = null, town: Hit | null = null;
+    const lines = new globalThis.Map<number, Hit>();
+    map?.forEachFeatureAtPixel(pixel, (f) => {
+      const info = f.get("info") as FeatureInfo | undefined;
+      if (!info) return;
+      const h = { info, hover: f.get("hover") as string };
+      if (info.layer === "lines") {
+        if (!lines.has(info.id)) lines.set(info.id, h);
+      } else if (info.layer === "towns") {
+        town ??= h;
+      } else {
+        point ??= h;
+      }
+    }, { hitTolerance: tol, layerFilter: (l) => !!l.get("liveLayer") });
+    const traffic = (h: Hit) => live.lines.find((l) => l.id === h.info.id)?.traffic?.transported ?? 0;
+    const sorted = [...lines.values()].sort((a, b) => traffic(b) - traffic(a));
+    return { point, lines: sorted, townInfo: (town as Hit | null)?.info ?? null, town };
+  }
+
+  function pickLine(i: number): void {
+    if (!lineMenu) return;
+    select(lineMenu.items[i]!);
+    if (lastPick) lastPick.idx = i;
+    lineMenu = { ...lineMenu, idx: i };
+  }
+
+  // The line menu closes on Escape or a click outside it (a map click handles itself).
+  let lineMenuBox = $state<HTMLDivElement | null>(null);
+  $effect(() => {
+    if (!lineMenu) return;
+    const onDown = (e: PointerEvent) => {
+      if (lineMenuBox && !lineMenuBox.contains(e.target as Node) && !(e.target as HTMLElement).closest?.(".map")) lineMenu = null;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") lineMenu = null;
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  });
+
   /** Display name of a hidden object ("<layer>:<id>"). */
   function nameOf(key: string): string {
     const [layer, idStr] = key.split(":") as [LayerId, string];
@@ -308,6 +362,11 @@
   function teleport(x: number, y: number): void {
     void live.teleport(x, y);
   }
+
+  /** Camera onto an object (its position; a line: its first stop) and, if asked, its in-game window. */
+  function openInGame(i: FeatureInfo, open: boolean): void {
+    void live.focus(i.layer, i.id, i.x, i.y, open);
+  }
   $effect(() => {
     const c = live.command;
     if (!c) return;
@@ -376,7 +435,7 @@
     const labelsOn = vf.current.labels;
     const ms = mapStyle.current;
     if (!frame) return;
-    liveLayers.update(frame, d, routes, tr, fl, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs), ...ms });
+    liveLayers.update(frame, d, routes, live.routeParts, tr, fl, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs), ...ms });
     // Keep the selection (fresh figures) across data refreshes.
     const sel = untrack(() => selected);
     if (sel) selected = liveLayers.infoOf(`${sel.layer}:${sel.id}`) ?? sel;
@@ -523,19 +582,41 @@
       const [cx, cy] = e.coordinate;
       cursor = frame ? toWorld(frame, cx, cy) : null;
       if (e.dragging) return;
-      const text = map!.forEachFeatureAtPixel(e.pixel, (f) => f.get("hover") as string | undefined,
-        { hitTolerance: 5, layerFilter: (l) => !!l.get("liveLayer") });
+      const { point, lines, town } = hitsAt(e.pixel, 5);
+      // Several lines under the cursor: all their names ("Ligne 9 · Ligne 4 · +2").
+      const text = point?.hover ?? (lines.length > 1
+        ? [...lines.slice(0, 3).map((l) => l.info.name), ...(lines.length > 3 ? [`+${lines.length - 3}`] : [])].join(" · ")
+        : lines[0]?.hover ?? town?.hover);
       hover = text ? { text, x: e.pixel[0]!, y: e.pixel[1]! } : null;
       target.style.cursor = text ? "pointer" : "";
     });
     target.addEventListener("pointerleave", () => (hover = null));
     map.on("singleclick", (e) => {
-      const hit = map!.forEachFeatureAtPixel(e.pixel, (f) => f.get("info") as FeatureInfo | undefined,
-        { hitTolerance: 6, layerFilter: (l) => !!l.get("liveLayer") });
-      select(hit ?? null);
+      const { point, lines, townInfo } = hitsAt(e.pixel, 6);
+      lineMenu = null;
+      if (point) return select(point.info);
+      if (lines.length > 1) {
+        // Several lines here: menu to pick one; clicking again at the same spot steps to the next.
+        const again = lastPick && Math.hypot(e.pixel[0]! - lastPick.x, e.pixel[1]! - lastPick.y) <= 4
+          && lastPick.ids.join() === lines.map((l) => l.info.id).join();
+        const idx = again ? (lastPick!.idx + 1) % lines.length : -1;
+        lastPick = { x: e.pixel[0]!, y: e.pixel[1]!, ids: lines.map((l) => l.info.id), idx };
+        if (idx >= 0) select(lines[idx]!.info);
+        lineMenu = { x: e.pixel[0]!, y: e.pixel[1]!, items: lines.map((l) => l.info), idx };
+        return;
+      }
+      lastPick = null;
+      select(lines[0]?.info ?? townInfo ?? null);
     });
+    // Double-click: on an object, camera onto it (+ its in-game window, option); elsewhere, camera there.
     map.on("dblclick", (e) => {
       if (!frame) return;
+      const hs = hitsAt(e.pixel, 6);
+      const hit = hs.point?.info ?? hs.lines[0]?.info ?? hs.townInfo;
+      if (hit) {
+        openInGame(hit, mapStyle.current.openInGame);
+        return;
+      }
       const w = toWorld(frame, e.coordinate[0], e.coordinate[1]);
       teleport(w.x, w.y);
     });
@@ -662,11 +743,25 @@
       {/if}
     {/if}
     {#if selected}
-      <FeatureCard info={selected} extra={extraDetails} series={selectedSeries} onhide={hideSelected} onteleport={() => teleport(selected!.x, selected!.y)} onfit={fitSelected}
+      <FeatureCard info={selected} extra={extraDetails} series={selectedSeries} onhide={hideSelected} onteleport={() => teleport(selected!.x, selected!.y)} onopen={() => openInGame(selected!, true)} onfit={fitSelected}
         onshowline={selected.lineId !== undefined ? () => selectKey(`lines:${selected!.lineId}`, true) : undefined}
         onclose={() => select(null)} />
     {/if}
     {#if live.staleMod}<div class="stale">⚠ {t("live.staleMod")}</div>{/if}
+    {#if lineMenu}
+      <div class="linemenu" bind:this={lineMenuBox} style:left="{lineMenu.x + 10}px" style:top="{lineMenu.y + 10}px">
+        <div class="lmh">{t("viewer.linesHere", { n: lineMenu.items.length })}</div>
+        {#each lineMenu.items as it, i (it.id)}
+          {@const l = live.lines.find((x) => x.id === it.id)}
+          <button class:on={i === lineMenu.idx} onclick={() => pickLine(i)}>
+            <span class="lsw" style:background={rgb(l?.color ?? null)}></span>
+            <span class="lmn">{it.name}</span>
+            {#if l?.traffic}<span class="dim">{fmtNum(l.traffic.transported)}</span>{/if}
+          </button>
+        {/each}
+        <div class="lmf dim">{t("viewer.linesHint")}</div>
+      </div>
+    {/if}
     {#if hover}<div class="tip" style:left="{hover.x + 14}px" style:top="{hover.y + 12}px">{hover.text}</div>{/if}
     {#if toastVisible && toast}<div class="toast {toast.cls}">{toast.text}</div>{/if}
     {#if app.fullscreen}
@@ -709,6 +804,14 @@
   .toast.ok { border-color: var(--ok); }
   .stale { position: absolute; z-index: 9; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 70%; padding: 6px 14px;
     border-radius: 8px; background: rgba(60, 40, 10, .95); border: 1px solid var(--warn); font-size: 13px; text-align: center; }
+  .linemenu { position: absolute; z-index: 9; min-width: 200px; max-width: 300px; padding: 4px; border-radius: 8px;
+    background: rgba(20, 23, 30, .97); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, .4); font-size: 12.5px; }
+  .linemenu button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 3px 6px; background: none; border: none;
+    border-radius: 5px; text-align: left; color: var(--text); }
+  .linemenu button:hover, .linemenu button.on { background: rgba(255, 255, 255, .09); }
+  .lsw { width: 12px; height: 4px; border-radius: 2px; flex: none; }
+  .lmn { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lmh, .lmf { padding: 2px 6px; font-size: 11px; color: var(--muted); }
   .tip { position: absolute; z-index: 8; pointer-events: none; max-width: 260px; padding: 3px 7px; border-radius: 5px; white-space: pre-line;
     background: rgba(16, 18, 24, .92); border: 1px solid var(--line); font-size: 12px; color: var(--text); }
   .toast.err { border-color: var(--err); }

@@ -279,3 +279,18 @@
 - **Bouton « Ajuster »** (touche 0) ; ajustement automatique à l'entrée et à la sortie du plein écran.
 - **Bande des étapes** (`state/stepsBar.svelte.ts`) : × la masque pour la grille courante (`hq.stepsHidden`) ; elle revient à la grille suivante ou par le bouton « Étapes » de l'en-tête.
 - L'onglet « Réglages » devient **« Options »** (FR et EN).
+
+### HQ-025 — Fenêtres en jeu au double-clic, lignes partagées en bandes, choix de ligne, historique dans TileLab
+- **Date :** 2026-10-25 · **Statut :** accepted (sim_live, check, 63 tests, build et `cargo check` OK ; NOT TESTED en jeu ni dans l'app)
+- **Réglages d'image** : uniquement sur la couche WebGL de l'ortho, jamais sur les calques vectoriels (lignes, icônes, textes).
+- **Fenêtre en jeu** :
+  - le jeu ouvre une fenêtre d'entité par `react.fireEvent(nil, "selectEntity", { entity, stack })` (`view_manager.tl`) ;
+  - le mod reçoit `react` par la pompe du bouton (`live_export.tick(react)`) ;
+  - commande `focus { x, y, dist, kind, id, open }` (FORMAT 7) ; entité ouverte : la construction pour une usine (`getConstructionEntityForIndustry`) ou un entrepôt (`WAREHOUSE.construction`), sinon l'id lui-même (véhicule, ligne, groupe de gares, ville) ;
+  - option `mapStyle.openInGame`.
+- **Lignes superposées** :
+  - `routeParts()` donne le détail par arête ; `sharedEdges()` liste les arêtes empruntées par plusieurs lignes visibles, triées par trafic ;
+  - ces arêtes sont retirées de la géométrie propre de chaque ligne et dessinées en bandes concentriques (la plus grosse ligne dehors, −2,6 px par ligne, liseré sombre) ;
+  - le `full` de l'entité ligne sert au cadrage.
+- **Clic sur plusieurs lignes** : menu au curseur ; un nouveau clic au même endroit (≤ 4 px) passe à la ligne suivante. L'infobulle liste les lignes. Un point garde la priorité, et la ville passe en dernier.
+- **Historique des captures** : déplacé d'Options vers TileLab, en section repliable (colonnes grille et images masquées).

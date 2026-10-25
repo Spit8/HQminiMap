@@ -8,7 +8,7 @@ export const LIVE_KINDS = [
   "towns", "industries", "stations", "lines", "vehicles", "stats", "routes", "stocks", "townAreas", "history",
 ] as const;
 /** Format of the files written by the mod (live_status.format); older = the game runs an old mod. */
-export const LIVE_FORMAT = 6;
+export const LIVE_FORMAT = 7;
 export type LiveKind = (typeof LIVE_KINDS)[number];
 
 export interface Town { id: number; name: string; x: number; y: number; size: number }
@@ -285,11 +285,19 @@ export function parseStatus(text: string): LiveStatus | null {
   };
 }
 
+/**
+ * Commands for the mod: "teleport" moves the camera; "focus" moves it onto an object of the app
+ * and, with open, also opens that object's in-game window (kind = Visualiser layer, id = entity).
+ */
+export type LiveCommand =
+  | { seq: number; action: "teleport"; x: number; y: number; dist: number }
+  | { seq: number; action: "focus"; x: number; y: number; dist: number; kind: string; id: number; open: boolean };
+
 export interface LiveRequest {
   enabled: boolean;
   /** Seconds between exports per kind (0 = off). */
   intervals: Record<LiveKind, number>;
-  cmd: { seq: number; action: "teleport"; x: number; y: number; dist: number } | null;
+  cmd: LiveCommand | null;
 }
 
 export const DEFAULT_INTERVALS: Record<LiveKind, number> = {

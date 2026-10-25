@@ -3,7 +3,7 @@
   import { fmtNum, t, type MessageKey } from "$lib/i18n/index.svelte";
   import type { FeatureInfo } from "./layers";
 
-  let { info, extra = {}, series = [], onhide, onteleport, onfit, onshowline, onclose }: {
+  let { info, extra = {}, series = [], onhide, onteleport, onopen, onfit, onshowline, onclose }: {
     info: FeatureInfo;
     /** Figures computed by the viewer (objects inside a town…). */
     extra?: Record<string, number>;
@@ -11,6 +11,8 @@
     series?: { label: string; color: string; series: Series }[];
     onhide: () => void;
     onteleport: () => void;
+    /** Camera onto the object and its in-game window. */
+    onopen: () => void;
     onfit: () => void;
     /** Vehicles: select their line. */
     onshowline?: () => void;
@@ -68,6 +70,7 @@
     <button onclick={onfit}>{t("card.fit")}</button>
     <button onclick={onhide}>{t("card.hide")}</button>
     <button onclick={onteleport}>{t("card.teleport")}</button>
+    <button onclick={onopen} title={t("card.openInGameTitle")}>↗ {t("card.openInGame")}</button>
   </div>
 </div>
 

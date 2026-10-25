@@ -11,9 +11,11 @@ export interface MapStyle {
   textScale: number;
   /** Opacity of the line tracks (0.2–1); a selected line is always opaque. */
   lineOpacity: number;
+  /** Double-click on an object also opens its in-game window (else: camera only). */
+  openInGame: boolean;
 }
 
-export const MAP_STYLE_DEFAULT: MapStyle = { iconScale: 1, textScale: 1, lineOpacity: 0.75 };
+export const MAP_STYLE_DEFAULT: MapStyle = { iconScale: 1, textScale: 1, lineOpacity: 0.75, openInGame: true };
 
 const clamp = (v: unknown, lo: number, hi: number, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 
@@ -24,6 +26,7 @@ function load(): MapStyle {
       iconScale: clamp(raw?.iconScale, 0.6, 2, MAP_STYLE_DEFAULT.iconScale),
       textScale: clamp(raw?.textScale, 0.6, 2, MAP_STYLE_DEFAULT.textScale),
       lineOpacity: clamp(raw?.lineOpacity, 0.2, 1, MAP_STYLE_DEFAULT.lineOpacity),
+      openInGame: typeof raw?.openInGame === "boolean" ? raw.openInGame : MAP_STYLE_DEFAULT.openInGame,
     };
   } catch {
     return { ...MAP_STYLE_DEFAULT };

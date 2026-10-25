@@ -14,7 +14,7 @@ import type { Extent } from "ol/extent";
 import type { FeatureLike } from "ol/Feature";
 import { industryLabel, LAYERS, stationTraffic, stockTotal, type LayerId, type LiveData } from "$lib/core/filters";
 import type { Line, StationMode, Stock, Vehicle } from "$lib/core/live";
-import { stopLegs, type Pt } from "$lib/core/routes";
+import { chain, sharedEdges, stopLegs, type Pt, type RouteParts } from "$lib/core/routes";
 import { inkOn, iconUri, stopGlyph, type IconOpts } from "./icons";
 import LineString from "ol/geom/LineString";
 
@@ -136,7 +136,8 @@ export type TownAreas = Map<number, { rings: Pt[][]; pop: number | null }>;
 export interface LiveLayers {
   layers: VectorLayer[];
   /** Rebuild every feature from the filtered data. */
-  update(frame: Frame, data: LiveData, routes: Map<number, Pt[][]>, trails: Map<number, Pt[][]>, fills: Map<number, Pt[][]>, areas: TownAreas,
+  update(frame: Frame, data: LiveData, routes: Map<number, Pt[][]>, parts: RouteParts | null, trails: Map<number, Pt[][]>,
+    fills: Map<number, Pt[][]>, areas: TownAreas,
     labels: Labels, opts: LiveOptions): void;
   /** Move vehicles along their current glide (from where they were drawn to their latest position). */
   animate(frame: Frame, nowMs: number): void;
@@ -228,7 +229,19 @@ export function createLiveLayers(): LiveLayers {
   const lineStyle = (f: FeatureLike, res: number) => {
     const sel = selectedLine === f.get("lineId");
     const dim = selectedLine !== null && !sel;
-    const kind = f.get("approx") as "" | "legs" | "trail" | "fill";
+    const kind = f.get("approx") as "" | "legs" | "trail" | "fill" | "band";
+    if (kind === "band") {
+      // Edge shared by several lines: concentric bands, the busiest line outside (widest), each
+      // next one 2.6 px thinner on top, a thin dark casing between two bands.
+      const n = f.get("bands") as number, k = f.get("band") as number;
+      const w = 3 + (n - 1 - k) * 2.6 + (sel ? 1.5 : 0);
+      const z = sel ? 60 : 10 + k * 2;
+      return [
+        new Style({ stroke: new Stroke({ color: `rgba(10,12,16,${0.7 * (dim ? 0.3 : 1)})`, width: w + 1.6 }), zIndex: z }),
+        new Style({ stroke: new Stroke({ color: rgb(f.get("color"), sel ? 1 : dim ? 0.25 * opts.lineOpacity : Math.max(0.85, opts.lineOpacity)), width: w }), zIndex: z + 1 }),
+      ];
+    }
+    if (f.get("sharedOnly")) return []; // all its edges are drawn as bands
     // Opacity from Options → Map (overlapping lines show through); a selected line is opaque.
     const alpha = sel ? 1 : dim ? 0.25 * opts.lineOpacity : opts.lineOpacity;
     if (kind === "fill") {
@@ -324,7 +337,7 @@ export function createLiveLayers(): LiveLayers {
 
   return {
     layers,
-    update(frame, d, routes, trails, fills, areas, labels, o) {
+    update(frame, d, routes, parts, trails, fills, areas, labels, o) {
       opts = o;
       byKey.clear();
       for (const s of Object.values(src)) s.clear();
@@ -381,17 +394,27 @@ export function createLiveLayers(): LiveLayers {
       const lineColor = new Map<number, Line["color"]>();
       for (const l of d.lines) lineColor.set(l.id, l.color);
       const labelCands: { name: string; rank: number; piece: Pt[] }[] = [];
+      // Edges shared by several shown lines (bands); the rest stays in each line's own geometry.
+      const lineRank = (l: Line) => (l.traffic?.transported ?? 0) * 1000 + l.vehicles;
+      const shared = parts ? sharedEdges(parts, d.lines.filter((l) => routes.has(l.id)).map((l) => ({ id: l.id, rank: lineRank(l) }))) : new Map<number, number[]>();
+      const bandFeatures: Feature[] = [];
       const pieceLen = (p: Pt[]) => p.reduce((a, q, i) => (i ? a + Math.hypot(q[0] - p[i - 1]![0], q[1] - p[i - 1]![1]) : 0), 0);
       src.lines.addFeatures(d.lines.flatMap((l) => {
         const route = routes.get(l.id);
         const trail = !route && (l.mode === "water" || l.mode === "air") ? trails.get(l.id) : undefined;
-        const parts = route ?? (trail?.length ? trail : stopLegs(l));
-        if (!parts.length) return [];
-        const c = l.stops[0] ?? { x: parts[0]![0]![0], y: parts[0]![0]![1] };
+        const fullParts = route ?? (trail?.length ? trail : stopLegs(l));
+        // With shared edges: this line's own geometry leaves them out (they become bands).
+        const ownEdges = route && parts ? (parts.lineEdges.get(l.id) ?? []).filter((e) => !shared.has(e)) : null;
+        const hasShared = !!route && !!parts && (parts.lineEdges.get(l.id) ?? []).some((e) => shared.has(e));
+        const own = hasShared ? chain([...(parts!.linePolys.get(l.id) ?? []), ...ownEdges!.map((e) => parts!.edges.get(e)!).filter(Boolean)]) : null;
+        const sharedOnly = hasShared && !own!.length;
+        const parts_ = own && own.length ? own : fullParts;
+        if (!fullParts.length) return [];
+        const c = l.stops[0] ?? { x: fullParts[0]![0]![0], y: fullParts[0]![0]![1] };
         const details: FeatureInfo["details"] = { mode: labels.value("mode", l.mode), stops: l.stops.length, vehicles: l.vehicles };
         if (l.traffic) Object.assign(details, { transported: l.traffic.transported, waitP: l.traffic.waitP, waitC: l.traffic.waitC });
         // Label candidate: the longest piece of the track; the selected line ranks first.
-        const longest = parts.reduce((a, b) => (pieceLen(b) > pieceLen(a) ? b : a));
+        const longest = fullParts.reduce((a, b) => (pieceLen(b) > pieceLen(a) ? b : a));
         const rank = l.id === selectedLine ? Infinity : (l.traffic?.transported ?? 0) * 1000 + l.vehicles;
         if (longest.length >= 2) labelCands.push({ name: l.name, rank, piece: longest });
         const fill = route ? fills.get(l.id) : undefined;
@@ -399,11 +422,25 @@ export function createLiveLayers(): LiveLayers {
           ? [new Feature({ geometry: new MultiLineString(fill.map((p) => p.map(([x, y]) => m(x, y)))), color: l.color, lineId: l.id, approx: "fill" })]
           : [];
         return [...extra, info(new Feature({
-          geometry: new MultiLineString(parts.map((p) => p.map(([x, y]) => m(x, y)))),
-          color: l.color, lineId: l.id, name: l.name, approx: route ? "" : trail?.length ? "trail" : "legs",
+          geometry: new MultiLineString(parts_.map((p) => p.map(([x, y]) => m(x, y)))),
+          full: hasShared ? new MultiLineString(fullParts.map((p) => p.map(([x, y]) => m(x, y)))) : undefined,
+          sharedOnly, color: l.color, lineId: l.id, name: l.name, approx: route ? "" : trail?.length ? "trail" : "legs",
           stopPts: l.stops.map((s) => m(s.x, s.y)),
         }), { layer: "lines", id: l.id, name: l.name, x: c.x, y: c.y, details }, l.name, rgb(l.color))];
       }));
+      for (const [e, ls] of shared) {
+        const pts = parts!.edges.get(e);
+        if (!pts) continue;
+        ls.forEach((lid, k) => {
+          const lineF = byKey.get(`lines:${lid}`);
+          if (!lineF) return;
+          bandFeatures.push(new Feature({
+            geometry: new LineString(pts.map(([x, y]) => m(x, y))), approx: "band", band: k, bands: ls.length,
+            color: lineF.get("color"), lineId: lid, info: lineF.get("info"), key: lineF.get("key"), hover: lineF.get("hover"),
+          }));
+        });
+      }
+      src.lines.addFeatures(bandFeatures);
       // One label per name (a two-way line, or two lines sharing a name), busiest first: when labels
       // collide, the declutter keeps the earliest ones.
       const seenNames = new Set<string>();
@@ -464,7 +501,8 @@ export function createLiveLayers(): LiveLayers {
       return (byKey.get(key)?.get("info") as FeatureInfo | undefined) ?? null;
     },
     extentOf(key) {
-      return byKey.get(key)?.getGeometry()?.getExtent() ?? null;
+      const f = byKey.get(key);
+      return (f?.get("full") as MultiLineString | undefined)?.getExtent() ?? f?.getGeometry()?.getExtent() ?? null;
     },
   };
 }

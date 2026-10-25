@@ -80,6 +80,48 @@ export function buildRoutes(routes: LiveRoutes): Map<number, Pt[][]> {
   return out;
 }
 
+/** Per-edge view of the tracks: lines sharing an edge are drawn as concentric bands there. */
+export interface RouteParts {
+  /** edge id → polyline (world). */
+  edges: Map<number, Pt[]>;
+  /** line → its network edges. */
+  lineEdges: Map<number, number[]>;
+  /** line → its own extra polylines (lanes, bridges, free legs): never shared. */
+  linePolys: Map<number, Pt[][]>;
+}
+
+export function routeParts(routes: LiveRoutes): RouteParts {
+  const edges = new Map<number, Pt[]>();
+  const lineEdges = new Map<number, number[]>(), linePolys = new Map<number, Pt[][]>();
+  for (const [line, { edges: ids, polys }] of routes.lines) {
+    const own: number[] = [];
+    for (const id of ids) {
+      const e = routes.edges.get(id);
+      if (!e) continue;
+      if (!edges.has(id)) edges.set(id, sampleEdge(e));
+      own.push(id);
+    }
+    lineEdges.set(line, own);
+    linePolys.set(line, polys);
+  }
+  return { edges, lineEdges, linePolys };
+}
+
+/**
+ * Edges used by several of the given lines → those lines, busiest first (the order of the bands,
+ * from the outer, widest one to the inner one).
+ */
+export function sharedEdges(parts: RouteParts, lines: { id: number; rank: number }[]): Map<number, number[]> {
+  const users = new Map<number, number[]>();
+  const rank = new Map(lines.map((l) => [l.id, l.rank]));
+  for (const { id } of lines) {
+    for (const e of new Set(parts.lineEdges.get(id) ?? [])) (users.get(e) ?? users.set(e, []).get(e)!).push(id);
+  }
+  const out = new Map<number, number[]>();
+  for (const [e, ls] of users) if (ls.length > 1) out.set(e, ls.sort((a, b) => rank.get(b)! - rank.get(a)! || a - b));
+  return out;
+}
+
 /** Spatial index of a line's track: points every ~STEP m, binned on a CELL m grid. */
 export class TrackIndex {
   private cells = new Map<string, Pt[]>();
