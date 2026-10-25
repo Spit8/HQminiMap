@@ -311,3 +311,15 @@
 - **Véhicules** :
   - pastilles de chargement (`mapStyle.vehicleBadge` : rien / passagers / fret / les deux), passagers `#9fd3ff`, fret `#ffc861`, sous 40 m/px ;
   - la vignette passagers 👤 devient 🧑, en couleur.
+
+### HQ-027 — Toutes les résolutions du jeu
+- **Date :** 2026-10-25 · **Statut :** accepted (check, 74 tests et build OK ; NOT TESTED en jeu)
+- **Constat** : `screenW` / `screenH` étaient figés à 2560 × 1080 (`DEFAULT_CONFIG`) sans réglage dans l'interface. Or ils fixent la forme de l'empreinte, le pas de la grille et la reprojection de l'ortho : en 16:9 ou en 32:9, la grille et l'ortho étaient fausses.
+- **GridLab** :
+  - bloc « Résolution du jeu » : préréglages de 1280 × 720 à 5120 × 2160, ou valeur libre, avec le format affiché (`core/png.ts` : `aspectName`) ;
+  - détection par l'en-tête IHDR (`pngSize`) de la capture d'écran la plus récente du jeu, ou à défaut de la première capture d'un run ; bandeau « Utiliser ».
+- **Garde-fous** :
+  - TileLab compare la taille réelle des captures (`captureSize`) au plan : un format différent (> 1 %) affiche un message et bloque l'ortho ;
+  - `exportOrtho` : même format mais autre taille → le plan prend la taille réelle (même FOV, reprojection identique, testée à ×1,5) ; format différent → `resolutionMismatch`.
+- Les vignettes de TileLab prennent le format du plan.
+- Le mod ne change pas (`takeScreenshot(1)` = résolution du jeu).

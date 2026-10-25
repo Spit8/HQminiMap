@@ -11,7 +11,8 @@ const tex = (X: number, Y: number) => [
   128 + 60 * Math.sin((X + Y) / 71),
 ];
 
-function synthetic(zGround: (X: number, Y: number) => number) {
+/** `scale`: captures taken at scale × the plan's screen size (same field of view). */
+function synthetic(zGround: (X: number, Y: number) => number, scale = 1) {
   const W = 160, H = 120, zEye = 1000, fovV = 30;
   const fy = H / 2 / Math.tan((fovV * Math.PI) / 360), fx = fy;
   const nX = 3, nY = 2;
@@ -31,16 +32,17 @@ function synthetic(zGround: (X: number, Y: number) => number) {
   const hm: Heightmap = { n, minX, minY, width, height, cellX: width / n, cellY: height / n, data, source: "heightmap", waterLevel: null };
   // Tiles rendered by the forward camera model (flat-ish ground: solve d iteratively).
   const tiles = new Map<number, RgbaImage>();
+  const TW = Math.round(W * scale), TH = Math.round(H * scale), tfx = fx * scale, tfy = fy * scale;
   for (let iy = 0; iy < nY; iy++) for (let ix = 0; ix < nX; ix++) {
-    const img = { width: W, height: H, data: new Uint8ClampedArray(W * H * 4) };
-    for (let v = 0; v < H; v++) for (let u = 0; u < W; u++) {
+    const img = { width: TW, height: TH, data: new Uint8ClampedArray(TW * TH * 4) };
+    for (let v = 0; v < TH; v++) for (let u = 0; u < TW; u++) {
       let d = zEye, X = 0, Y = 0;
       for (let it = 0; it < 6; it++) {
-        X = xs[ix] + ((v + 0.5 - H / 2) * d) / fy;
-        Y = ys[iy] + ((u + 0.5 - W / 2) * d) / fx;
+        X = xs[ix] + ((v + 0.5 - TH / 2) * d) / tfy;
+        Y = ys[iy] + ((u + 0.5 - TW / 2) * d) / tfx;
         d = zEye - zGround(X, Y);
       }
-      const c = tex(X, Y), k = (v * W + u) * 4;
+      const c = tex(X, Y), k = (v * TW + u) * 4;
       img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255;
     }
     tiles.set(seqOf(nX, nY, ix, iy), img);
@@ -82,6 +84,32 @@ describe("ortho reprojection", () => {
       }
     });
   }
+});
+
+describe("captures at another resolution of the same shape", () => {
+  it("reproject the same once the plan takes the captures' real size", () => {
+    const ground = (X: number, Y: number) => 30 * Math.sin(X / 300);
+    const base = synthetic(ground);
+    const big = synthetic(ground, 1.5);
+    const err = (plan: PlanInfo, tiles: Map<number, RgbaImage>) => {
+      const r = new OrthoRenderer(plan, base.hm, base.plan.gsdX * 1.3, "bilinear");
+      const out = renderAll(r, tiles);
+      let e = 0, n = 0;
+      for (let q = 2; q < r.outH - 2; q++) for (let p = 2; p < r.outW - 2; p++) {
+        const X = base.hm.minX + (q + 0.5) * r.gsd, Y = base.hm.minY + (p + 0.5) * r.gsd;
+        const c = tex(X, Y), k = (q * r.outW + p) * 4;
+        e += Math.abs(out[k] - c[0]) + Math.abs(out[k + 1] - c[1]) + Math.abs(out[k + 2] - c[2]);
+        n += 3;
+      }
+      return { e: e / n, holes: r.stats.holes };
+    };
+    const ref = err(base.plan, base.tiles);
+    // What orthoExport does: the real size (240 × 180) replaces the plan's (160 × 120).
+    const scaled = err({ ...base.plan, screenW: 240, screenH: 180 }, big.tiles);
+    expect(scaled.holes).toBe(0);
+    expect(scaled.e).toBeLessThan(2);
+    expect(Math.abs(scaled.e - ref.e)).toBeLessThan(1);
+  });
 });
 
 describe("ortho estimate", () => {

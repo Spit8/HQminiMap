@@ -4,7 +4,8 @@
   import { estimateOrtho } from "$lib/core/pyramid";
   import { fmtClock, fmtNum, t, type MessageKey } from "$lib/i18n/index.svelte";
   import { joinPath, readBytes, readText } from "$lib/platform/fsx";
-  import { OVERVIEW_MAX_SIDE, PYRAMID_VERSION, tileFileName } from "$lib/state/orthoExport";
+  import { captureSize, OVERVIEW_MAX_SIDE, PYRAMID_VERSION, tileFileName } from "$lib/state/orthoExport";
+  import { aspectName, sameAspect } from "$lib/core/png";
   import { bytesPerTile, fmtBytes, fmtDuration, isMeasured, secPerMp } from "$lib/state/orthoSpeed";
   import { orthoJob, type OrthoResult } from "$lib/state/orthoJob.svelte";
   import { runLabel, runs, type RunMeta } from "$lib/state/runs.svelte";
@@ -21,6 +22,8 @@
   let halfRes = $state(false);
   let interp = $state<Interp>("lanczos3");
   let labelDraft = $state("");
+  /** Captures of another shape than the plan's screen (wrong resolution in GridLab). */
+  let resIssue = $state<{ w: number; h: number; pw: number; ph: number } | null>(null);
   /** Previews of a run that already has its ortho are only loaded on request. */
   let showCaptures = $state(false);
 
@@ -68,6 +71,7 @@
       labelDraft = run?.label ?? "";
       loadedFor = null;
       showCaptures = false;
+      resIssue = null;
     }
     if (!wanted && Object.keys(thumbs).length) releaseThumbs();
     if (!run || loadedFor === key) return;
@@ -91,6 +95,12 @@
     planState = plan ? "ok" : "missing";
     const w = hmText ? luaNum(hmText, "width") : NaN, h = hmText ? luaNum(hmText, "height") : NaN;
     extent = Number.isFinite(w) && Number.isFinite(h) ? { x: w, y: h } : null;
+    if (plan && run.collected > 0) {
+      const size = await captureSize(run);
+      if (stale()) return;
+      resIssue = size && !sameAspect(size.width, size.height, plan.screenW, plan.screenH)
+        ? { w: size.width, h: size.height, pw: plan.screenW, ph: plan.screenH } : null;
+    }
     if (!withPreviews) return;
     const next: Record<number, string> = { ...thumbs };
     for (let seq = 1; seq <= run.nX * run.nY; seq++) {
@@ -199,7 +209,11 @@
             })}</p>
             <button onclick={() => orthoJob.cancel()}>{t("tiles.cancel")}</button>
           {:else}
-            <button class="primary" disabled={selected.collected < selected.expected || !est} onclick={start}>
+            {#if resIssue}
+              <p class="err">{t("tiles.resolutionMismatch", { w: resIssue.w, h: resIssue.h, a: aspectName(resIssue.w, resIssue.h),
+                pw: resIssue.pw, ph: resIssue.ph, pa: aspectName(resIssue.pw, resIssue.ph) })}</p>
+            {/if}
+            <button class="primary" disabled={selected.collected < selected.expected || !est || !!resIssue} onclick={start}>
               {t("tiles.compute")}</button>
           {/if}
           {#if selected.collected < selected.expected}
@@ -227,7 +241,7 @@
         {#if !job}<button onclick={() => (showCaptures = true)}>{t("tiles.showCaptures")}</button>{/if}
       </div>
     {:else if selected}
-      <div class="grid" style="grid-template-columns: repeat({selected.nY}, 1fr)">
+      <div class="grid" style="grid-template-columns: repeat({selected.nY}, 1fr)" style:--ar={plan ? `${plan.screenW} / ${plan.screenH}` : "2560 / 1080"}>
         {#each Array.from({ length: selected.nX * selected.nY }, (_, k) => k + 1) as seq (seq)}
           <div class="cell">
             {#if thumbs[seq]}<img src={thumbs[seq]} alt={t("tiles.tileAlt", { n: seq })} />{:else}<span class="dim">{seq}</span>{/if}
@@ -267,6 +281,6 @@
   .history :global(th:nth-child(4)), .history :global(td:nth-child(4)) { display: none; }
   .grid { display: grid; gap: 2px; }
   .released { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; }
-  .cell { aspect-ratio: 2560 / 1080; background: #12151b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .cell { aspect-ratio: var(--ar, 2560 / 1080); background: #12151b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .cell img { width: 100%; height: 100%; object-fit: cover; }
 </style>

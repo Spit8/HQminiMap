@@ -64,6 +64,7 @@ Au premier lancement, l'app détecte le dossier de données du jeu. Si elle ne l
 ### Orthomosaïque de la carte
 1. **Dans le jeu** : fenêtre HQminiMap (bouton de la barre des mods) → **Exporter la carte**.
 2. **GridLab** :
+   - vérifie la **résolution du jeu** : elle est détectée sur ta dernière capture d'écran du jeu, ou se choisit dans la liste (toutes les résolutions et tous les formats : 16:9, 16:10, 21:9, 32:9…) ;
    - règle l'altitude de la caméra, le champ de vision (10 à 66°) et la grille ;
    - le bouton **Min** propose la plus petite grille qui couvre la carte, et la taille finale de l'image est estimée avant la capture ;
    - termine par **Écrire dans le mod**.

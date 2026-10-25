@@ -139,3 +139,22 @@ describe("python number formatting", () => {
     expect(fmtF(-1.23456, 4)).toBe("-1.2346");
   });
 });
+
+describe("any game resolution", () => {
+  const hmPath = join(FIX, "synthetic", "heightmap.lua");
+  const hm = existsSync(hmPath) ? parseHeightmap(readFileSync(hmPath, "utf8")) : null;
+  for (const [w, h] of [[1920, 1080], [1366, 768], [3440, 1440], [3840, 2160], [5120, 1440]] as const) {
+    it(`${w} × ${h}: footprint of the screen's shape, grid and plan valid`, () => {
+      expect(hm).not.toBeNull();
+      const cfg: MosaicConfig = { ...DEFAULT_CONFIG, screenW: w, screenH: h };
+      const mo = computeMosaic(cfg, hm!);
+      // Footprint: rows ↔ screen height (X), columns ↔ screen width (Y), square ground pixels.
+      expect(mo.geo.viewY / mo.geo.viewX).toBeCloseTo(w / h, 3);
+      expect(mo.geo.gsdX).toBeCloseTo(mo.geo.gsdY, 6);
+      expect(mo.centers.length).toBeGreaterThan(0);
+      const plan = parsePlan(modFiles(mo, hm!, 0).plan)!;
+      expect(plan).not.toBeNull();
+      expect([plan.screenW, plan.screenH]).toEqual([w, h]);
+    });
+  }
+});

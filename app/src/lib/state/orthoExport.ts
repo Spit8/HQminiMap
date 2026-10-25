@@ -4,6 +4,7 @@
  * Outputs go to pyramid.tmp/ first and replace pyramid/ only once complete, so a cancelled or
  * failed export never damages the previous ortho.
  */
+import { pngSize, sameAspect } from "$lib/core/png";
 import { parseHeightmap, parsePlan, type PlanInfo } from "$lib/core/lua";
 import type { Interp } from "$lib/core/ortho";
 import { ensureDir, joinPath, readBytes, readText, removeDir, renamePath, writeBytes, writeText } from "$lib/platform/fsx";
@@ -45,6 +46,19 @@ export async function loadRunInputs(run: RunMeta): Promise<{ plan: PlanInfo; tex
   const plan = parsePlan(text);
   if (!plan) return "planInvalid";
   return { plan, text, hmText };
+}
+
+/** Size of the first readable capture of a run (PNG header), or null. */
+export async function captureSize(run: RunMeta): Promise<{ width: number; height: number } | null> {
+  for (let seq = 1; seq <= Math.min(run.nX * run.nY, 5); seq++) {
+    try {
+      const size = pngSize(await readBytes(joinPath(run.dir, tileFileName(seq))));
+      if (size) return size;
+    } catch {
+      /* not collected: next */
+    }
+  }
+  return null;
 }
 
 export function tileFileName(seq: number, pitchIdx = 1): string {
@@ -93,6 +107,15 @@ export function exportOrtho(
   const done = (async () => {
     const inputs = await loadRunInputs(run);
     if (typeof inputs === "string") throw new Error(inputs);
+    // The captures' real size: another shape than the plan → wrong footprints (stop); same shape,
+    // other size (scaling, other screen of the same format) → reproject at the real size.
+    const real = await captureSize(run);
+    if (real && !sameAspect(real.width, real.height, inputs.plan.screenW, inputs.plan.screenH)) {
+      throw new Error("resolutionMismatch");
+    }
+    if (real && (real.width !== inputs.plan.screenW || real.height !== inputs.plan.screenH)) {
+      inputs.plan = { ...inputs.plan, screenW: real.width, screenH: real.height };
+    }
     const hm = parseHeightmap(inputs.hmText);
     if (!hm) throw new Error("heightmapInvalid");
     await removeDir(tmpDir);

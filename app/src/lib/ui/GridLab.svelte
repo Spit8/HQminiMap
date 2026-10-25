@@ -9,6 +9,10 @@
   import { ensureDir, fileExists, joinPath, listFiles, removeFile, writeText } from "$lib/platform/fsx";
   import { capturePlanPath, cutsceneDir, legacyModPlanPath } from "$lib/platform/paths";
   import { app } from "$lib/state/app.svelte";
+  import { aspectName, pngSize, RESOLUTIONS } from "$lib/core/png";
+  import { readBytes } from "$lib/platform/fsx";
+  import { runs } from "$lib/state/runs.svelte";
+  import { tileFileName } from "$lib/state/orthoExport";
   import { heightRange, reliefCanvas, screenToWorld, worldToScreen, type ViewState } from "./mapview";
 
   let host: HTMLDivElement;
@@ -31,6 +35,46 @@
   });
 
   const cfg = $derived(app.config);
+
+  // ---- game resolution: the shape of every capture (grid footprint, ortho reprojection)
+  let detected = $state<{ width: number; height: number } | null>(null);
+  let detectState = $state<"idle" | "busy" | "none">("idle");
+  const resKey = $derived(`${cfg.screenW}x${cfg.screenH}`);
+  const isPreset = $derived(RESOLUTIONS.some(([w, h]) => w === cfg.screenW && h === cfg.screenH));
+  let customRes = $state(false);
+
+  /** Size of the newest screenshot of the game (the player's own, else the last capture). */
+  async function detectResolution(): Promise<void> {
+    const p = app.paths;
+    if (!p) return;
+    detectState = "busy";
+    try {
+      const shots = (await listFiles(p.screenshots, /\.png$/i)).sort((a, b) => b.mtimeMs - a.mtimeMs);
+      const candidates = [...shots.slice(0, 3).map((f) => f.path)];
+      const run = runs.runs.find((r) => r.collected > 0);
+      if (run) candidates.push(joinPath(run.dir, tileFileName(1)));
+      for (const path of candidates) {
+        try {
+          const size = pngSize(await readBytes(path));
+          if (size) {
+            detected = size;
+            detectState = "idle";
+            return;
+          }
+        } catch {
+          /* unreadable: next */
+        }
+      }
+      detected = null;
+      detectState = "none";
+    } finally {
+      if (detectState === "busy") detectState = "idle";
+    }
+  }
+
+  function setResolution(w: number, h: number): void {
+    if (w > 0 && h > 0) app.setConfig({ screenW: Math.round(w), screenH: Math.round(h) });
+  }
   const mo = $derived.by<Mosaic | null>(() => {
     if (!app.map) return null;
     try {
@@ -204,6 +248,7 @@
   }
 
   onMount(() => {
+    void detectResolution();
     const ro = new ResizeObserver(() => draw());
     ro.observe(host);
     return () => ro.disconnect();
@@ -250,6 +295,38 @@
           </p>
         {/if}
       </div>
+
+      <h3>{t("grid.resolution")} <span class="dim">{aspectName(cfg.screenW, cfg.screenH)}</span></h3>
+      <div class="res">
+        <select value={customRes || !isPreset ? "custom" : resKey} onchange={(e) => {
+          const v = (e.target as HTMLSelectElement).value;
+          if (v === "custom") { customRes = true; return; }
+          customRes = false;
+          const [w, h] = v.split("x").map(Number);
+          setResolution(w!, h!);
+        }}>
+          {#each RESOLUTIONS as [w, h] (`${w}x${h}`)}<option value={`${w}x${h}`}>{w} × {h} ({aspectName(w, h)})</option>{/each}
+          <option value="custom">{t("grid.resolutionOther")}</option>
+        </select>
+        <button onclick={detectResolution} disabled={detectState === "busy"} title={t("grid.resolutionDetectTitle")}>{t("grid.resolutionDetect")}</button>
+      </div>
+      {#if customRes || !isPreset}
+        <div class="g2">
+          <label>{t("grid.width")}<input type="number" min="320" max="16384" step="1" value={cfg.screenW}
+            onchange={(e) => setResolution(num(e), cfg.screenH)} /></label>
+          <label>{t("grid.height")}<input type="number" min="240" max="16384" step="1" value={cfg.screenH}
+            onchange={(e) => setResolution(cfg.screenW, num(e))} /></label>
+        </div>
+      {/if}
+      {#if detected && (detected.width !== cfg.screenW || detected.height !== cfg.screenH)}
+        <p class="warn">{t("grid.resolutionDetected", { w: detected.width, h: detected.height, a: aspectName(detected.width, detected.height) })}
+          <button onclick={() => { setResolution(detected!.width, detected!.height); customRes = !RESOLUTIONS.some(([w, h]) => w === detected!.width && h === detected!.height); }}>
+            {t("grid.resolutionUse")}</button></p>
+      {:else if detected}
+        <p class="dim">{t("grid.resolutionOk")}</p>
+      {:else if detectState === "none"}
+        <p class="dim">{t("grid.resolutionNone")}</p>
+      {/if}
 
       <h3>{t("grid.camera")}</h3>
       <div class="g2">
@@ -346,6 +423,8 @@
   h3 { margin: 9px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
   h3 .dim { text-transform: none; letter-spacing: 0; font-weight: 400; }
   label { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--muted); min-width: 0; }
+  .res { display: flex; gap: 6px; margin-bottom: 6px; }
+  .res select { flex: 1; min-width: 0; }
   .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .g3 { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: end; }
   input[type="number"] { width: 100%; padding: 3px 6px; color: var(--text); }
