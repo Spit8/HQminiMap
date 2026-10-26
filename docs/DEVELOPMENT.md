@@ -39,4 +39,19 @@ node tools/bump-version.mjs <x.y.z>       # même version partout (app, Tauri, C
 1. `node tools/bump-version.mjs 0.2.0`, puis commit.
 2. `git tag v0.2.0 && git push origin main v0.2.0`.
 3. La CI (`.github/workflows/release.yml`) construit les installeurs Windows, Linux et macOS et le zip du mod, dans une **release brouillon**.
-4. Relis la release sur GitHub, puis publie-la.
+4. Relis la release sur GitHub, puis publie-la. Tant qu'elle reste en brouillon (ou en pré-release), les apps installées ne la voient pas.
+
+### Clé de mise à jour (une fois)
+Les mises à jour automatiques (`tauri-plugin-updater`) exigent des paquets signés. La clé publique est
+dans `app/src-tauri/tauri.conf.json` (`plugins.updater.pubkey`), la clé privée dans les secrets du dépôt.
+
+```powershell
+# PowerShell : ~ n'est pas développé pour un programme externe, d'où $env:USERPROFILE
+npx tauri signer generate -w "$env:USERPROFILE\.tauri\hqminimap.key"   # choisir un mot de passe
+Get-Content "$env:USERPROFILE\.tauri\hqminimap.key" -Raw | gh secret set TAURI_SIGNING_PRIVATE_KEY
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD                        # colle le mot de passe
+```
+
+Copie le contenu de `~/.tauri/hqminimap.key.pub` dans `pubkey`. **Garde la clé privée** (sauvegarde) :
+si elle est perdue, les apps déjà installées ne pourront plus se mettre à jour toutes seules.
+`npm run tauri build` en local demande aussi ces deux variables (`TAURI_SIGNING_PRIVATE_KEY`, `…_PASSWORD`).

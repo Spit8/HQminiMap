@@ -64,13 +64,38 @@ fn detect_paths() -> DetectedPaths {
     }
 }
 
+/// Marker file shipped next to the executable in the Windows portable zip (release.yml).
+const PORTABLE_MARKER: &str = "HQminiMap.portable";
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallInfo {
+    /// Windows portable zip: the updater would install a second copy next to it.
+    portable: bool,
+    /// The updater can replace this install: anything but the portable zip and, on Linux, anything
+    /// but an AppImage (`APPIMAGE` is set by its runtime; a .deb is not updatable).
+    self_update: bool,
+}
+
+#[tauri::command]
+fn install_info() -> InstallInfo {
+    let portable = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join(PORTABLE_MARKER).is_file()))
+        .unwrap_or(false);
+    let linux_package = cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none();
+    InstallInfo { portable, self_update: !portable && !linux_package }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![detect_paths])
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .invoke_handler(tauri::generate_handler![detect_paths, install_info])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

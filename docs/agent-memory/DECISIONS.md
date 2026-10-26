@@ -326,3 +326,12 @@
 - **Complément (HQ-027)** : par défaut, la grille **suit** la résolution détectée (`MosaicConfig.SCREEN_AUTO`, absent = vrai).
   - Elle est appliquée en silence à l'ouverture de GridLab et redétectée avant chaque « Écrire dans le mod ».
   - Choisir un préréglage ou une taille libre passe en manuel (`SCREEN_AUTO = false`) ; l'entrée « Auto » de la liste, ou « Utiliser » dans le bandeau, y revient.
+
+### HQ-028 — Mises à jour de l'app depuis les releases GitHub
+- **Date :** 2026-10-26 · **Statut :** accepted (check, 78 tests et `cargo check` OK ; NOT TESTED avec une vraie release)
+- **Mécanisme** : `tauri-plugin-updater` + `tauri-plugin-process` (relance). Point de terminaison `releases/latest/download/latest.json`, généré et joint par tauri-action (`createUpdaterArtifacts`, `updaterJsonPreferNsis`). Seules les releases **publiées** comptent (ni brouillon ni pré-release).
+- **Signature** : minisign, clé publique dans `tauri.conf.json`, clé privée et mot de passe dans les secrets `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` (procédure dans `docs/DEVELOPMENT.md`). Clé perdue = plus de mise à jour automatique pour les installs existantes.
+- **Qui s'auto-installe** : commande Rust `install_info` → `selfUpdate`. Faux pour le zip portable (marqueur `HQminiMap.portable` à côté de l'exe, écrit par release.yml : l'updater y installerait une seconde copie), pour Linux hors AppImage (`.deb`) et en dev. Ces cas lisent l'API GitHub (`releases/latest`) et proposent seulement un lien.
+- **App** (`state/updates.svelte.ts`, `core/version.ts`) : vérification 5 s après le lancement (désactivable, `hq.updates.auto`), pastille dans l'en-tête, carte « Mises à jour » dans Options (vérifier, installer et redémarrer avec progression, notes, ignorer une version `hq.updates.skip`). Confirmation si une ortho ou une capture est en cours. Windows : installeur en mode `passive`.
+- **Mod** : hors périmètre, il reste installé et rechargé côté jeu (zip joint à la release).
+- **Première version** : les installs 0.2.0 n'ont pas l'updater ; la version qui l'apporte s'installe encore à la main.

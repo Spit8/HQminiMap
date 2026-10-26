@@ -48,6 +48,11 @@ Les installeurs ne sont **pas encore signés**. La première fois :
 - **Windows** : SmartScreen demande une confirmation (« Informations complémentaires » → « Exécuter quand même ») ;
 - **macOS** : Gatekeeper aussi (clic droit sur l'app → « Ouvrir »).
 
+**Mises à jour** : l'app vérifie les releases au démarrage (Options → Mises à jour). Installée par un
+installeur (ou en AppImage), elle se met à jour elle-même : « Installer et redémarrer ». La version
+portable et le `.deb` affichent seulement la nouvelle version, avec un lien vers sa page. Le mod se
+met à jour à part (voir ci-dessous).
+
 ### Mod
 Le mod n'est pas (encore) publié sur mod.io : il est fourni dans chaque release.
 1. Télécharge `hqminimap-mod-<version>.zip` et décompresse-le.

@@ -1,12 +1,16 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
-  import { revealItemInDir } from "@tauri-apps/plugin-opener";
-  import { i18n, LOCALES, t, type Locale } from "$lib/i18n/index.svelte";
+  import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+  import { fmtDate, fmtNum, i18n, LOCALES, t, type Locale } from "$lib/i18n/index.svelte";
   import { fileExists, joinPath } from "$lib/platform/fsx";
   import { detectUserdata } from "$lib/platform/paths";
   import { app } from "$lib/state/app.svelte";
   import LiveSettings from "./LiveSettings.svelte";
   import { mapStyle, VEHICLE_BADGES } from "$lib/state/mapStyle.svelte";
+  import { updates } from "$lib/state/updates.svelte";
+
+  void updates.init();
+  const mb = (bytes: number) => fmtNum(bytes / 1e6, 1);
 
   let modInstalled = $state<boolean | null>(null);
   let detectMsg = $state<"settings.found" | "settings.notDetected" | null>(null);
@@ -85,6 +89,55 @@
       {/if}
     </section>
 
+    <section class="card">
+      <h3>{t("updates.title")}</h3>
+      <div class="kv">
+        <span class="k">{t("updates.installed")}</span>
+        <span class="v mono">{updates.current ? `v${updates.current}` : "…"}</span>
+        <span class="btns">
+          <button disabled={updates.phase === "checking" || updates.phase === "downloading" || updates.phase === "installing"}
+            onclick={() => updates.checkNow()}>{t("updates.check")}</button>
+        </span>
+      </div>
+      <div class="kv">
+        <span class="k">{t("updates.status")}</span>
+        <span class="v">
+          {#if updates.phase === "checking"}<span class="dim">{t("updates.checking")}</span>
+          {:else if updates.phase === "upToDate"}<span class="ok">{t("updates.upToDate")}</span>
+          {:else if updates.phase === "error"}<span class="err" title={t(`updates.err.${updates.error ?? "other"}`)}>{t(`updates.err.${updates.error ?? "other"}`)}</span>
+          {:else if updates.available}<span class="ok">{t("updates.available", { version: updates.available.version })}</span>
+          {:else}<span class="dim">{t("updates.never")}</span>{/if}
+        </span>
+        <span></span>
+      </div>
+      {#if updates.available && updates.phase !== "upToDate"}
+        {@const av = updates.available}
+        {#if updates.phase === "downloading" || updates.phase === "installing"}
+          <div class="kv">
+            <span class="k">{t(updates.phase === "installing" ? "updates.installing" : "updates.downloading")}</span>
+            <progress value={updates.progress?.total ? updates.progress.done / updates.progress.total : undefined}></progress>
+            <span class="v mono">{#if updates.progress}{updates.progress.total ? `${mb(updates.progress.done)} / ` : ""}{t("unit.mo", { v: mb(updates.progress.total ?? updates.progress.done) })}{/if}</span>
+          </div>
+        {:else}
+          <div class="actions">
+            {#if updates.selfUpdate}
+              <button class="go" onclick={() => updates.install()}>{t("updates.install")}</button>
+            {:else}
+              <button class="go" onclick={() => openUrl(av.url)}>{t("updates.download")}</button>
+            {/if}
+            <button onclick={() => openUrl(av.url)}>{t("updates.notes")}</button>
+            {#if updates.skipped !== av.version}<button class="link" onclick={() => updates.skip()}>{t("updates.skip")}</button>{/if}
+          </div>
+          {#if !updates.selfUpdate}<p class="note dim">{t(updates.portable ? "updates.manualPortable" : "updates.manual")}</p>{/if}
+        {/if}
+      {/if}
+      <label class="check2"><input type="checkbox" checked={updates.auto}
+        onchange={(e) => updates.setAuto((e.target as HTMLInputElement).checked)} /> {t("updates.auto")}</label>
+      <p class="note dim">
+        {#if updates.lastCheck}{t("updates.lastCheck", { date: fmtDate(updates.lastCheck) })} · {/if}{t("updates.modHint")}
+      </p>
+    </section>
+
     {#if app.paths}
       <section class="card">
         <h3>{t("settings.folders")}</h3>
@@ -142,6 +195,10 @@
   .kv input[type="range"] { width: 100%; }
   .check2 { display: flex; gap: 6px; align-items: center; font-size: 12.5px; margin: 6px 0 2px; }
   .link { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
+  .actions { display: flex; gap: 6px; align-items: center; margin: 6px 0 2px 128px; }
+  .actions button { padding: 3px 10px; font-size: 12px; }
+  .actions .go { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .kv progress { width: 100%; }
   .pill { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: none; }
   .pill.on { background: var(--ok); }
   p { margin: 2px 0; }

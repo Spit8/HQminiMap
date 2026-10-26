@@ -78,15 +78,21 @@ jobs:
         working-directory: app
         run: npm test
 
+      # Updater: the installers are signed with the minisign key of the repository secrets (public
+      # half in tauri.conf.json), and latest.json (read by the apps once the release is published)
+      # is attached to the release, pointing Windows to the NSIS setup.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: app
           tagName: ${{ env.TAG }}
           releaseName: "HQminiMap ${{ env.TAG }}"
           releaseDraft: true
           prerelease: false
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
           releaseBody: |
             ## Installation
@@ -105,6 +111,10 @@ jobs:
             most Windows 10); if the app does not start, run the included `MicrosoftEdgeWebview2Setup.exe`.
             The Windows installers set WebView2 up by themselves when it is missing.
 
+            **Updates** — the app checks this page by itself and, once installed with an installer
+            (or as an AppImage), updates itself from the Options tab. The portable zip and the `.deb`
+            only get a notice with a link here.
+
             The installers are not signed yet: Windows SmartScreen ("More info" → "Run anyway") and
             macOS Gatekeeper (right click → Open) will ask for a confirmation the first time.
 
@@ -121,6 +131,8 @@ jobs:
           New-Item -ItemType Directory -Force portable | Out-Null
           Copy-Item $exe portable/HQminiMap.exe
           Copy-Item LICENSE portable/LICENSE.txt
+          # Tells the app it runs portable: it then announces updates without installing them.
+          "Portable build: updates are downloaded by hand from GitHub." | Set-Content -Encoding utf8 portable/HQminiMap.portable
           # Microsoft's WebView2 Evergreen bootstrapper (redistributable), for the rare Windows
           # without the runtime: checked to be signed by Microsoft before shipping it.
           $setup = "portable/MicrosoftEdgeWebview2Setup.exe"

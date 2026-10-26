@@ -11,6 +11,7 @@
   import { live } from "$lib/state/live.svelte";
   import { runs } from "$lib/state/runs.svelte";
   import { stepsBar } from "$lib/state/stepsBar.svelte";
+  import { updates } from "$lib/state/updates.svelte";
 
   const TABS = [
     { id: "grid", label: "tabs.grid" },
@@ -37,6 +38,7 @@
     void app.init().then(() => {
       if (!app.settings.userdata) tab = "settings";
     });
+    return updates.start();
   });
 </script>
 
@@ -55,6 +57,11 @@
       <button class="job" title={t_("header.orthoTitle")} onclick={() => (tab = "tiles")}>
         {t_("header.ortho", { pct: Math.round(orthoJob.running.progress * 100), elapsed: fmtClock(orthoJob.elapsed) })}
         <progress value={orthoJob.running.progress}></progress>
+      </button>
+    {/if}
+    {#if updates.badge}
+      <button class="update" class:alone={!orthoJob.running} title={t_("header.updateTitle")} onclick={() => (tab = "settings")}>
+        ⬆ {t_("header.update", { version: updates.available!.version })}
       </button>
     {/if}
   </header>
@@ -106,4 +113,6 @@
   .pane.hidden { display: none; }
   .job { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; }
   .job progress { width: 90px; }
+  .update { padding: 2px 10px; font-size: 12px; color: var(--ok); border-color: var(--ok); }
+  .update.alone { margin-left: auto; }
 </style>
