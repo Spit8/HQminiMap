@@ -139,6 +139,70 @@ export function iconUri(glyph: Glyph, color: string, o: IconOpts = {}): string {
   if (!u) {
     u = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(glyph, color, o))}`;
     uris.set(key, u);
+    if (uris.size > 2000) uris.delete(uris.keys().next().value!); // bounded: oldest out
   }
   return u;
+}
+
+/** Load pictograms (vehicle labels, card, badges): colour emoji, readable on dark. */
+export const LOAD_ICON = { pax: "🧑", freight: "📦" } as const;
+
+/** One part of a vehicle load badge: its pictogram and "on board/capacity". */
+export interface BadgePart {
+  kind: keyof typeof LOAD_ICON;
+  text: string;
+}
+
+export interface Badge {
+  uri: string;
+  width: number;
+  height: number;
+}
+
+const BADGE_FONT = "system-ui, 'Segoe UI', sans-serif";
+const EMOJI_FONT = "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif";
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+/** Rendered width of a text (canvas measure; estimated where there is no canvas, e.g. tests). */
+function textWidth(text: string, font: string, px: number, weight = 700): number {
+  if (measureCtx === undefined) {
+    try {
+      measureCtx = typeof document !== "undefined" ? document.createElement("canvas").getContext("2d") : null;
+    } catch {
+      measureCtx = null;
+    }
+  }
+  if (!measureCtx) return [...text].length * px * (font === EMOJI_FONT ? 1.2 : 0.6);
+  measureCtx.font = `${weight} ${px}px ${font}`;
+  return measureCtx.measureText(text).width;
+}
+
+const badges = new Map<string, Badge>();
+/**
+ * Load badge of a vehicle: rounded frame outlined in its line's colour on a dark background, the
+ * load pictogram (LOAD_ICON) + "12/40" per part (passengers, cargo). Cached; sizes in px at `scale`.
+ */
+export function loadBadge(border: string, parts: BadgePart[], scale = 1): Badge {
+  const key = `${border}|${scale}|${parts.map((p) => `${p.kind}:${p.text}`).join(";")}`;
+  let b = badges.get(key);
+  if (b) return b;
+  const fs = 9.5 * scale, es = 9 * scale, pad = 3 * scale, gap = 2 * scale, sep = 5 * scale;
+  const height = Math.round(15 * scale), cy = height / 2;
+  let x = pad, body = "";
+  parts.forEach((p, i) => {
+    if (i) x += sep;
+    const icon = LOAD_ICON[p.kind];
+    body += `<text x="${x}" y="${cy}" dominant-baseline="central" font-family="${EMOJI_FONT}" font-size="${es}">${icon}</text>`;
+    x += textWidth(icon, EMOJI_FONT, es, 400) + gap;
+    body += `<text x="${x}" y="${cy}" dominant-baseline="central" font-family="${BADGE_FONT}" font-size="${fs}" font-weight="700" fill="#f2f4f7">${p.text}</text>`;
+    x += textWidth(p.text, BADGE_FONT, fs);
+  });
+  const width = Math.ceil(x + pad);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`
+    + `<rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="${4 * scale}" fill="rgba(14,16,20,.9)" stroke="${border}" stroke-width="1.5"/>`
+    + body + `</svg>`;
+  b = { uri: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width, height };
+  // Counts change all the time: keep the cache bounded.
+  if (badges.size > 2000) badges.clear();
+  badges.set(key, b);
+  return b;
 }

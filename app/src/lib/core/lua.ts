@@ -26,6 +26,20 @@ export interface Heightmap {
   source: "heightmap" | "map_cells";
   /** Map water level (z ≤ it on water cells), when the export carries it. */
   waterLevel: number | null;
+  /** The game's water flag per cell (data index), from heightmap.lua `waterRows` (newer mods). */
+  water?: Uint8Array;
+  /** Coarser water flags (map.lua cells), to tell water from ground dug down to the water level. */
+  waterGrid?: WaterGrid;
+}
+
+/** map.lua coarse grid: water flag of cell (i, j) at water[j·n + i], x = minX + (i + 0.5)·cellX. */
+export interface WaterGrid {
+  n: number;
+  minX: number;
+  minY: number;
+  cellX: number;
+  cellY: number;
+  water: Uint8Array;
 }
 
 const NUM = "([-+0-9.eE]+)";
@@ -76,8 +90,41 @@ export function parseHeightmap(text: string): Heightmap | null {
   const wl = luaNum(text, "waterLevel");
   return {
     n, minX, minY, width, height, cellX: width / n, cellY: height / n, data, source: "heightmap",
-    waterLevel: Number.isFinite(wl) ? wl : null,
+    waterLevel: Number.isFinite(wl) ? wl : null, water: parseWaterRows(text, n),
   };
+}
+
+/** heightmap.lua `waterRows = { "0110…", … }` (one character per cell), when present. */
+function parseWaterRows(text: string, n: number): Uint8Array | undefined {
+  const start = text.search(/\bwaterRows\s*=\s*\{/);
+  if (start < 0) return undefined;
+  const rows = text.slice(start).match(/"[01]+"/g);
+  if (!rows || rows.length < n) return undefined;
+  const out = new Uint8Array(n * n);
+  for (let j = 0; j < n; j++) {
+    const r = rows[j]!;
+    if (r.length - 2 < n) return undefined;
+    for (let i = 0; i < n; i++) if (r.charCodeAt(i + 1) === 49) out[j * n + i] = 1;
+  }
+  return out;
+}
+
+/** map.lua coarse cells' water flags {h, i, j, water}. */
+export function parseWaterGrid(text: string): WaterGrid | undefined {
+  const b = parseBounds(text);
+  if (!b) return undefined;
+  const re = /\bh\s*=\s*[-+0-9.eE]+,\s*i\s*=\s*(\d+),\s*j\s*=\s*(\d+),\s*water\s*=\s*(true|false)/g;
+  const cells: [number, number, boolean][] = [];
+  let n = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    cells.push([+m[1]!, +m[2]!, m[3] === "true"]);
+    n = Math.max(n, +m[1]! + 1, +m[2]! + 1);
+  }
+  if (!n || cells.length !== n * n) return undefined;
+  const water = new Uint8Array(n * n);
+  for (const [i, j, w] of cells) if (w) water[j * n + i] = 1;
+  return { n, minX: b.minX, minY: b.minY, cellX: b.width / n, cellY: b.height / n, water };
 }
 
 /** map.lua terrain cells {h, i, j} → same grid, z = max(h, waterLevel) (fallback terrain). */

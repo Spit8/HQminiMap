@@ -1,6 +1,6 @@
 /**
  * The single ortho export job of the app: lives outside the UI (survives tab changes), one at a
- * time, cancellable, with a live clock (elapsed / remaining). TileLab and the header read it.
+ * time, cancellable, with a live clock (elapsed / remaining). GridLab and the header read it.
  */
 import type { Interp } from "$lib/core/ortho";
 import { exportOrtho, type OrthoExportHandle } from "./orthoExport";
@@ -47,7 +47,7 @@ class OrthoJob {
     return Math.max(0, j.estimateSec - this.elapsed);
   }
 
-  start(run: RunMeta, label: string, gsd: number, interp: Interp, estimateSec: number): void {
+  start(run: RunMeta, label: string, gsd: number, interp: Interp, estimateSec: number, onEnd?: (r: OrthoResult) => void): void {
     if (this.running) return;
     const job: OrthoJobState = { runId: run.id, label, interp, gsd, progress: 0, startedMs: Date.now(), estimateSec };
     this.running = job;
@@ -66,12 +66,14 @@ class OrthoJob {
           ...this.results,
           [run.id]: { ok: out.holes === 0, kind: "done", w: out.width, h: out.height, gsd, seconds, estimateSec, holes: out.holes },
         };
+        onEnd?.(this.results[run.id]!);
       })
       .catch((err) => {
         this.results = {
           ...this.results,
           [run.id]: { ok: false, kind: "stopped", error: err instanceof Error ? err.message : String(err) },
         };
+        onEnd?.(this.results[run.id]!);
       })
       .finally(() => {
         if (this.clock) clearInterval(this.clock);

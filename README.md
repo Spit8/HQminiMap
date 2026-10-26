@@ -10,8 +10,8 @@ HQminiMap se compose de deux parties qui travaillent ensemble :
 ```
  Transport Fever 3                         Application HQminiMap
 ┌───────────────────────┐   fichiers      ┌──────────────────────────────────────┐
-│ mod HQminiMap          │  userdata TF3   │ GridLab   grille de capture          │
-│  • export de la carte  │ ──────────────► │ TileLab   captures → orthomosaïque   │
+│ mod HQminiMap          │  userdata TF3   │ GridLab   grille, captures → ortho   │
+│  • export de la carte  │ ──────────────► │                                      │
 │  • captures (cutscene) │                 │ Visualiseur  ortho + données en      │
 │  • données en direct   │ ◄────────────── │             direct, filtres, export  │
 └───────────────────────┘ grille, cadences,└──────────────────────────────────────┘
@@ -48,7 +48,7 @@ Les installeurs ne sont **pas encore signés**. La première fois :
 - **Windows** : SmartScreen demande une confirmation (« Informations complémentaires » → « Exécuter quand même ») ;
 - **macOS** : Gatekeeper aussi (clic droit sur l'app → « Ouvrir »).
 
-**Mises à jour** : l'app vérifie les releases au démarrage (Options → Mises à jour). Installée par un
+**Mises à jour** (le dépôt doit être public pour que les apps voient les releases) : l'app vérifie les releases au démarrage (Options → Mises à jour). Installée par un
 installeur (ou en AppImage), elle se met à jour elle-même : « Installer et redémarrer ». La version
 portable et le `.deb` affichent seulement la nouvelle version, avec un lien vers sa page. Le mod se
 met à jour à part (voir ci-dessous).
@@ -68,14 +68,15 @@ Au premier lancement, l'app détecte le dossier de données du jeu. Si elle ne l
 
 ### Orthomosaïque de la carte
 1. **Dans le jeu** : fenêtre HQminiMap (bouton de la barre des mods) → **Exporter la carte**.
-2. **GridLab** :
-   - vérifie la **résolution du jeu** : elle est détectée sur ta dernière capture d'écran du jeu, ou se choisit dans la liste (toutes les résolutions et tous les formats : 16:9, 16:10, 21:9, 32:9…) ;
-   - règle l'altitude de la caméra, le champ de vision (10 à 66°) et la grille ;
-   - le bouton **Min** propose la plus petite grille qui couvre la carte, et la taille finale de l'image est estimée avant la capture ;
-   - termine par **Écrire dans le mod**.
-3. **Dans le jeu** : **Capturer** (inutile de recharger la partie). L'app récupère les captures toute seule.
-4. **TileLab** : choisis l'interpolation, puis **Calculer l'ortho**. La durée et la taille sont estimées à l'avance ; le calcul continue même si tu changes d'onglet.
+2. **GridLab** (ouvert au premier lancement ; ensuite l'app s'ouvre sur le Visualiseur) :
+   - choisis un **mode** : **Simple** (≈ 1 image), **x4**, **x16** ou **x64** (≈ 64 images, le plus de détail). Le mode règle tout seul la grille, le champ de vision, l'altitude de la caméra (12 000 m au plus : au-delà le jeu floute la vue) et l'heure de la capture (sans reflet du soleil sur l'eau), pour ta carte et ta résolution ;
+   - le résumé donne le nombre d'images, la taille de l'ortho et le temps total (capture + calcul) ;
+   - **Réglages avancés** : résolution du jeu (détectée sur ta dernière capture d'écran, tous les formats), altitude, champ de vision, grille (bouton **Min**), éclairage, interpolation et demi-résolution de l'ortho. Changer l'un d'eux passe en **vue personnalisée** ;
+   - termine par **Scanner la carte en jeu** : l'app envoie le scan au jeu, qui le lance aussitôt (le jeu doit tourner avec ta partie et le mod activé ; sinon un message le dit). Inutile d'ouvrir la fenêtre HQminiMap dans le jeu.
+3. L'app récupère les captures toute seule ; la vue **Captures** de GridLab les montre ; l'**historique** des sessions (dossiers, nettoyage) est dans **Options**.
+4. **L'ortho se calcule toute seule** à la fin de la capture (avec l'interpolation des réglages avancés), puis la carte s'ouvre dans le **Visualiseur**. Pendant la capture, GridLab montre les images qui arrivent (vue **Captures**, consultable aussi plus tard).
 5. **Visualiseur** : zoom jusqu'au pixel, rotation, plein écran (touche **F**), **Ajuster** pour voir toute la carte (touche **0**).
+   Le calque **Fond de carte** masque l'image : fond noir, eau en bleu et contour de la carte.
    Le menu **Image** règle la luminosité, le contraste, la saturation et le gamma de toute la carte : en automatique (calculé sur la carte entière) ou à la main.
 
 ### Données en direct

@@ -70,27 +70,33 @@ end
 
 --- Fine visible-ground heightmap (seam heights + ortho reprojection in the app).
 --- rows[j+1][i+1] = max(h, waterLevel if on water) at x = minX + (i+0.5)·cellX, y = minY + (j+0.5)·cellY.
+--- waterRows[j+1] = one character per cell, "1" where the game says water (isOnWater): ground dug
+--- down to the water level (mines, pits) is not water, and the app cannot tell it from the heights.
 function M.sampleHeightmap(bounds, n, waterLevel)
 	local stepX = bounds.width / n
 	local stepY = bounds.height / n
 	local water = waterLevel or 0
-	local rows = {}
+	local rows, waterRows = {}, {}
 	local minZ, maxZ = math.huge, -math.huge
 	for j = 0, n - 1 do
-		local row = {}
+		local row, wrow = {}, {}
 		local y = bounds.minY + (j + 0.5) * stepY
 		for i = 0, n - 1 do
 			local pos = vec2(bounds.minX + (i + 0.5) * stepX, y)
 			local z = heightAt(pos)
-			if z < water and onWater(pos) then
+			-- Only ground at or under the water level can be water (cheap: one call there only).
+			local wet = z <= water + 0.01 and onWater(pos)
+			if z < water and wet then
 				z = water
 			end
+			wrow[i + 1] = wet and "1" or "0"
 			z = math.floor(z * 100 + 0.5) / 100
 			minZ = math.min(minZ, z)
 			maxZ = math.max(maxZ, z)
 			row[i + 1] = z
 		end
 		rows[j + 1] = row
+		waterRows[j + 1] = table.concat(wrow)
 	end
 	return {
 		version = 1,
@@ -106,6 +112,7 @@ function M.sampleHeightmap(bounds, n, waterLevel)
 		maxZ = maxZ,
 		layout = "rows[j+1][i+1]; x=minX+(i+0.5)*cellX, y=minY+(j+0.5)*cellY; z=max(h,waterLevel on water)",
 		rows = rows,
+		waterRows = waterRows,
 	}
 end
 

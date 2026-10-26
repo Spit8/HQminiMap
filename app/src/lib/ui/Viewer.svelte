@@ -19,17 +19,25 @@
   import { viewerFilters as vf } from "$lib/state/viewerFilters.svelte";
   import FeatureCard from "./viewer/FeatureCard.svelte";
   import LayersPanel from "./viewer/LayersPanel.svelte";
+  import MapStyleSettings from "./MapStyleSettings.svelte";
   import { exportViewPng } from "./viewer/exportView";
-  import { createLiveLayers, rgb, toWorld, type FeatureInfo, type Frame } from "./viewer/layers";
+  import { createLiveLayers, rgb, toMap, toWorld, type FeatureInfo, type Frame } from "./viewer/layers";
   import { insideRings } from "$lib/core/towns";
   import { TrackIndex, uncovered } from "$lib/core/routes";
   import { autoAdjust, NEUTRAL, RANGES, type ImageAdjust } from "$lib/core/imageAdjust";
+  import { perf } from "$lib/state/perf.svelte";
   import { mapStyle } from "$lib/state/mapStyle.svelte";
+  import { parseHeightmap, type Heightmap } from "$lib/core/lua";
+  import { createReliefLayers, type ReliefInfo } from "./viewer/relief";
+  import { createPlainBasemap } from "./viewer/basemap";
 
-  let { runId = null }: { runId?: string | null } = $props();
+  /** active: the Visualiser tab is shown (hidden, it keeps its state but does no work). */
+  let { runId = null, active = true }: { runId?: string | null; active?: boolean } = $props();
 
   /** Zoom-in levels beyond full resolution (×2, ×4, ×8), drawn from the finest tiles. */
   const EXTRA_ZOOM = 3;
+  /** Zoom step between full resolution and the whole map. */
+  const ZOOM_OUT_STEP = 2 ** (1 / 8);
   /** Selector value: live data on a neutral background, without ortho. */
   const NO_ORTHO = "__none";
   const BACKGROUND = "#0e1015";
@@ -40,6 +48,12 @@
   /** Extent of the shown map (fit button). */
   let viewExtent: number[] | null = null;
   const liveLayers = createLiveLayers();
+  const relief = createReliefLayers();
+  const plain = createPlainBasemap();
+  /** Heightmap of the contours: the shown run's own (matches its ortho), else the current export. */
+  let runHm = $state<{ id: string; hm: Heightmap | null } | null>(null);
+  /** Contour interval drawn (auto choice shown in the panel) and coloured altitude range (legend). */
+  let reliefInfo = $state<ReliefInfo>({ step: null, ticks: null });
   let selectedId = $state<string | null>(null);
   let info = $state<PyramidJson | null>(null);
   let frame = $state<Frame | null>(null);
@@ -52,6 +66,37 @@
   let ready = $state(false);
   let exportOpen = $state(false);
   let imageOpen = $state(false);
+  let styleOpen = $state(false);
+  // Tool bubbles (top in fullscreen, view bubble bottom right): same behaviour. Pinned: always shown;
+  // otherwise faded out a moment after the pointer stops moving over the map (back on movement / hover),
+  // and in fullscreen hidden altogether until the pointer comes over them.
+  const LS_PINS = "hq.viewerPins";
+  let pins = $state<{ top: boolean; bottom: boolean }>((() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(LS_PINS) ?? "null") as { top?: boolean; bottom?: boolean } | null;
+      return { top: v?.top ?? false, bottom: v?.bottom ?? true };
+    } catch {
+      return { top: false, bottom: true };
+    }
+  })());
+  function togglePin(which: "top" | "bottom"): void {
+    pins = { ...pins, [which]: !pins[which] };
+    try {
+      localStorage.setItem(LS_PINS, JSON.stringify(pins));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  let pointerActive = $state(true);
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  function poke(): void {
+    pointerActive = true;
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => (pointerActive = false), 2500);
+  }
+  /** Heights of the bubbles: "fit" keeps the map clear of them. */
+  let topH = $state(0), bottomH = $state(0);
+  let styleBox = $state<HTMLDivElement | null>(null);
   let exportScale = $state<1 | 2 | 4>(2);
   let exportLegend = $state(true);
   let exportMsg = $state<{ ok: boolean; text: string } | null>(null);
@@ -64,20 +109,27 @@
   const dataOnly = $derived(!current && !!app.map);
 
   // Raw data joined with the traffic figures (live_stats).
-  const all = $derived.by<LiveData>(() => {
-    const st = live.stats;
+  // One derived per kind: each is recomputed only when its own sources change, so its objects stay
+  // the same across the other updates (the map rebuilds a group only when its objects changed).
+  const allIndustries = $derived.by(() => {
     const sk = live.stocks;
-    return {
-      towns: live.towns, vehicles: live.vehicles,
-      industries: sk ? live.industries.map((i) => ({ ...i, stocks: sk.industries.get(i.id) })) : live.industries,
-      warehouses: sk?.warehouses ?? [],
-      stations: st ? live.stations.map((s) => ({ ...s, traffic: st.stations.get(s.id) })) : live.stations,
-      lines: st ? live.lines.map((l) => ({ ...l, traffic: st.lines.get(l.id) })) : live.lines,
-    };
+    return sk ? live.industries.map((i) => ({ ...i, stocks: sk.industries.get(i.id) })) : live.industries;
+  });
+  const allStations = $derived.by(() => {
+    const st = live.stats;
+    return st ? live.stations.map((s) => ({ ...s, traffic: st.stations.get(s.id) })) : live.stations;
+  });
+  const allLines = $derived.by(() => {
+    const st = live.stats;
+    return st ? live.lines.map((l) => ({ ...l, traffic: st.lines.get(l.id) })) : live.lines;
+  });
+  const all = $derived<LiveData>({
+    towns: live.towns, vehicles: live.vehicles, industries: allIndustries,
+    warehouses: live.stocks?.warehouses ?? [], stations: allStations, lines: allLines,
   });
   const shown = $derived(applyFilters(all, vf.current));
 
-  // Follow a "Voir dans le visualiseur" request from TileLab.
+  // Follow a "Voir dans le visualiseur" request from GridLab.
   $effect(() => {
     if (runId) selectedId = runId;
   });
@@ -117,14 +169,19 @@
    */
   let fills = $state(new globalThis.Map<number, [number, number][][]>());
   let fillsAt = 0, fillsTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Spatial index of each track, kept while the track is the same (tracks change every 20 s or so). */
+  const trackIndexes = new WeakMap<[number, number][][], TrackIndex>();
   function computeFills(): void {
     fillsTimer = null;
     fillsAt = Date.now();
     const routes = live.routes, out = new globalThis.Map<number, [number, number][][]>();
+    // Ships and aircraft: their averaged crossings are the track; their trails wander off it.
+    const free = new Set(live.lines.filter((l) => l.mode === "water" || l.mode === "air").map((l) => l.id));
     for (const [line, byVehicle] of live.trails) {
       const route = routes.get(line);
-      if (!route) continue;
-      const index = new TrackIndex(route);
+      if (!route || free.has(line)) continue;
+      let index = trackIndexes.get(route);
+      if (!index) trackIndexes.set(route, (index = new TrackIndex(route)));
       const pieces = [...byVehicle.values()].flatMap((tr) => uncovered(tr, index));
       if (pieces.length) out.set(line, pieces);
     }
@@ -133,6 +190,11 @@
   $effect(() => {
     void live.trailsVersion;
     void live.routes;
+    // Hidden, or the performance controller gave the fills up: none.
+    if (!active || !perf.caps.fills) {
+      if (fills.size) fills = new globalThis.Map();
+      return;
+    }
     if (fillsTimer) return;
     fillsTimer = setTimeout(computeFills, Math.max(0, 10_000 - (Date.now() - fillsAt)));
   });
@@ -232,18 +294,52 @@
     fitMap(false);
   }
 
-  /** Whole map in the window (keeps the rotation; leaves room for the layer panel). */
+  /** Zoomed out past full resolution: steps of 2^(1/8) (a slight resampling does not show there, and
+   * "fit" can fill the window); from full resolution in, the exact pyramid levels (crisp pixels). */
+  function viewResolutions(coarsest: number, gsd: number): number[] {
+    const out: number[] = [];
+    for (let r = coarsest * 2; r > gsd * 1.0001; r /= ZOOM_OUT_STEP) out.push(r);
+    out.push(gsd);
+    for (let k = 1; k <= EXTRA_ZOOM; k++) out.push(gsd / 2 ** k);
+    return out;
+  }
+
+  /** Map area to fit: the map bounds (the ortho image overflows them: capture margins), inside the image. */
+  function mapExtent(): number[] | null {
+    if (!frame || !viewExtent) return viewExtent;
+    const run = current;
+    const hm = run && runHm?.id === run.id ? runHm.hm : null;
+    const b = hm ? { minX: hm.minX, minY: hm.minY, maxX: hm.minX + hm.width, maxY: hm.minY + hm.height } : app.map?.bounds;
+    if (!b) return viewExtent;
+    const [x0, y0] = toMap(frame, b.minX, b.minY), [x1, y1] = toMap(frame, b.maxX, b.maxY);
+    const e = [Math.max(Math.min(x0, x1), viewExtent[0]!), Math.max(Math.min(y0, y1), viewExtent[1]!),
+      Math.min(Math.max(x0, x1), viewExtent[2]!), Math.min(Math.max(y0, y1), viewExtent[3]!)];
+    return e[0]! < e[2]! && e[1]! < e[3]! ? e : viewExtent;
+  }
+
+  /**
+   * Whole map in the window (keeps the rotation), clear of the layer panel and the view bubble: the
+   * finest zoom step that shows all of it (steps of 2^(1/8): at most ≈ 9 % of margin).
+   */
   function fitMap(animate = true): void {
     const view = map?.getView();
-    if (!view || !viewExtent) return;
-    const left = vf.panelOpen && hasView ? 320 : 20;
-    view.fit(viewExtent, { padding: [20, 20, 20, left], duration: animate ? 250 : 0 });
+    const ext = mapExtent();
+    if (!view || !ext) return;
+    const panel = vf.panelOpen && hasView ? (target.parentElement?.querySelector(".panel") as HTMLElement | null)?.offsetWidth ?? 300 : 0;
+    const top = app.fullscreen ? topH + 24 : 12, bottom = (hasView ? bottomH : 0) + 24;
+    view.fit(ext, { padding: [top, 12, bottom, panel + 12], duration: animate ? 250 : 0 });
   }
 
   function setTiles(layer: WebGLTileLayer | null): void {
     if (!map) return;
-    if (tileLayer) map.removeLayer(tileLayer);
+    if (tileLayer) {
+      map.removeLayer(tileLayer);
+      // Removing does not free the WebGL renderer: its context and tile textures go with dispose().
+      tileLayer.getSource()?.dispose();
+      tileLayer.dispose();
+    }
     tileLayer = layer;
+    layer?.setVisible(vf.current.basemap);
     if (layer) map.getLayers().insertAt(0, layer);
   }
 
@@ -284,10 +380,15 @@
     // One WebGL layer, no smoothing: the zoom snaps to the pyramid levels (1 tile pixel = 1 screen
     // pixel) and, beyond full resolution, the finest tiles are magnified as crisp pixels. The image
     // adjustments are shader variables: applied to the whole displayed map at once.
-    const resolutions = [...tileRes, ...Array.from({ length: EXTRA_ZOOM }, (_, k) => p.gsd / 2 ** (k + 1))];
-    const adj = adjustFor(run.id);
+    const resolutions = viewResolutions(tileRes[0]!, p.gsd);
+    // Settings saved for this very ortho (a new ortho of the run starts again from auto).
+    const saved = imageStore[run.id]?.ortho === p.createdAt ? imageStore[run.id] : undefined;
+    const adj = { ...NEUTRAL, ...(saved?.adj ?? {}) };
+    imageOrtho = p.createdAt;
     setTiles(new WebGLTileLayer({
       preload: 1,
+      // Tiles kept on the GPU: fewer when the performance controller is at its last level.
+      cacheSize: untrack(() => perf.caps.tileCache),
       source: new ImageTileSource({ projection, tileGrid, interpolate: false, transition: 0, loader: loadTile }),
       style: {
         variables: { ...adj },
@@ -297,8 +398,8 @@
     }));
     imageRun = run.id;
     imageAdjust = adj;
-    imageAuto = imageModes[run.id] !== "manual";
-    if (imageModes[run.id] !== "manual") void computeAuto(run);
+    imageAuto = saved?.mode !== "manual";
+    if (imageAuto) void computeAuto(run);
     setView(new View({
       projection, extent, resolutions, constrainResolution: true, showFullExtent: true,
       constrainOnlyCenter: true, enableRotation: true, rotation: (rotationDeg * Math.PI) / 180,
@@ -321,17 +422,47 @@
     }), extent, { minX: b.minX, minY: b.minY });
   }
 
-  function rotate(deltaDeg: number | null): void {
+  /** Next right angle (after a free Alt+Shift+drag rotation too). */
+  function rotate(stepDeg: 90): void {
     const view = map?.getView();
     if (!view) return;
-    const rad = deltaDeg === null ? 0 : view.getRotation() + (deltaDeg * Math.PI) / 180;
-    view.animate({ rotation: rad, duration: 200 });
+    const deg = (view.getRotation() * 180) / Math.PI;
+    const next = (Math.floor(deg / stepDeg + 1e-6) + 1) * stepDeg;
+    view.animate({ rotation: (next * Math.PI) / 180, duration: 200 });
   }
 
+  /** ±1 = ×2 / ÷2: the zoom steps are finer when zoomed out (fit), the zoom speed must not be. */
   function zoomBy(delta: number): void {
     const view = map?.getView();
-    const z = view?.getZoom();
-    if (view && z !== undefined) view.animate({ zoom: z + delta, duration: 150 });
+    const r = view?.getResolution();
+    if (view && r) view.animate({ resolution: view.getConstrainedResolution(r / 2 ** delta, Math.sign(delta)), duration: 150 });
+  }
+
+  // Mouse wheel: a notch zooms ×2 like before, whatever the zoom steps (finer when zoomed out). Each
+  // notch goes straight to a zoom step (no free zoom snapped afterwards: no bounce), within the
+  // view's limits; a trackpad's small deltas add up until they make a step.
+  let wheelTarget: number | null = null;
+  let wheelAcc = 0;
+  let wheelIdle: ReturnType<typeof setTimeout> | null = null;
+  function onWheel(e: WheelEvent): void {
+    const view = map?.getView();
+    if (!map || !view) return;
+    e.preventDefault();
+    wheelAcc += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 300 : e.deltaY;
+    if (wheelIdle) clearTimeout(wheelIdle);
+    wheelIdle = setTimeout(() => ((wheelTarget = null), (wheelAcc = 0)), 250);
+    // A mouse notch is ~100 px: ×2; less (trackpad) waits for more, 25 px at least per move.
+    if (Math.abs(wheelAcc) < 25) return;
+    const steps = Math.max(-1, Math.min(1, wheelAcc / 100));
+    wheelAcc = 0;
+    const from = wheelTarget ?? view.getResolution();
+    if (!from) return;
+    const dir = steps > 0 ? -1 : 1;
+    const to = view.getConstrainedResolution(from * 2 ** steps, dir);
+    if (to === from) return;
+    wheelTarget = to ?? null;
+    view.cancelAnimations();
+    view.animate({ resolution: to, anchor: map.getEventCoordinate(e), duration: 160 });
   }
 
   function toggleFullscreen(): void {
@@ -410,7 +541,7 @@
           .map((l) => ({ label: `${t(`live.kind.${l}`)} (${fmtNum(shown[l].length)})`, color: LAYER_COLOR[l] })),
         footer: fmtDate(d.getTime()),
       } : null;
-      const bytes = await exportViewPng(map, { scale: exportScale, legend, background: BACKGROUND });
+      const bytes = await exportViewPng(map, { scale: exportScale, legend, background: plainBackground ? "#000000" : BACKGROUND });
       await writeBytes(path, bytes);
       exportMsg = { ok: true, text: t("export.done", { path }) };
       exportOpen = false;
@@ -434,17 +565,64 @@
     }
   });
 
-  // Live features follow the data and the filters.
+  // The shown run's heightmap (copied into the run at capture time).
   $effect(() => {
+    const run = current;
+    if (!run || runHm?.id === run.id) return;
+    const id = run.id;
+    void readText(joinPath(run.dir, "heightmap.lua")).then((text) => {
+      const hm = text ? parseHeightmap(text) : null;
+      const cur = app.map?.hm;
+      if (hm && cur?.waterGrid && cur.minX === hm.minX && cur.minY === hm.minY && cur.width === hm.width) hm.waterGrid = cur.waterGrid;
+      if (current?.id === id) runHm = { id, hm };
+    });
+  });
+
+  // Relief: colours and / or contour lines, redrawn when the frame, the heightmap or their settings change.
+  $effect(() => {
+    const opts = vf.current.relief;
+    const run = current;
+    const hm = (run && runHm?.id === run.id ? runHm.hm : null) ?? app.map?.hm ?? null;
+    if (!ready) return;
+    reliefInfo = relief.update(frame, hm, opts);
+  });
+
+  // Basemap: the ortho, or (switched off, or no ortho) black with the water and the map outline.
+  const plainBackground = $derived(!current || !vf.current.basemap);
+  $effect(() => {
+    const show = vf.current.basemap;
+    const run = current;
+    const hm = (run && runHm?.id === run.id ? runHm.hm : null) ?? app.map?.hm ?? null;
+    if (!ready) return;
+    tileLayer?.setVisible(show);
+    plain.update(frame, hm, plainBackground, live.industries);
+  });
+
+  // Live features follow the data and the filters.
+  // Hidden: nothing (the data keep coming in); shown again: one update with the latest data, the
+  // vehicles straight where the game has them (no glide from where they were left).
+  let resumed = false;
+  $effect(() => {
+    if (!active) {
+      resumed = true;
+      return;
+    }
     const d = shown;
     const routes = live.routes;
     const tr = trails;
     const fl = fills;
     const areas = live.townAreas;
-    const labelsOn = vf.current.labels;
+    const caps = perf.caps;
+    const labelsOn = caps.movingLabels ? vf.current.labels : { ...vf.current.labels, vehicles: false, lines: false };
     const ms = mapStyle.current;
     if (!frame) return;
-    liveLayers.update(frame, d, routes, live.routeParts, tr, fl, areas, labels, { labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs), ...ms });
+    const t0 = performance.now();
+    const { layoutMs } = liveLayers.update(frame, d, routes, live.routeParts, tr, fl, areas, labels, {
+      labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs), ...ms,
+      plainLines: caps.plainLines, maxTrackedLines: caps.maxTrackedLines, snap: resumed,
+    });
+    resumed = false;
+    perf.report(liveLayers.count(), performance.now() - t0, layoutMs || undefined);
     // Keep the selection (fresh figures) across data refreshes.
     const sel = untrack(() => selected);
     if (sel) selected = liveLayers.infoOf(`${sel.layer}:${sel.id}`) ?? sel;
@@ -480,7 +658,8 @@
 
   // ---- image adjustments of the ortho (whole image, WebGL shader variables), saved per run
   const LS_IMAGE = "hq.imageAdjust";
-  type ImageStore = Record<string, { mode: "auto" | "manual"; adj: ImageAdjust }>;
+  /** run → settings, mode and the ortho they were made for (pyramid.json createdAt). */
+  type ImageStore = Record<string, { mode: "auto" | "manual"; adj: ImageAdjust; ortho?: string }>;
   const loadImageStore = (): ImageStore => {
     try {
       return JSON.parse(localStorage.getItem(LS_IMAGE) ?? "{}") as ImageStore;
@@ -488,21 +667,17 @@
       return {};
     }
   };
-  let imageStore = loadImageStore();
-  const imageModes = $derived(Object.fromEntries(Object.entries(imageStore).map(([k, v]) => [k, v.mode])) as Record<string, string>);
+  let imageStore = $state(loadImageStore());
+  let imageOrtho: string | undefined;
   let imageRun = $state<string | null>(null);
   let imageAdjust = $state<ImageAdjust>({ ...NEUTRAL });
   let imageAuto = $state(false);
-
-  function adjustFor(runId: string): ImageAdjust {
-    return { ...NEUTRAL, ...(imageStore[runId]?.adj ?? {}) };
-  }
 
   function applyImage(adj: ImageAdjust, mode: "auto" | "manual"): void {
     imageAdjust = adj;
     tileLayer?.updateStyleVariables({ ...adj });
     if (!imageRun) return;
-    imageStore = { ...imageStore, [imageRun]: { mode, adj } };
+    imageStore = { ...imageStore, [imageRun]: { mode, adj, ortho: imageOrtho } };
     imageAuto = mode === "auto";
     try {
       localStorage.setItem(LS_IMAGE, JSON.stringify(imageStore));
@@ -554,6 +729,21 @@
     };
   });
   $effect(() => {
+    if (!styleOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (styleBox && !styleBox.contains(e.target as Node)) styleOpen = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") styleOpen = false;
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  });
+  $effect(() => {
     if (!exportOpen) return;
     const onDown = (e: PointerEvent) => {
       if (exportBox && !exportBox.contains(e.target as Node) && !exporting) exportOpen = false;
@@ -583,10 +773,11 @@
   onMount(() => {
     void runs.refreshList();
     map = new Map({
-      target, controls: [], layers: liveLayers.layers,
+      target, controls: [], layers: [...plain.layers, ...relief.layers, ...liveLayers.layers],
       // Double-click teleports the in-game camera (zoom stays on the wheel and the buttons).
-      interactions: defaultInteractions({ doubleClickZoom: false }),
+      interactions: defaultInteractions({ doubleClickZoom: false, mouseWheelZoom: false }),
     });
+    target.addEventListener("wheel", onWheel, { passive: false });
     map.on("pointermove", (e) => {
       const [cx, cy] = e.coordinate;
       cursor = frame ? toWorld(frame, cx, cy) : null;
@@ -634,7 +825,7 @@
     let raf = 0, lastAnim = 0;
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
-      if (now - lastAnim < 33 || !frame || !vf.current.layers.vehicles) return;
+      if (now - lastAnim < 33 || !frame || !active || !vf.current.layers.vehicles) return;
       lastAnim = now;
       liveLayers.animate(frame, Date.now());
     };
@@ -654,7 +845,7 @@
       } else if (e.key === "0") {
         fitMap();
       } else if (e.key === "Escape") {
-        if (exportOpen || imageOpen) return;
+        if (exportOpen || imageOpen || styleOpen) return;
         if (selected) select(null);
         else if (app.fullscreen) void app.setFullscreen(false);
       }
@@ -664,22 +855,29 @@
       cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener("keydown", onKey);
+      target.removeEventListener("wheel", onWheel);
+      if (wheelIdle) clearTimeout(wheelIdle);
+      cancelAnimationFrame(raf);
       map?.setTarget(undefined);
+      // Free the WebGL resources and every layer's renderer.
+      tileLayer?.dispose();
+      map?.dispose();
       map = null;
     };
   });
 
   const fmtZoom = (f: number) => (f >= 1 ? `×${Math.round(f)}` : `1/${Math.round(1 / f)}`);
   const hasView = $derived(!!current || dataOnly);
+  /** Shown at the bottom of the layer panel: ortho size and resolution (or map size), current zoom. */
+  const viewInfo = $derived.by(() => {
+    const zoom = zoomFactor ? ` · ${fmtZoom(zoomFactor)}` : "";
+    if (info) return t("viewer.info", { w: fmtNum(info.width), h: fmtNum(info.height), gsd: info.gsd.toFixed(2) }) + zoom;
+    const b = app.map?.bounds;
+    return b ? t("viewer.mapSize", { w: fmtNum(b.width / 1000, 1), h: fmtNum(b.height / 1000, 1) }) : "";
+  });
 </script>
 
-{#snippet controls()}
-  <div class="group">
-    <button title={t("viewer.zoomOut")} onclick={() => zoomBy(-1)}>−</button>
-    <button title={t("viewer.zoomIn")} onclick={() => zoomBy(1)}>+</button>
-    <button title={t("viewer.fitTitle")} onclick={() => fitMap()} disabled={!hasView}>⛶ {t("viewer.fit")}</button>
-    {#if zoomFactor}<span class="dim">{fmtZoom(zoomFactor)}</span>{/if}
-  </div>
+{#snippet tools()}
   {#if current}
     <div class="group exp" bind:this={imageBox}>
       <button onclick={() => (imageOpen = !imageOpen)} title={t("image.title")}>◐ {t("image.button")}</button>
@@ -699,12 +897,9 @@
       {/if}
     </div>
   {/if}
-  <div class="group">
-    <button title={t("viewer.rotL")} onclick={() => rotate(-15)}>⟲ 15°</button>
-    <button title={t("viewer.rotR")} onclick={() => rotate(15)}>⟳ 15°</button>
-    <button title={t("viewer.rot90")} onclick={() => rotate(90)}>⟳ 90°</button>
-    <button title={t("viewer.straightTitle")} onclick={() => rotate(null)}>{t("viewer.straight")}</button>
-    <span class="dim">{rotationDeg}°</span>
+  <div class="group exp" bind:this={styleBox}>
+    <button onclick={() => (styleOpen = !styleOpen)} title={t("viewer.mapSettingsTitle")}>⚙ {t("viewer.mapSettings")}</button>
+    {#if styleOpen}<div class="pop style-pop"><MapStyleSettings /></div>{/if}
   </div>
   <div class="group exp" bind:this={exportBox}>
     <button onclick={() => (exportOpen = !exportOpen)} disabled={!hasView}>⤓ {t("export.button")}</button>
@@ -721,8 +916,26 @@
       </div>
     {/if}
   </div>
-  <button class="fs" onclick={toggleFullscreen}>
-    {app.fullscreen ? `⤡ ${t("viewer.exitFullscreen")}` : `⤢ ${t("viewer.fullscreen")}`}</button>
+{/snippet}
+
+{#snippet pin(which: "top" | "bottom")}
+  <button class="pin" class:on={pins[which]} title={t(pins[which] ? "viewer.unpin" : "viewer.pin")} onclick={() => togglePin(which)}>📌</button>
+{/snippet}
+
+{#snippet viewBubble()}
+  <div class="tb bubble" class:idle={!pins.bottom && !pointerActive} class:hide={app.fullscreen && !pins.bottom} bind:clientHeight={bottomH}>
+    <div class="group">
+      <button title={t("viewer.zoomOut")} onclick={() => zoomBy(-1)}>−</button>
+      <button title={t("viewer.zoomIn")} onclick={() => zoomBy(1)}>+</button>
+      {#if zoomFactor}<span class="dim zf">{fmtZoom(zoomFactor)}</span>{/if}
+    </div>
+    <button title={t("viewer.fitTitle")} onclick={() => fitMap()}>⛶ {t("viewer.fit")}</button>
+    <button title={t("viewer.rot90")} onclick={() => rotate(90)}>⟳ 90°{#if rotationDeg}<span class="dim"> · {rotationDeg}°</span>{/if}</button>
+    <button onclick={toggleFullscreen}>{app.fullscreen ? `⤡ ${t("viewer.exitFullscreen")}` : `⤢ ${t("viewer.fullscreen")}`}</button>
+    <span class="dim mono pos">{cursor ? `X ${cursor.x.toFixed(0)} · Y ${cursor.y.toFixed(0)}` : "X — · Y —"}</span>
+    <span class="help" title={t("viewer.hint")}>?</span>
+    {@render pin("bottom")}
+  </div>
 {/snippet}
 
 <div class="viewer" class:full={app.fullscreen}>
@@ -733,20 +946,18 @@
           {#each withOrtho as r (r.id)}<option value={r.id}>{runLabel(r)}</option>{/each}
           {#if app.map}<option value={NO_ORTHO}>{t("viewer.noOrtho")}</option>{/if}
         </select>
-        {@render controls()}
-        {#if info}<span class="dim">{t("viewer.info", { w: fmtNum(info.width), h: fmtNum(info.height), gsd: info.gsd.toFixed(3) })}</span>{/if}
-        {#if cursor}<span class="dim mono">X {cursor.x.toFixed(0)} · Y {cursor.y.toFixed(0)}</span>{/if}
+        {@render tools()}
       {:else}
         <span class="dim">{t("viewer.none")}</span>
       {/if}
       {#if errorKey}<span class="warn">{t(errorKey)}</span>{/if}
     </div>
   {/if}
-  <div class="stage">
-    <div class="map" bind:this={target}></div>
+  <div class="stage" onpointermove={poke} role="presentation">
+    <div class="map" class:plain={plainBackground} bind:this={target}></div>
     {#if hasView}
       {#if vf.panelOpen}
-        <LayersPanel {all} {shown} names={nameOf} selectedKey={selected ? `${selected.layer}:${selected.id}` : null} onselect={selectKey} />
+        <LayersPanel {all} {shown} {reliefInfo} hasOrtho={!!current} {viewInfo} hasRelief={!!(app.map || runHm?.hm)} names={nameOf} selectedKey={selected ? `${selected.layer}:${selected.id}` : null} onselect={selectKey} />
       {:else}
         <button class="open-panel" title={t("lp.showPanel")} onclick={() => vf.setPanel(true)}>☰ {t("lp.title")}</button>
       {/if}
@@ -757,6 +968,16 @@
         onclose={() => select(null)} />
     {/if}
     {#if live.staleMod}<div class="stale">⚠ {t("live.staleMod")}</div>{/if}
+    {#if perf.warning}
+      <!-- Performance controller: the display is simplified while the level is not "ok". -->
+      <div class="perfwarn" class:critical={perf.level === "critical"}>
+        <span>⚠ {t("perf.warning", {
+          objects: fmtNum(perf.sample.objects),
+          memory: perf.sample.memory !== null ? t("perf.warningMemory", { pct: Math.round(perf.sample.memory * 100) }) : "",
+        })}</span>
+        <button title={t("perf.close")} onclick={() => perf.dismiss()}>✕</button>
+      </div>
+    {/if}
     {#if lineMenu}
       <div class="linemenu" bind:this={lineMenuBox} style:left="{lineMenu.x + 10}px" style:top="{lineMenu.y + 10}px">
         <div class="lmh">{t("viewer.linesHere", { n: lineMenu.items.length })}</div>
@@ -774,13 +995,9 @@
     {#if hover}<div class="tip" style:left="{hover.x + 14}px" style:top="{hover.y + 12}px">{hover.text}</div>{/if}
     {#if toastVisible && toast}<div class="toast {toast.cls}">{toast.text}</div>{/if}
     {#if app.fullscreen}
-      <div class="float">
-        {@render controls()}
-        {#if cursor}<span class="dim mono">X {cursor.x.toFixed(0)} · Y {cursor.y.toFixed(0)}</span>{/if}
-      </div>
-    {:else}
-      <span class="hint">{t("viewer.hint")}</span>
+      <div class="tb float" class:idle={!pins.top && !pointerActive} class:hide={!pins.top} bind:clientHeight={topH}>{@render tools()}{@render pin("top")}</div>
     {/if}
+    {#if hasView}{@render viewBubble()}{/if}
   </div>
 </div>
 
@@ -789,14 +1006,28 @@
   .viewer.full { grid-template-rows: 1fr; }
   .bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
   .group { display: flex; gap: 4px; align-items: center; }
-  .group button, .fs { padding: 4px 9px; }
+  .group button { padding: 4px 9px; }
   .stage { position: relative; min-height: 0; }
   .map { position: absolute; inset: 0; background: #0e1015; }
-  .hint { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
-  .float { position: absolute; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-    padding: 6px 10px; border-radius: 8px; background: rgba(20, 23, 30, .72); backdrop-filter: blur(4px);
-    font-size: 13px; opacity: .55; transition: opacity .15s; z-index: 4; }
-  .float:hover, .float:focus-within { opacity: 1; }
+  .map.plain { background: #000; }
+  /* Tool bubbles: same look and behaviour (pin, fade when the pointer rests). */
+  .tb { position: absolute; z-index: 4; display: flex; gap: 6px; align-items: center; padding: 5px 8px; border-radius: 10px;
+    background: rgba(20, 23, 30, .82); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, .06);
+    font-size: 12.5px; transition: opacity .25s; }
+  .tb.idle:not(:hover):not(:focus-within) { opacity: .25; }
+  /* Fullscreen, not pinned: hidden until hovered; a wider invisible margin around it catches the pointer. */
+  .tb.hide:not(:hover):not(:focus-within) { opacity: 0; }
+  .tb.hide::before { content: ""; position: absolute; inset: -28px; z-index: -1; }
+  .float { top: 12px; left: 50%; transform: translateX(-50%); flex-wrap: wrap; }
+  /* View controls, bottom right of the map (also in fullscreen). */
+  .bubble { right: 12px; bottom: 12px; }
+  .pin { padding: 2px 5px; font-size: 11px; background: none; border: 1px solid transparent; opacity: .45; filter: grayscale(1); }
+  .pin.on { opacity: 1; filter: none; border-color: var(--line); }
+  .bubble button { padding: 3px 8px; font-size: 12.5px; }
+  .bubble .zf { min-width: 30px; text-align: center; }
+  .bubble .pos { min-width: 120px; text-align: right; font-size: 11.5px; }
+  .help { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;
+    border: 1px solid var(--line); color: var(--muted); font-size: 11px; cursor: help; }
   .open-panel { position: absolute; z-index: 5; top: 10px; left: 10px; padding: 4px 10px; background: rgba(24, 27, 34, .9); }
   .exp { position: relative; }
   .pop { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; display: flex; flex-direction: column; gap: 6px;
@@ -807,12 +1038,18 @@
   .slider input { width: 100%; margin: 0; }
   .prow { display: flex; gap: 6px; }
   .prow button.on { border-color: var(--accent); }
+  .style-pop { width: 340px; }
   .pop p { margin: 0; font-size: 12px; word-break: break-all; }
   .toast { position: absolute; z-index: 7; left: 50%; top: 14px; transform: translateX(-50%); padding: 6px 14px; border-radius: 6px;
     background: rgba(24, 27, 34, .95); border: 1px solid var(--line); font-size: 13px; pointer-events: none; }
   .toast.ok { border-color: var(--ok); }
   .stale { position: absolute; z-index: 9; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 70%; padding: 6px 14px;
     border-radius: 8px; background: rgba(60, 40, 10, .95); border: 1px solid var(--warn); font-size: 13px; text-align: center; }
+  .perfwarn { position: absolute; z-index: 9; left: 50%; top: 52px; transform: translateX(-50%); max-width: min(640px, 80%);
+    display: flex; gap: 10px; align-items: center; padding: 5px 8px 5px 12px; border-radius: 8px; font-size: 12.5px;
+    background: rgba(24, 27, 34, .94); border: 1px solid var(--warn); }
+  .perfwarn.critical { border-color: var(--err); }
+  .perfwarn button { padding: 1px 7px; font-size: 11px; background: none; }
   .linemenu { position: absolute; z-index: 9; min-width: 200px; max-width: 300px; padding: 4px; border-radius: 8px;
     background: rgba(20, 23, 30, .97); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, .4); font-size: 12.5px; }
   .linemenu button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 3px 6px; background: none; border: none;

@@ -54,18 +54,6 @@ function data()
 									},
 								},
 							},
-							builtin.Button {
-								onClick = handlers.onCapture,
-								meta = {
-									class = "tfui-41f9b00b",
-								},
-								content = builtin.TextView {
-									text = handlers.t("capture_button"),
-									meta = {
-										class = "tfui-aa01aba4",
-									},
-								},
-							},
 							builtin.ProgressBar {
 								value = (function()
 	-- Evaluated during the Window render: installs the capture tick (react.onStep) here.

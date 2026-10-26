@@ -75,7 +75,7 @@
 </div>
 
 <style>
-  .card { position: absolute; z-index: 6; right: 12px; bottom: 30px; width: 252px; max-height: 65%; overflow: auto; padding: 9px 12px; border-radius: 10px;
+  .card { position: absolute; z-index: 6; right: 12px; top: 12px; width: 252px; max-height: 65%; overflow: auto; padding: 9px 12px; border-radius: 10px;
     background: rgba(22, 25, 32, .96); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0, 0, 0, .35); font-size: 13px; }
   .head { display: flex; justify-content: space-between; align-items: center; }
   .kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }

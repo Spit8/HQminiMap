@@ -132,35 +132,6 @@
                           }
                         },
                         {
-                          "id": "41f9b00b-7598-4430-ac28-fed452f50e8f",
-                          "type": "Button",
-                          "name": "CaptureButton",
-                          "props": {
-                            "onClick": {
-                              "kind": "handler",
-                              "fn": "onCapture"
-                            }
-                          },
-                          "meta": {},
-                          "slots": {
-                            "content": [
-                              {
-                                "id": "aa01aba4-96e6-4aa2-9df1-01c94cc25095",
-                                "type": "TextView",
-                                "name": "CaptureLabel",
-                                "props": {
-                                  "text": {
-                                    "kind": "lua",
-                                    "code": "handlers.t(\"capture_button\")"
-                                  }
-                                },
-                                "meta": {},
-                                "slots": {}
-                              }
-                            ]
-                          }
-                        },
-                        {
                           "id": "117fdece-18df-4939-ab42-8fe61bd955cf",
                           "type": "ProgressBar",
                           "name": "Progress",

@@ -5,7 +5,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DEFAULT_CONFIG, type MosaicConfig } from "$lib/core/geometry";
 import {
-  luaNum, luaStr, parseBounds, parseCaptureIndex, parseHeightmap, parseMapCells, parsePlan, type Bounds, type Heightmap,
+  luaNum, luaStr, parseBounds, parseCaptureIndex, parseHeightmap, parseMapCells, parsePlan, parseWaterGrid, type Bounds, type Heightmap,
 } from "$lib/core/lua";
 import { fileStat, readText } from "$lib/platform/fsx";
 import { capturePlanPath, detectUserdata, exportFile, gamePaths, type GamePaths } from "$lib/platform/paths";
@@ -40,6 +40,19 @@ export interface LastCapture {
   error: string | null;
 }
 
+/** A config saved before the capture modes was set by hand: it stays as it is (custom mode). */
+function withMode(cfg: MosaicConfig, saved: boolean): MosaicConfig {
+  return cfg.MODE || !saved ? cfg : { ...cfg, MODE: "custom" };
+}
+
+function hasSaved(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Capture timing is not user-tunable any more: drop overrides saved by earlier versions. */
 function withoutTimingOverrides(cfg: MosaicConfig): MosaicConfig {
   const { SEG_DUR: _s, SHOT_OFFSET: _o, ENV_SETTLE_SEC: _e, SPEED_PRESET: _p, ...rest } = cfg;
@@ -66,7 +79,7 @@ function saveJson(key: string, value: unknown): void {
 class AppState {
   settings = $state(loadJson(LS_SETTINGS, { userdata: "", modDir: "" }));
   candidates = $state<string[]>([]);
-  config = $state<MosaicConfig>(withoutTimingOverrides(loadJson(LS_CONFIG, DEFAULT_CONFIG)));
+  config = $state<MosaicConfig>(withMode(withoutTimingOverrides(loadJson(LS_CONFIG, DEFAULT_CONFIG)), hasSaved(LS_CONFIG)));
   map = $state<MapData | null>(null);
   /** Translation key of the map loading problem, if any. */
   mapError = $state<"map.unreadable" | "map.noRelief" | null>(null);
@@ -99,12 +112,21 @@ class AppState {
     }
   }
 
+  private idxMtime = 0;
   /** Re-read capture_plan.lua (on change) and capture_index.lua: drives the workflow steps. */
   async refreshCapture(): Promise<void> {
     const p = this.paths;
     if (!p) return;
-    const idxText = await readText(await exportFile(p, "capture_index"));
-    if (idxText) {
+    // Read again only when it changed (this runs every 1.5 s).
+    const idxPath = await exportFile(p, "capture_index");
+    const idxStat = await fileStat(idxPath);
+    const changedIdx = !!idxStat && idxStat.mtimeMs !== this.idxMtime;
+    const idxText = changedIdx ? await readText(idxPath) : null;
+    // Being written (empty): read again next time.
+    if (idxText) this.idxMtime = idxStat!.mtimeMs;
+    if (idxStat && !idxText) {
+      /* unchanged */
+    } else if (idxText) {
       const idx = parseCaptureIndex(idxText);
       const next: LastCapture = {
         startedAt: idx.startedAt, planStamp: idx.planStamp, finished: idx.finishedAt != null,
@@ -182,6 +204,7 @@ class AppState {
       }
       const hmText = await readText(await exportFile(p, "heightmap"));
       const hm = (hmText && parseHeightmap(hmText)) || parseMapCells(mapText);
+      if (hm) hm.waterGrid = parseWaterGrid(mapText);
       if (!hm) {
         this.mapError = "map.noRelief";
         return;

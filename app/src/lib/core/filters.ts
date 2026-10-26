@@ -35,7 +35,51 @@ export interface FilterState {
   stockMin: number;
   /** Individually hidden objects: "<layer>:<id>". */
   hidden: string[];
+  /** Relief of the heightmap, as colours by altitude and / or contour lines. */
+  relief: Relief;
+  /** Ortho image shown; off: black background, water and map outline only. */
+  basemap: boolean;
 }
+
+export type ReliefMode = "colors" | "lines" | "both";
+export const RELIEF_MODES: ReliefMode[] = ["colors", "lines", "both"];
+/** Altitude → colour scale: equalised histogram (each colour covers as much ground), linear, √, log. */
+export type ReliefScale = "equalize" | "linear" | "sqrt" | "log";
+export const RELIEF_SCALES: ReliefScale[] = ["equalize", "linear", "sqrt", "log"];
+
+export interface Relief {
+  show: boolean;
+  mode: ReliefMode;
+  /** Contour interval in m, 0 = automatic. */
+  step: number;
+  /** Contour line width factor (0.5–3). */
+  width: number;
+  /** Altitudes along the index contours. */
+  labels: boolean;
+  /** Colour stops from the lowest to the highest ground (2–6), each with its own opacity. */
+  stops: ReliefStop[];
+  /** Overall opacity of the colour layer (0.1–1), multiplying the stops' own. */
+  opacity: number;
+  scale: ReliefScale;
+  /** Shifts the colours towards the low (< 0) or the high (> 0) colour, −1…1. */
+  balance: number;
+}
+
+export interface ReliefStop {
+  /** #rrggbb */
+  color: string;
+  /** 0–1: dark colours need more (black barely shows when half transparent). */
+  alpha: number;
+}
+
+/** Default relief colours: green, (yellow), red, violet, black; more opaque towards the dark end. */
+export const RELIEF_STOPS: ReliefStop[] = [
+  { color: "#3cb44b", alpha: 0.45 }, { color: "#e04040", alpha: 0.55 }, { color: "#8e44c8", alpha: 0.7 }, { color: "#000000", alpha: 0.85 },
+];
+export const RELIEF_STOPS_MAX = 6;
+
+/** Contour intervals offered (m); 0 = automatic. */
+export const CONTOUR_STEPS = [0, 5, 10, 25, 50, 100];
 
 export const DEFAULT_FILTERS: FilterState = {
   version: 1,
@@ -54,6 +98,8 @@ export const DEFAULT_FILTERS: FilterState = {
   labels: { towns: true, industries: false, warehouses: false, stations: true, lines: false, vehicles: false },
   stockMin: 0,
   hidden: [],
+  basemap: true,
+  relief: { show: true, mode: "lines", step: 0, width: 1, labels: false, stops: RELIEF_STOPS.map((s) => ({ ...s })), opacity: 1, scale: "equalize", balance: 0 },
 };
 
 export interface LiveData {
@@ -87,6 +133,32 @@ export const stockTotal = (stocks: Stock[] | undefined) => (stocks ?? []).reduce
 /** Loaded + unloaded per year (0 until live_stats is read). */
 export const stationTraffic = (s: Station) => (s.traffic ? s.traffic.loaded + s.traffic.unloaded : 0);
 
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/**
+ * Valid colour stops. Earlier settings: a list of colours with one overall opacity (each stop takes
+ * that opacity, the overall one goes to 1), or two colours low / high (kept as the stops if changed).
+ */
+function normalizeRelief(saved: Partial<Relief> & { low?: string; high?: string; colors?: string[] }): Relief {
+  const { low, high, colors, ...rest } = saved;
+  const r = { ...DEFAULT_FILTERS.relief, ...rest, stops: saved.stops };
+  const clamp01 = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d);
+  let stops = Array.isArray(r.stops)
+    ? r.stops.filter((s) => s && HEX.test(s.color)).map((s) => ({ color: s.color, alpha: clamp01(s.alpha, 0.6) }))
+    : [];
+  let opacity = clamp01(r.opacity, 1);
+  if (!stops.length) {
+    const old = Array.isArray(colors) ? colors.filter((c) => HEX.test(c))
+      : low && high && HEX.test(low) && HEX.test(high) && !(low === "#3cb44b" && high === "#e04040") ? [low, high] : [];
+    if (old.length >= 2) {
+      stops = old.map((color) => ({ color, alpha: opacity }));
+      opacity = 1;
+    }
+  }
+  stops = stops.slice(0, RELIEF_STOPS_MAX);
+  return { ...r, stops: stops.length >= 2 ? stops : RELIEF_STOPS.map((s) => ({ ...s })), opacity: Math.max(0.1, opacity) };
+}
+
 /** Fill missing fields (configurations saved by older versions). */
 export function normalizeFilters(f: Partial<FilterState> | null | undefined): FilterState {
   const base = structuredClone(DEFAULT_FILTERS);
@@ -94,8 +166,10 @@ export function normalizeFilters(f: Partial<FilterState> | null | undefined): Fi
   // Older configurations had a single "traffic labels" switch for stations.
   const legacyTraffic = (f as { showTraffic?: boolean }).showTraffic;
   const labels = { ...base.labels, ...(legacyTraffic ? { stations: true } : {}), ...(f.labels ?? {}) };
-  const { showTraffic: _drop, ...rest } = f as Partial<FilterState> & { showTraffic?: boolean };
-  return { ...base, ...rest, version: 1, layers: { ...base.layers, ...(f.layers ?? {}) }, labels };
+  // The relief was "contours" (lines only) before the colours.
+  const { showTraffic: _drop, contours: oldRelief, ...rest } = f as Partial<FilterState> & { showTraffic?: boolean; contours?: Partial<Relief> };
+  return { ...base, ...rest, version: 1, layers: { ...base.layers, ...(f.layers ?? {}) }, labels,
+    relief: normalizeRelief({ ...(oldRelief ?? {}), ...(f.relief ?? {}) }) };
 }
 
 /** Objects to draw for this filter state. */

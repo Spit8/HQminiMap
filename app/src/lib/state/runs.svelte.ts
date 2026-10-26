@@ -2,12 +2,19 @@
  * Capture runs: while the mod captures, its screenshots are moved from <UD>/screenshots into
  * <UD>/hqminimap/runs/<startedAt>/tile_pPP_SSS.png, together with the plan and heightmap the
  * capture used. Each tile is paired with its file by the shot wall time the mod records
- * (capture_index.shotTimes) and the time in the file name, so the player's own screenshots are
- * never taken nor touched. Also lists past runs (label, ortho).
+ * (capture_index.shotTimes) and the time in the file name, then moved out of screenshots. Only
+ * images taken within the scan's time span (a second before its first shot to two after its last)
+ * are candidates: the player's own screenshots, taken outside a scan, are never touched. Captures are
+ * searched only while recent (RUN_MAX_AGE_SEC, FINISHED_GRACE_SEC), and settled or deleted ones
+ * are remembered on disk (runs_done.json), so an old capture is never searched again.
+ * Also lists past runs (label, ortho).
  */
 import { parseCaptureIndex, type CaptureIndex } from "$lib/core/lua";
 import { fmtDate } from "$lib/i18n/index.svelte";
-import { matchShots, runShots, tileNameFor } from "$lib/core/tiles";
+import {
+  COUNTER_MAX_LAG_SEC, counterBase, matchByCounter, matchShots, MIN_FILE_AGE_MS, parseShotName, runShots,
+  SHOT_MATCH_BEFORE_SEC, tileNameFor,
+} from "$lib/core/tiles";
 import {
   baseName, copy, ensureDir, fileExists, fileStat, joinPath, listFiles, readText, removeDir, removeFile, writeText,
   type DirFile,
@@ -16,6 +23,12 @@ import { capturePlanPath, exportFile, type GamePaths } from "$lib/platform/paths
 import { readDir } from "@tauri-apps/plugin-fs";
 
 const POLL_MS = 1000;
+/** A capture never seen by this app (no run folder) is collected only if it started this recently, s. */
+const RUN_MAX_AGE_SEC = 2 * 3600;
+/** A finished capture is searched this long after its end (files written late), s. */
+const FINISHED_GRACE_SEC = 600;
+/** <UD>/hqminimap/runs_done.json: captures settled for good or deleted (survives the browser storage). */
+const DONE_FILE = "runs_done.json";
 /** Runs the user deleted: the collector must not recreate them from capture_index.lua. */
 const LS_DELETED = "hq.deletedRuns";
 
@@ -38,8 +51,10 @@ export interface RunMeta {
   zEye?: number;
   expected: number;
   collected: number;
-  /** Screenshots taken during the run that belong to no tile (left in place). */
+  /** Images of the run's time span that belong to no tile (moved into extras/). */
   extras?: number;
+  /** Game counter (img_N) of the run's first image: tile k is image base + k. */
+  counterBase?: number;
   finished: boolean;
   error: string | null;
   /** Pyramid present (ortho exported). */
@@ -67,9 +82,36 @@ class RunsState {
   private collected = new Set<string>();
   private extras = new Set<string>();
   private zEye: number | undefined;
+  /** Game counter of the live run's first image (null: not known yet). */
+  private counterBase: number | null = null;
   /** Plan + heightmap of the live run are in its folder. */
   private inputsReady = false;
   private deleted = loadDeleted();
+  /** Captures settled for good (finished and past their grace time, too old, or deleted), from DONE_FILE. */
+  private done = new Set<string>();
+  private doneLoaded = false;
+
+  private async loadDone(p: GamePaths): Promise<void> {
+    if (this.doneLoaded) return;
+    this.doneLoaded = true;
+    try {
+      const raw = await readText(joinPath(p.exportDir, DONE_FILE));
+      for (const id of raw ? (JSON.parse(raw) as string[]) : []) this.done.add(String(id));
+    } catch {
+      /* missing or unreadable: rebuilt as captures settle */
+    }
+  }
+
+  private async markDone(ids: string[]): Promise<void> {
+    const p = this.paths;
+    for (const id of ids) this.done.add(id);
+    if (!p) return;
+    try {
+      await writeText(joinPath(p.exportDir, DONE_FILE), JSON.stringify([...this.done]));
+    } catch (err) {
+      console.warn(DONE_FILE, err);
+    }
+  }
 
   get runsDir(): string | null {
     return this.paths?.runsDir ?? null;
@@ -80,6 +122,8 @@ class RunsState {
     this.collected.clear();
     this.extras.clear();
     this.liveId = null;
+    this.doneLoaded = false;
+    this.done.clear();
     if (!this.timer) this.timer = setInterval(() => void this.tick(), POLL_MS);
     void this.refreshList();
   }
@@ -96,44 +140,77 @@ class RunsState {
     }
   }
 
+  /** capture_index.lua as last parsed, and its modification time (parsed again only when it changes). */
+  private idx: { mtimeMs: number; idx: CaptureIndex } | null = null;
+
   private async collect(p: GamePaths): Promise<void> {
-    const idxText = await readText(await exportFile(p, "capture_index"));
-    if (!idxText) return;
-    const idx: CaptureIndex = parseCaptureIndex(idxText);
+    const idxPath = await exportFile(p, "capture_index");
+    const st = await fileStat(idxPath);
+    if (!st) return;
+    if (this.idx?.mtimeMs !== st.mtimeMs) {
+      const idxText = await readText(idxPath);
+      if (!idxText) return;
+      this.idx = { mtimeMs: st.mtimeMs, idx: parseCaptureIndex(idxText) };
+    }
+    const idx = this.idx.idx;
     if (!idx.startedAt || idx.nX < 1 || idx.nY < 1) return;
     const id = String(idx.startedAt);
-    if (this.deleted.has(id)) {
-      if (this.live?.id === id) this.live = null;
+    await this.loadDone(p);
+    if (this.deleted.has(id) || this.done.has(id)) {
+      if (this.live?.id === id && this.deleted.has(id)) this.live = null;
       return;
     }
     const dir = joinPath(p.runsDir, id);
     const expected = idx.nX * idx.nY * idx.pitchCount;
+    const nowSec = Date.now() / 1000;
+    // An old capture this app never collected: never (re)create its folder nor search for it.
+    if (this.liveId !== id && nowSec - idx.startedAt > RUN_MAX_AGE_SEC && !(await fileExists(joinPath(dir, "run.json")))) {
+      await this.markDone([id]);
+      return;
+    }
+    // Finished long ago: settled, the screenshots are no longer searched.
+    if (idx.finishedAt != null && nowSec - idx.finishedAt > FINISHED_GRACE_SEC) {
+      await this.markDone([id]);
+      return;
+    }
     if (this.liveId !== id) {
       // New run (or first sight of it): reload what is already there.
       this.liveId = id;
       this.inputsReady = false;
       this.collected.clear();
       this.extras.clear();
+      this.counterBase = null;
       await ensureDir(dir);
       for (const f of await listFiles(dir, /^tile_p\d+_\d+\.\w+$/)) this.collected.add(f.name);
+      try {
+        const saved = JSON.parse((await readText(joinPath(dir, "run.json"))) ?? "{}") as RunMeta;
+        if (typeof saved.counterBase === "number") this.counterBase = saved.counterBase;
+      } catch {
+        /* no run.json yet */
+      }
     }
     if (!this.inputsReady) this.inputsReady = await this.snapshotInputs(p, dir, idx);
     const done = idx.finishedAt != null;
-    const complete = this.collected.size >= Math.min(expected, idx.shotsTaken || expected);
-    if (!(done && complete && this.live?.id === id && this.live.finished)) {
-      await this.collectShots(p, idx, dir);
-    }
+    // Until the capture settles (FINISHED_GRACE_SEC after its end): late files, then its extras.
+    await this.collectShots(p, idx, dir);
     const meta: RunMeta = {
       id, startedAt: idx.startedAt, nX: idx.nX, nY: idx.nY, pitchCount: idx.pitchCount, zEye: this.zEye,
       expected, collected: this.collected.size, extras: this.extras.size, finished: done, error: idx.error,
-      hasOrtho: false, dir,
+      counterBase: this.counterBase ?? undefined, hasOrtho: false, dir,
     };
     const prev = this.live;
     this.live = meta;
     if (!prev || prev.id !== id || prev.collected !== meta.collected || prev.finished !== done
-      || prev.extras !== meta.extras) {
+      || prev.extras !== meta.extras || prev.counterBase !== meta.counterBase) {
       await this.saveRunJson(meta);
-      await this.refreshList();
+      // Only the live run's counts changed (one more tile): update its entry, no rereading of
+      // every run's files; a new or finished run reloads the list.
+      const at = this.runs.findIndex((r) => r.id === id);
+      if (prev?.id === id && prev.finished === done && at >= 0) {
+        this.runs = this.runs.map((r, i) => (i === at ? { ...r, ...meta, hasOrtho: r.hasOrtho, orthoVersion: r.orthoVersion } : r));
+      } else {
+        await this.refreshList();
+      }
     }
   }
 
@@ -163,19 +240,38 @@ class RunsState {
 
   /** Copy (then remove from screenshots) the files of the tiles not collected yet. */
   private async collectShots(p: GamePaths, idx: CaptureIndex, dir: string): Promise<void> {
-    const files = await listFiles(p.screenshots);
+    // PNG only: the ortho reads PNG captures (the game's default format).
+    const files = (await listFiles(p.screenshots)).filter((f) => /\.png$/i.test(f.name));
     const now = Date.now();
     const nameOf = (k: number, f: DirFile) =>
       tileNameFor(k + 1, idx.nX, idx.nY, f.name.slice(f.name.lastIndexOf("."))).name;
     if (idx.shotTimes.length) {
       // Pair only the tiles still missing (collected files are already gone from screenshots).
       const pending = idx.shotTimes.map((_, k) => k).filter((k) => !this.collected.has(tileNameFor(k + 1, idx.nX, idx.nY).name));
-      if (!pending.length) return;
+      // Pairing by the game's counter (img_N): its base is found once, while nothing is collected
+      // yet (the first image still in screenshots), then kept in run.json.
+      if (this.counterBase === null && this.collected.size === 0) {
+        this.counterBase = counterBase(files, idx.startedAt!, idx.shotTimes);
+      }
+      if (this.counterBase !== null && pending.length) {
+        const got = matchByCounter(files, this.counterBase, pending, idx.shotTimes, now);
+        for (let i = 0; i < pending.length; i++) {
+          const f = got[i];
+          if (f) await this.take(f, joinPath(dir, nameOf(pending[i], f)), true);
+        }
+      }
+      // Scan over (and its last files written): what is left of its time span goes to extras/.
+      if (idx.finishedAt != null && now / 1000 - idx.finishedAt > COUNTER_MAX_LAG_SEC) {
+        await this.stowExtras(await listFiles(p.screenshots), idx, dir, now);
+        return;
+      }
+      if (this.counterBase !== null || !pending.length) return;
+      // No counter in the names: pairing by time.
       const m = matchShots(files, pending.map((k) => idx.shotTimes[k]), now);
       for (const f of m.extras) this.extras.add(f.name);
       for (let i = 0; i < pending.length; i++) {
         const f = m.matches[i];
-        if (!f) continue;
+        if (!f || m.certainty[i] === "wait") continue;
         this.extras.delete(f.name);
         await this.take(f, joinPath(dir, nameOf(pending[i], f)), true);
       }
@@ -189,12 +285,32 @@ class RunsState {
     }
   }
 
+  /**
+   * Scan over: images still in screenshots within its time span (from its start to its end plus
+   * the write delay) are the scan's (nobody takes screenshots during a scan): moved into the run's
+   * extras/ folder rather than left behind, failed scans included. Nothing outside the span is touched.
+   */
+  private async stowExtras(files: DirFile[], idx: CaptureIndex, dir: string, nowMs: number): Promise<void> {
+    const lo = idx.startedAt! - SHOT_MATCH_BEFORE_SEC;
+    const hi = Math.max(idx.finishedAt ?? 0, ...idx.shotTimes) + COUNTER_MAX_LAG_SEC;
+    const ours = files.filter((f) => {
+      const t = parseShotName(f.name)?.time;
+      return t !== undefined && t >= lo && t <= hi && nowMs - f.mtimeMs >= MIN_FILE_AGE_MS;
+    });
+    if (!ours.length) return;
+    await ensureDir(joinPath(dir, "extras"));
+    for (const f of ours) {
+      await this.take(f, joinPath(dir, "extras", f.name), true, false);
+      this.extras.add(f.name);
+    }
+  }
+
   /** Copy a screenshot into the run, verify it, then (move=true) remove the original. */
-  private async take(f: DirFile, dest: string, move: boolean): Promise<void> {
+  private async take(f: DirFile, dest: string, move: boolean, tile = true): Promise<void> {
     await copy(f.path, dest);
     const st = await fileStat(dest);
     if (!st || st.size !== f.size) return; // retried next tick
-    this.collected.add(baseName(dest));
+    if (tile) this.collected.add(baseName(dest));
     if (move) await removeFile(f.path);
   }
 
@@ -252,8 +368,9 @@ class RunsState {
     try {
       localStorage.setItem(LS_DELETED, JSON.stringify([...this.deleted]));
     } catch {
-      /* storage unavailable: still skipped for this session */
+      /* storage unavailable: still skipped for this session (and remembered on disk below) */
     }
+    await this.markDone(ids);
     // Let a collector tick in progress finish before removing what it may be writing.
     while (this.busy) await new Promise((r) => setTimeout(r, 50));
     const failed: string[] = [];

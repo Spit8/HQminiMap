@@ -1,5 +1,5 @@
 /**
- * Small previews of the captured screenshots (TileLab grid): decoded once, scaled down to THUMB_W
+ * Small previews of the captured screenshots (GridLab › Captures): decoded once, scaled down to THUMB_W
  * and re-encoded as JPEG, so the full 2560 × 1080 bitmaps are not kept in memory.
  */
 const THUMB_W = 320;

@@ -83,5 +83,22 @@ describe("filters", () => {
     expect(n.stationModes).toEqual(DEFAULT_FILTERS.stationModes);
     expect(n.lineModes).toEqual(DEFAULT_FILTERS.lineModes);
     expect(n.stationMinTraffic).toBe(0);
+    // Saved before the relief existed: shown, automatic interval; a partial setting is completed.
+    expect(n.relief).toEqual(DEFAULT_FILTERS.relief);
+    expect(n.relief.mode).toBe("lines");
+    expect(n.basemap).toBe(true);
+    // Older "contours" setting (lines only) carried over.
+    const old = normalizeFilters({ contours: { show: false, step: 25 } } as unknown as Partial<FilterState>);
+    expect(old.relief).toEqual({ ...DEFAULT_FILTERS.relief, show: false, step: 25 });
+    expect("contours" in old).toBe(false);
+    // Two-colour settings of the previous version: changed colours kept as the stops.
+    const two = normalizeFilters({ relief: { low: "#112233", high: "#445566", opacity: 0.5 } } as unknown as Partial<FilterState>);
+    expect(two.relief.stops).toEqual([{ color: "#112233", alpha: 0.5 }, { color: "#445566", alpha: 0.5 }]);
+    expect(two.relief.opacity).toBe(1);
+    expect(normalizeFilters({ relief: { low: "#3cb44b", high: "#e04040" } } as unknown as Partial<FilterState>).relief.stops)
+      .toEqual(DEFAULT_FILTERS.relief.stops);
+    // A list of colours with one overall opacity (previous step).
+    const list = normalizeFilters({ relief: { colors: ["#000000", "#ffffff", "nope"], opacity: 0.45 } } as unknown as Partial<FilterState>);
+    expect(list.relief.stops).toEqual([{ color: "#000000", alpha: 0.45 }, { color: "#ffffff", alpha: 0.45 }]);
   });
 });

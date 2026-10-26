@@ -84,7 +84,11 @@ async function run(msg: StartMsg): Promise<void> {
     const missing = need.filter((s) => !cache.has(s));
     if (missing.length) {
       for (const t of await requestTiles(missing)) {
-        cache.set(t.seq, t.bytes.length ? toRgba(decode(t.bytes)) : null);
+        const img = t.bytes.length ? toRgba(decode(t.bytes)) : null;
+        // Every capture must have the size of the others (a resolution change mid-capture would
+        // be misprojected): the plan carries the real size, read from the first capture.
+        if (img && (img.width !== msg.plan.screenW || img.height !== msg.plan.screenH)) throw new Error("resolutionMismatch");
+        cache.set(t.seq, img);
       }
       for (const s of missing) if (!cache.has(s)) cache.set(s, null);
     }

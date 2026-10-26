@@ -121,6 +121,9 @@ function dp(pts: Pt[], tol: number): Pt[] {
   return [...dp(pts.slice(0, idx + 1), tol).slice(0, -1), ...dp(pts.slice(idx), tol)];
 }
 
+/** Douglas-Peucker on an open polyline (ends kept). */
+export const simplifyLine = (pts: Pt[], tol: number): Pt[] => dp(pts, tol);
+
 /** Douglas-Peucker on a closed ring (split at its farthest point from the first). */
 export function simplifyRing(r: Pt[], tol: number): Pt[] {
   if (r.length < 4) return r;

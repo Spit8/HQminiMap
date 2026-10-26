@@ -33,6 +33,13 @@ export function aspectName(w: number, h: number): string {
   return `${w / g}:${h / g}`;
 }
 
-/** Same aspect ratio within `tol` (relative)? Captures of another size but the same shape are fine. */
-export const sameAspect = (w1: number, h1: number, w2: number, h2: number, tol = 0.01) =>
-  Math.abs(w1 / h1 - w2 / h2) / (w2 / h2) <= tol;
+/**
+ * Do captures of (w, h) fit a grid planned for (pw, ph)? Same shape, any size: captures of another
+ * size are reprojected. Narrower than planned (beyond rounding, 0.1 %) leaves gaps between
+ * neighbouring images (the grid has no overlap to spare): refused. Slightly wider (≤ 1 %) only
+ * overlaps more: accepted.
+ */
+export const sameAspect = (w: number, h: number, pw: number, ph: number) => {
+  const r = w / h, p = pw / ph;
+  return r >= p * (1 - 0.001) && r <= p * (1 + 0.01);
+};

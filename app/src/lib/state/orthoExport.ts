@@ -158,7 +158,9 @@ export function exportOrtho(
           } else if (m.type === "done") {
             resolve({ m });
           } else if (m.type === "error") {
-            reject(new Error(m.message));
+            // Known failures come back as their key (translated), the others with their stack.
+            const known = /\b(resolutionMismatch)\b/.exec(String(m.message));
+            reject(new Error(known ? known[1] : m.message));
           }
         }).catch(reject);
       };

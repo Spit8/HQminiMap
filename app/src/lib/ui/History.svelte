@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { t } from "$lib/i18n/index.svelte";
   import { joinPath } from "$lib/platform/fsx";
@@ -23,16 +24,23 @@
   const allChecked = $derived(deletable.length > 0 && deletable.every((r) => selected.has(r.id)));
   const totalSize = $derived(Object.values(sizes).reduce((a, b) => a + b, 0));
 
-  // Sizes are computed in the background (thousands of pyramid tiles per run).
-  let sizedFor = "";
+  // Sizes are computed in the background (thousands of pyramid tiles per run), only for runs that
+  // changed since (not at every tile of a capture in progress: once it is finished).
+  const sizedFor = new Map<string, string>();
   $effect(() => {
-    const key = runs.runs.map((r) => `${r.id}:${r.collected}:${r.hasOrtho}`).join(",");
-    if (key === sizedFor) return;
-    sizedFor = key;
+    const list = runs.runs;
     void (async () => {
-      const next: Record<string, number> = {};
-      for (const r of runs.runs) next[r.id] = await runs.dirSize(r);
-      sizes = next;
+      const next: Record<string, number> = { ...untrack(() => sizes) };
+      for (const id of Object.keys(next)) if (!list.some((r) => r.id === id)) delete next[id];
+      let changed = false;
+      for (const r of list) {
+        const key = `${r.collected}:${r.hasOrtho}:${r.orthoVersion ?? ""}:${r.finished}`;
+        if (sizedFor.get(r.id) === key || (!r.finished && next[r.id] !== undefined)) continue;
+        sizedFor.set(r.id, key);
+        next[r.id] = await runs.dirSize(r);
+        changed = true;
+      }
+      if (changed || Object.keys(next).length !== Object.keys(untrack(() => sizes)).length) sizes = next;
     })();
   });
 
@@ -71,11 +79,12 @@
   }
 </script>
 
-<section class="card wide">
+<section class="card">
   <h3>{t("history.title")}</h3>
   {#if !runs.runs.length}
     <p class="dim">{t("history.empty")}</p>
   {:else}
+    <div class="list">
     <table>
       <thead>
         <tr>
@@ -97,6 +106,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
     <div class="row">
       <button disabled={busy || !selected.size} onclick={() => remove(runs.runs.filter((r) => selected.has(r.id)))}>
         {t("history.deleteSel", { n: selected.size })}</button>
@@ -108,11 +118,15 @@
 </section>
 
 <style>
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 8px; }
-  th, td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line); }
+  /* A box like the other cards: the list scrolls past a dozen sessions. */
+  .list { max-height: 300px; overflow: auto; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 3px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td:nth-child(2) { white-space: normal; }
+  thead th { position: sticky; top: 0; background: var(--panel); }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   .num { text-align: right; }
   tr.locked td { opacity: .7; }
-  .row { display: flex; gap: 8px; align-items: center; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   p { margin: 4px 0; font-size: 13px; }
 </style>

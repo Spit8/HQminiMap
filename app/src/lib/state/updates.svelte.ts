@@ -23,7 +23,7 @@ const LS_LAST = "hq.updates.lastCheck";
 const AUTO_DELAY_MS = 5000;
 
 export type UpdatePhase = "idle" | "checking" | "upToDate" | "available" | "downloading" | "installing" | "error";
-export type UpdateError = "network" | "signature" | "install" | "other";
+export type UpdateError = "network" | "notFound" | "signature" | "install" | "other";
 
 export interface AvailableUpdate {
   version: string;
@@ -54,9 +54,11 @@ function save(key: string, value: string | null): void {
   }
 }
 
-function errorCode(err: unknown): UpdateError {
+export function errorCode(err: unknown): UpdateError {
   const msg = String(err).toLowerCase();
   if (msg.includes("signature")) return "signature";
+  // No public release (private repository, or none published yet): not a connection problem.
+  if (/\b404\b|not found/.test(msg)) return "notFound";
   if (/network|fetch|request|connect|dns|timed out|http/.test(msg)) return "network";
   return "other";
 }
@@ -143,7 +145,7 @@ class Updates {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: "application/vnd.github+json" },
     });
-    if (!res.ok) throw new Error(`network: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rel = (await res.json()) as { tag_name: string; html_url: string; published_at?: string };
     if (!isNewer(rel.tag_name, this.current)) return null;
     return { version: rel.tag_name.replace(/^v/, ""), url: rel.html_url, date: rel.published_at };

@@ -12,10 +12,10 @@ import { fmtF, fmtG } from "./pyfmt";
 /** CameraFrame nadir pitch (−4.5π − 3.3e-5; probe-locked, see docs/agent-memory). */
 export const NADIR_PITCH = -14.1372;
 export const CUTSCENE_PREFIX = "hqminimap::/hqminimap/cutscenes/mosaic_run_p";
-/** Seconds per tile segment. */
-export const SEG_DUR = 1;
-/** Screenshot time inside the stationary hold [HOLD_EPS, SEG_DUR − TRANSIT − HOLD_EPS]. */
-export const SHOT_OFFSET = 0.25;
+/** Seconds per tile segment (1 s was the validated reference; 25 % slower since the game skipped tiles, HQ-044). */
+export const SEG_DUR = 1.25;
+/** Screenshot time inside the stationary hold [HOLD_EPS, SEG_DUR − TRANSIT − HOLD_EPS] (scaled with SEG_DUR). */
+export const SHOT_OFFSET = 0.3125;
 /** Duplicate keyframe spacing at each end of a hold. */
 export const HOLD_EPS = 0.02;
 /** Seconds between hold end and next tile. */
@@ -38,7 +38,14 @@ export const CAPTURE_PRESETS: Record<"normal" | "fast" | "fastest", CaptureTimin
   fastest: { segDur: 0.25, shotOffset: 0.12, envSettleSec: 0.5 },
 };
 /** Shortest tile segment accepted (s). */
-export const MIN_SEG_DUR = 0.2;
+export const MIN_SEG_DUR = 0.05;
+
+/**
+ * Transit and hold margins of a segment: the reference values, scaled down for segments shorter
+ * than 0.25 s (otherwise no still hold would be left).
+ */
+export const transitOf = (segDur: number) => (segDur >= 0.25 ? TRANSIT : segDur * 0.2);
+export const holdEpsOf = (segDur: number) => (segDur >= 0.25 ? HOLD_EPS : segDur * 0.05);
 
 /** Timing of a config (reference constants when not set). */
 export function captureTiming(cfg: MosaicConfig): CaptureTiming {
@@ -57,8 +64,9 @@ export type TimingIssue =
 /** Why this timing cannot be written (null = OK): the shot must fall inside the still hold. */
 export function timingIssue(t: CaptureTiming): TimingIssue | null {
   if (!(t.segDur >= MIN_SEG_DUR)) return { kind: "segTooShort", min: MIN_SEG_DUR };
-  const max = Math.round((t.segDur - TRANSIT - HOLD_EPS) * 1000) / 1000;
-  if (!(t.shotOffset >= HOLD_EPS && t.shotOffset <= max)) return { kind: "shotOutsideHold", min: HOLD_EPS, max };
+  const eps = holdEpsOf(t.segDur);
+  const max = Math.round((t.segDur - transitOf(t.segDur) - eps) * 1000) / 1000;
+  if (!(t.shotOffset >= eps && t.shotOffset <= max)) return { kind: "shotOutsideHold", min: eps, max };
   if (!(t.envSettleSec >= 0)) return { kind: "negativeSettle" };
   return null;
 }
@@ -94,16 +102,16 @@ export function renderCutscene(mo: Mosaic, pitch = NADIR_PITCH, pitchIdx = 1,
     `-- Pitch #${pitchIdx} = ${fmtG(pitch, 10)}; grid ${cfg.GRID_NX}x${cfg.GRID_NY}; ` +
       `Z_eye=${fmtF(cfg.Z_EYE, 0)} Z_ref=${fmtF(mo.zRef, 3)} h=${fmtF(g.h, 3)}; ` +
       `step=${fmtF(mo.stepX, 4)}x${fmtF(mo.stepY, 4)}.`,
-    "-- Do not hand-edit: change the grid in HQminiMap (GridLab) and write it to the mod again.",
+    "-- Do not hand-edit: change the grid in HQminiMap (GridLab) and schedule the scan again.",
     "function data()",
     "\tlocal camera = {}",
   ];
   const { segDur } = captureTiming(cfg);
-  const holdEnd = segDur - TRANSIT;
+  const holdEnd = segDur - transitOf(segDur), eps = holdEpsOf(segDur);
   mo.centers.forEach((c, seg) => {
     const t0 = seg * segDur;
     // 4 identical keys: the middle segment [t0+eps, t0+holdEnd-eps] has zero tangents.
-    for (const t of [t0, t0 + HOLD_EPS, t0 + holdEnd - HOLD_EPS, t0 + holdEnd]) {
+    for (const t of [t0, t0 + eps, t0 + holdEnd - eps, t0 + holdEnd]) {
       lines.push(keyframe(t, c.x, c.y, cfg.Z_EYE, pitch, mo.key));
     }
   });
@@ -140,8 +148,8 @@ export function renderPlan(mo: Mosaic, meta: PlanMeta, pitches: number[] = [NADI
     `M.h = ${fmtG(g.h, 8)}\n` +
     `M.segDur = ${fmtG(tm.segDur, 6)}\n` +
     `M.shotOffset = ${fmtG(tm.shotOffset, 6)}\n` +
-    `M.holdEps = ${fmtG(HOLD_EPS, 6)}\n` +
-    `M.transit = ${fmtG(TRANSIT, 6)}\n` +
+    `M.holdEps = ${fmtG(holdEpsOf(tm.segDur), 6)}\n` +
+    `M.transit = ${fmtG(transitOf(tm.segDur), 6)}\n` +
     `M.envSettleSec = ${fmtG(tm.envSettleSec, 6)}\n` +
     (cfg.SPEED_PRESET ? `M.speedPreset = "${cfg.SPEED_PRESET}"\n` : "") +
     `M.fovY = ${fmtG(mo.key, 10)}\n` +

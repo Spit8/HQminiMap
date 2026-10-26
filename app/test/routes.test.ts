@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { clampInterval, parseRoutes, parseStats, parseStocks, parseVehicles } from "../src/lib/core/live";
-import { buildRoutes, chain, sampleEdge, stopLegs } from "../src/lib/core/routes";
+import { buildRoutes, chain, chainUndirected, sampleEdge, stopLegs } from "../src/lib/core/routes";
 
 describe("routes", () => {
   it("straight edge → 2 points, curve → Hermite samples through both ends", () => {
@@ -72,32 +72,120 @@ describe("gap filling from vehicle trails", () => {
   });
 });
 
-describe("edge strokes (as in the game)", () => {
-  const parts = async () => {
-    const { routeParts } = await import("../src/lib/core/routes");
-    return routeParts(parseRoutes(`function data() return { edges = "1,0,0,10,0,10,0,10,0;2,10,0,10,0,20,0,10,0",
-      lines = { { e = "1,-1,2", id = 7, p = "" }, { e = "1,2", id = 8, p = "" }, { e = "-2", id = 9, p = "" } }, t = 1 } end`)!);
-  };
+describe("lanes (as in the game)", () => {
+  type P = [number, number];
+  /** Edges as straight 2-point polylines; lineEdges: line → signed edge ids. */
+  const parts = (edges: Record<number, P[]>, lineEdges: Record<number, number[]>, lanes: Record<number, { f: number; b: number }> = {}) => ({
+    edges: new Map(Object.entries(edges).map(([k, v]) => [+k, v])),
+    lineEdges: new Map(Object.entries(lineEdges).map(([k, ids]) => [+k, ids.map((id) => ({ id: Math.abs(id), dir: (id < 0 ? -1 : 1) as 1 | -1 }))])),
+    linePolys: new Map(),
+    lanes: new Map(Object.entries(lanes).map(([k, v]) => [+k, v])),
+  });
+  const street = (ids: number[], rank: number) => ({ id: ids[0]!, rank, twoWay: true });
 
-  it("a street used both ways gets two side-by-side strokes; shared sides list their lines, busiest first", async () => {
-    const { edgeStrokes } = await import("../src/lib/core/routes");
-    const st = edgeStrokes(await parts(), [
-      { id: 7, rank: 5, twoWay: true }, { id: 8, rank: 50, twoWay: true }, { id: 9, rank: 1, twoWay: true },
-    ]);
-    const e1 = st.filter((s) => s.edge === 1), e2 = st.filter((s) => s.edge === 2);
-    expect(e1).toEqual([{ edge: 1, side: 1, lines: [8, 7] }, { edge: 1, side: -1, lines: [7] }]);
-    expect(e2).toEqual([{ edge: 2, side: 1, lines: [8, 7] }, { edge: 2, side: -1, lines: [9] }]);
+  it("draws one lane per direction, shared by its lines in stripes", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[] };
+    const ranked = (n: number) => Array.from({ length: n }, (_, k) => street([k + 1], 100 - k));
+    const ids = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, k) => [k + 1, [1]]));
+    expect(laneLayout(parts(e, ids(1)), ranked(1)).pieces.map((p) => [p.k, p.lane[0]])).toEqual([[1, 0.5]]);
+    // 3 lines the same way, even on a wide street: one lane, 3 stripes.
+    const three = laneLayout(parts(e, ids(3), { 1: { f: 3, b: 3 } }), ranked(3)).pieces;
+    expect(three.map((p) => [p.line, p.k, p.i, p.lane[0]])).toEqual([[1, 3, 0, 0.5], [2, 3, 1, 0.5], [3, 3, 2, 0.5]]);
+    // The other way: the other side.
+    const both = laneLayout(parts(e, { 1: [1], 2: [-1] }), ranked(2)).pieces;
+    expect(both.map((p) => [p.k, p.lane[0], String(p.pts[0])])).toEqual([[1, 0.5, "0,0"], [1, 0.5, "100,0"]]);
   });
 
-  it("rail (not two-way streets) stays one centred stroke with every line", async () => {
-    const { edgeStrokes } = await import("../src/lib/core/routes");
-    const st = edgeStrokes(await parts(), [{ id: 7, rank: 5, twoWay: false }, { id: 8, rank: 50, twoWay: false }]);
-    expect(st).toEqual([{ edge: 1, side: 0, lines: [8, 7] }, { edge: 2, side: 0, lines: [8, 7] }]);
+  it("keeps a line on its side, in one track, when another one leaves the stretch", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[], 2: [[100, 0], [200, 0]] as P[] };
+    const { pieces } = laneLayout(parts(e, { 7: [1, 2], 8: [1, 2], 9: [1] }, { 1: { f: 3, b: 3 }, 2: { f: 3, b: 3 } }),
+      [street([7], 5), street([8], 50), street([9], 90)]);
+    const seven = pieces.filter((p) => p.line === 7);
+    expect(seven.map((p) => p.k)).toEqual([3, 2]); // fewer stripes once 9 has left
+    expect(seven[0]!.pts[0]).toEqual([0, 0]);
+    expect(seven[0]!.pts.at(-1)).toEqual(seven[1]!.pts[0]);
+    expect(seven[1]!.pts.at(-1)).toEqual([200, 0]);
+    expect(new Set(seven.flatMap((p) => p.lane))).toEqual(new Set([0.5])); // no lane change
   });
 
-  it("offsets a polyline to the right of its direction", async () => {
+  it("cuts a shared lane at each edge (stripes line up), pieces meeting exactly", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[], 2: [[100, 0], [200, 50]] as P[] };
+    const { pieces } = laneLayout(parts(e, { 1: [1, 2], 2: [1], 3: [1, 2] }), [street([1], 9), street([2], 8), street([3], 7)]);
+    const three = pieces.filter((p) => p.line === 3);
+    expect(three.map((p) => p.k)).toEqual([3, 2]);
+    const [a, b] = three as [(typeof three)[0], (typeof three)[0]];
+    expect(a.pts[0]).toEqual([0, 0]); // the shared piece starts on the edge's first node
+    expect(a.pts.at(-1)).toEqual([100, 0]); // … and ends on its last one, not beyond
+    expect(a.arc).toEqual([0, 100]); // stripes measured along the edge
+    expect(a.pts.at(-1)).toEqual(b.pts[0]);
+    expect(a.nrm.at(-1)).toEqual(b.nrm[0]);
+    expect(a.lane.at(-1)).toEqual(b.lane[0]);
+  });
+
+  it("joins a branch to the track it leaves", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[], 2: [[100, 0], [200, 0]] as P[], 3: [[100, 0], [100, 100]] as P[] };
+    const { pieces, joints } = laneLayout(parts(e, { 7: [1, 2, 3] }), [street([7], 5)]);
+    expect(pieces.length).toBe(2); // 1 → 2 straight on, 3 apart
+    expect(joints).toHaveLength(1);
+    expect(joints[0]!.b.p).toEqual([100, 0]);
+    expect(joints[0]!.a.p).toEqual([100, 0]);
+  });
+
+  it("drives on the right: an edge recorded the wrong way round follows the line's direction", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[], 2: [[100, 0], [200, 0]] as P[], 3: [[200, 0], [300, 0]] as P[] };
+    // A → B → C with B recorded against its geometry (−2) although the line goes along it.
+    const out = laneLayout(parts(e, { 7: [1, -2, 3] }), [street([7], 5)]).pieces;
+    expect(out).toHaveLength(1);
+    expect(out[0]!.pts.map(String)).toEqual(["0,0", "100,0", "200,0", "300,0"]);
+    expect(new Set(out[0]!.lane)).toEqual(new Set([0.5])); // the same side all along
+    // Started from the wrong edge (B first): the whole track still goes A → C.
+    const first = laneLayout(parts(e, { 7: [-2, 1, 3] }), [street([7], 5)]).pieces;
+    expect(first).toHaveLength(1);
+    expect(first[0]!.pts.map(String)).toEqual(["0,0", "100,0", "200,0", "300,0"]);
+  });
+
+  it("keeps both sides of a street travelled there and back", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[], 2: [[100, 0], [200, 0]] as P[] };
+    const out = laneLayout(parts(e, { 7: [1, 2, -2, -1] }), [street([7], 5)]).pieces;
+    expect(out).toHaveLength(1);
+    expect(out[0]!.pts.map(String)).toEqual(["0,0", "100,0", "200,0", "100,0", "0,0"]);
+  });
+
+  it("draws no joint making a U-turn across the street", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    // Two tracks of the line side by side, opposite ways, 20 m apart: not linked.
+    const e = { 1: [[0, 0], [100, 0]] as P[], 2: [[100, 20], [0, 20]] as P[] };
+    const { pieces, joints } = laneLayout(parts(e, { 7: [1, 2] }), [street([7], 5)]);
+    expect(pieces).toHaveLength(2);
+    expect(joints).toHaveLength(0);
+  });
+
+  it("draws a U-turn as one track, out on one side and back on the other", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const out = laneLayout(parts({ 1: [[0, 0], [100, 0]] }, { 7: [1, -1] }, { 1: { f: 1, b: 1 } }), [street([7], 5)]).pieces;
+    expect(out).toHaveLength(1);
+    expect(out[0]!.pts.map(String)).toEqual(["0,0", "100,0", "0,0"]);
+  });
+
+  it("centres the lane of a one-way street; rail stays centred with stripes", async () => {
+    const { laneLayout } = await import("../src/lib/core/routes");
+    const e = { 1: [[0, 0], [100, 0]] as P[] };
+    const oneWay = laneLayout(parts(e, { 7: [1], 8: [1] }, { 1: { f: 2, b: 0 } }), [street([7], 5), street([8], 50)]).pieces;
+    expect(oneWay.map((p) => [p.line, p.k, p.lane[0]])).toEqual([[8, 2, 0], [7, 2, 0]]);
+    const rail = laneLayout(parts(e, { 7: [1], 8: [-1] }), [{ id: 7, rank: 5, twoWay: false }, { id: 8, rank: 50, twoWay: false }]).pieces;
+    expect(rail.map((p) => [p.line, p.k, p.i, p.lane[0]])).toEqual([[8, 2, 0, 0], [7, 2, 1, 0]]);
+  });
+
+  it("offsets a polyline to the right of its direction, by point if asked", async () => {
     const { offsetLine } = await import("../src/lib/core/routes");
     expect(offsetLine([[0, 0], [10, 0]], 2)).toEqual([[0, -2], [10, -2]]); // heading +x, y up: right is −y
+    expect(offsetLine([[0, 0], [10, 0]], [0, 2])).toEqual([[0, 0], [10, -2]]);
   });
 });
 
@@ -109,5 +197,28 @@ describe("focus command", () => {
       cmd: { seq: 3, action: "focus", x: 10, y: 20, dist: 500, kind: "industries", id: 201, open: true } });
     const back = parseUserdata(text) as { cmd: Record<string, unknown> };
     expect(back.cmd).toMatchObject({ seq: 3, action: "focus", kind: "industries", id: 201, open: true });
+  });
+});
+
+describe("chaining", () => {
+  it("joins pieces in any order", () => {
+    const out = chainUndirected([[[10, 0], [20, 0]], [[0, 0], [10, 0]], [[30, 0], [20, 0]]]);
+    expect(out).toHaveLength(1);
+    const xs = out[0]!.map((p) => p[0]);
+    expect(xs[0]! < xs[3]! ? xs : xs.reverse()).toEqual([0, 10, 20, 30]);
+  });
+});
+
+describe("stripes", () => {
+  it("places each line's dashes by the distance along the edge, whatever the drawn line", async () => {
+    const { stripes } = await import("../src/lib/ui/viewer/layers");
+    // Drawn (offset) line starting 3 m early, but measured along the edge: dashes of 10 m, 2 lines.
+    const pts: [number, number][] = [[-3, 5], [100, 5]];
+    const a = stripes(pts, [0, 100], 10, 2, 0), b = stripes(pts, [0, 100], 10, 2, 1);
+    expect(a).toHaveLength(5);
+    expect(b).toHaveLength(5);
+    expect(a[0]![0]![0]).toBeCloseTo(-3);
+    expect(a[0]!.at(-1)![0]).toBeCloseTo(7.3); // 10 m along the edge
+    expect(b[0]![0]![0]).toBeCloseTo(7.3); // the next line takes over exactly there
   });
 });

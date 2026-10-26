@@ -25,14 +25,6 @@ function data()
 	a("TextView!tfui-831115ce", {
 		color = colorDefault.NeutralLightest,
 	})
-	a("Button!tfui-41f9b00b", {
-		backgroundColor1 = colorDefault.AccentDark,
-		padding = { 8, 8, 8, 8 },
-		gravity = { 0, 0.5 },
-	})
-	a("TextView!tfui-aa01aba4", {
-		color = colorDefault.NeutralLightest,
-	})
 	a("ProgressBar!tfui-117fdece", {
 		gravity = { -1, 0.5 },
 		size = { -1, 10 },

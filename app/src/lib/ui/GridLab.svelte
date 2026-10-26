@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { computeMosaic, FOV_V_DEG_MAX, FOV_V_DEG_MIN, type Mosaic } from "$lib/core/geometry";
   import { modFiles, planSignature, writeIssue, type WriteIssue } from "$lib/core/modwriter";
   import { estimateOrtho } from "$lib/core/pyramid";
@@ -10,10 +10,27 @@
   import { capturePlanPath, cutsceneDir, legacyModPlanPath } from "$lib/platform/paths";
   import { app } from "$lib/state/app.svelte";
   import { aspectName, pngSize, RESOLUTIONS } from "$lib/core/png";
+  import { parseShotName } from "$lib/core/tiles";
   import { readBytes } from "$lib/platform/fsx";
   import { runs } from "$lib/state/runs.svelte";
   import { tileFileName } from "$lib/state/orthoExport";
   import { heightRange, reliefCanvas, screenToWorld, worldToScreen, type ViewState } from "./mapview";
+  import { DEFAULT_MODE, MODE_LIST, modeConfigs, modeKey, type CaptureMode, type ModeChoice } from "$lib/core/modes";
+  import type { Heightmap } from "$lib/core/lua";
+  import { captureDurationSec, captureTiming } from "$lib/core/plan";
+  import { INTERPS, type Interp } from "$lib/core/ortho";
+  import { fmtClock } from "$lib/i18n/index.svelte";
+  import { lab } from "$lib/state/lab.svelte";
+  import { live } from "$lib/state/live.svelte";
+  import { orthoJob, type OrthoResult } from "$lib/state/orthoJob.svelte";
+  import { PYRAMID_VERSION } from "$lib/state/orthoExport";
+  import { isMeasured } from "$lib/state/orthoSpeed";
+  import { runLabel } from "$lib/state/runs.svelte";
+  import type { MessageKey } from "$lib/i18n/index.svelte";
+  import CaptureTiles from "./CaptureTiles.svelte";
+  import PanelResizer, { loadWidth } from "./PanelResizer.svelte";
+
+  let { onShowViewer }: { onShowViewer?: (runId: string) => void } = $props();
 
   let host: HTMLDivElement;
   let cv: HTMLCanvasElement;
@@ -21,6 +38,8 @@
   let relief: HTMLCanvasElement | null = null;
   let reliefFor: unknown = null;
   let writeMsg = $state<{ ok: boolean; text: string } | null>(null);
+  /** The scan request sent, waiting for the game's answer. */
+  let launching = $state(false);
   const modPlan = $derived(app.capturePlan);
   const lastCaptureStamp = $derived(app.lastCapture?.planStamp ?? null);
   const refreshModPlan = () => app.refreshCapture();
@@ -39,19 +58,49 @@
   // ---- game resolution: the shape of every capture (grid footprint, ortho reprojection)
   let detected = $state<{ width: number; height: number } | null>(null);
   let detectState = $state<"idle" | "busy" | "none">("idle");
+  /** The shown resolution comes from an earlier detection (no screenshot readable now). */
+  let fromMemory = $state(false);
+  /** Detected by the running game itself (its view size), not from a screenshot file. */
+  let fromGame = $state(false);
+  /** The game's view size, while it answers (status updated in the last 30 s). */
+  const gameScreen = $derived(live.status?.screen && Date.now() - live.statusAt < 30_000 ? live.status.screen : null);
   const resKey = $derived(`${cfg.screenW}x${cfg.screenH}`);
   const isPreset = $derived(RESOLUTIONS.some(([w, h]) => w === cfg.screenW && h === cfg.screenH));
   let customRes = $state(false);
   /** Resolution taken from the game's screenshots (default) rather than chosen by hand. */
   const autoRes = $derived(cfg.SCREEN_AUTO !== false);
 
-  /** Size of the newest screenshot of the game (the player's own, else the last capture). */
+  /** A resolution found: remembered, and (default) used by the grid. */
+  function useDetected(size: { width: number; height: number }, game: boolean): void {
+    detected = size;
+    detectState = "idle";
+    fromMemory = false;
+    fromGame = game;
+    const known = cfg.SCREEN_DETECTED;
+    if (!known || known.w !== size.width || known.h !== size.height) {
+      app.setConfig({ SCREEN_DETECTED: { w: size.width, h: size.height, at: Date.now() } });
+    }
+    if (autoRes && (size.width !== cfg.screenW || size.height !== cfg.screenH)) {
+      app.setConfig({ screenW: size.width, screenH: size.height });
+    }
+  }
+
+  /**
+   * The game's resolution: its view size, given by the running game (mod status); else the size of
+   * its newest screenshot (files named by the game only), else of the last capture's first tile.
+   */
   async function detectResolution(): Promise<void> {
     const p = app.paths;
     if (!p) return;
+    if (gameScreen) {
+      useDetected({ width: gameScreen.w, height: gameScreen.h }, true);
+      return;
+    }
     detectState = "busy";
     try {
-      const shots = (await listFiles(p.screenshots, /\.png$/i)).sort((a, b) => b.mtimeMs - a.mtimeMs);
+      const shots = (await listFiles(p.screenshots, /\.png$/i))
+        .filter((f) => parseShotName(f.name))
+        .sort((a, b) => b.mtimeMs - a.mtimeMs);
       const candidates = [...shots.slice(0, 3).map((f) => f.path)];
       const run = runs.runs.find((r) => r.collected > 0);
       if (run) candidates.push(joinPath(run.dir, tileFileName(1)));
@@ -59,24 +108,29 @@
         try {
           const size = pngSize(await readBytes(path));
           if (size) {
-            detected = size;
-            detectState = "idle";
-            // Default: the grid uses the detected resolution.
-            if (autoRes && (size.width !== cfg.screenW || size.height !== cfg.screenH)) {
-              app.setConfig({ screenW: size.width, screenH: size.height });
-            }
+            useDetected(size, false);
             return;
           }
         } catch {
           /* unreadable: next */
         }
       }
-      detected = null;
-      detectState = "none";
+      // No screenshot readable now: the last detected resolution still holds.
+      const known = cfg.SCREEN_DETECTED;
+      detected = known ? { width: known.w, height: known.h } : null;
+      detectState = known ? "idle" : "none";
+      fromMemory = !!known;
+      fromGame = false;
     } finally {
       if (detectState === "busy") detectState = "idle";
     }
   }
+
+  // The game reports its view size (with the live status): follow it as soon as it comes or changes.
+  $effect(() => {
+    const g = gameScreen;
+    if (g) untrack(() => useDetected({ width: g.w, height: g.h }, true));
+  });
 
   /** Resolution chosen by hand: stops following the detection. */
   function setResolution(w: number, h: number): void {
@@ -98,15 +152,91 @@
     }
   });
   const issue = $derived<WriteIssue | null>(mo ? writeIssue(mo) : null);
-  const blocker = $derived(!mo ? t("grid.block.noMap") : issue ? issueText(issue) : null);
+  /** Following the game's resolution but it was never found: a scan would use a guess. */
+  const resUnknown = $derived(autoRes && !detected && detectState === "none" && !cfg.SCREEN_DETECTED);
+  const blocker = $derived(!mo ? t("grid.block.noMap") : resUnknown ? t("grid.resolutionNone") : issue ? issueText(issue) : null);
   /** The current grid is already the smallest one covering the map. */
   const atBest = $derived(!!mo && mo.bestGrid.nX === cfg.GRID_NX && mo.bestGrid.nY === cfg.GRID_NY);
 
-  /** Ortho TileLab will produce from this capture (full resolution, Lanczos defaults). */
+  /** Ortho this capture will give, with the panel's ortho settings (interpolation, half resolution). */
+  const orthoGsd = $derived(mo ? mo.geo.gsdX * (lab.halfRes ? 2 : 1) : 0);
   const orthoEst = $derived(
-    mo && app.map ? estimateOrtho(app.map.hm.width, app.map.hm.height, mo.geo.gsdX, OVERVIEW_MAX_SIDE) : null,
+    mo && app.map ? estimateOrtho(app.map.hm.width, app.map.hm.height, orthoGsd, OVERVIEW_MAX_SIDE) : null,
   );
-  const orthoBytes = $derived(orthoEst ? orthoEst.tiles * bytesPerTile("lanczos3") : 0);
+  const orthoBytes = $derived(orthoEst ? orthoEst.tiles * bytesPerTile(lab.interp) : 0);
+  const orthoSec = $derived(orthoEst ? orthoEst.megapixels * secPerMp(lab.interp) : 0);
+  const captureSec = $derived(mo ? captureDurationSec(captureTiming(cfg), mo.centers.length) : 0);
+
+  // ---- ready-made modes: grid, FOV, altitude and sun solved for the map and the game resolution.
+  // The four are solved together (≈ 150 ms) ahead of time, when the map or the resolution arrives,
+  // and cached: a click on a mode only reads the cache.
+  const mode = $derived<ModeChoice>(cfg.MODE ?? DEFAULT_MODE);
+  let modeCache: { hm: Heightmap; key: string; all: ReturnType<typeof modeConfigs> } | null = null;
+  function modesFor(hm: Heightmap) {
+    const key = modeKey(cfg);
+    if (modeCache?.hm !== hm || modeCache.key !== key) modeCache = { hm, key, all: modeConfigs(cfg, hm) };
+    return modeCache.all;
+  }
+  function applyMode(m: CaptureMode): void {
+    if (app.map) app.setConfig({ MODE: m, ...modesFor(app.map.hm)[m] });
+  }
+  /** An advanced setting changed by hand: custom mode. */
+  function custom(patch: Partial<typeof cfg>): void {
+    app.setConfig({ ...patch, MODE: "custom" });
+  }
+  // Solve ahead, after the frame is shown (even in custom mode: the next click is instant).
+  $effect(() => {
+    const hm = app.map?.hm, key = modeKey(cfg);
+    if (!hm) return;
+    const timer = setTimeout(() => untrack(() => modesFor(hm)), 0);
+    void key;
+    return () => clearTimeout(timer);
+  });
+  // A mode follows the map and the game resolution: its cached solution is applied when they change.
+  $effect(() => {
+    const m = mode, hm = app.map?.hm;
+    void modeKey(cfg);
+    if (!hm || m === "custom") return;
+    untrack(() => {
+      const patch = modesFor(hm)[m];
+      if (Object.entries(patch).some(([k, v]) => cfg[k as keyof typeof cfg] !== v)) app.setConfig(patch);
+    });
+  });
+
+  // ---- captures: shown while running, ortho started by itself once complete
+  $effect(() => {
+    void runs.live;
+    void runs.runs;
+    void lab.estimate;
+    void lab.resIssue;
+    void orthoJob.running;
+    untrack(() => lab.follow());
+  });
+
+  // ---- ortho of the chosen capture (side panel)
+  const job = $derived(orthoJob.running);
+  const orthoRun = $derived(lab.run);
+  const orthoResult = $derived<OrthoResult | undefined>(orthoRun ? orthoJob.results[orthoRun.id] : undefined);
+  let labelDraft = $state("");
+  $effect(() => {
+    labelDraft = lab.run?.label ?? "";
+  });
+  function saveLabel(): void {
+    const r = lab.run;
+    if (r && labelDraft.trim() !== (r.label ?? "")) void runs.setLabel(r, labelDraft);
+  }
+  function resultText(r: OrthoResult): string {
+    if (r.kind === "stopped") {
+      const key = `ortho.err.${r.error}` as MessageKey;
+      return t("tiles.stopped", { error: t(key) === key ? r.error : t(key) });
+    }
+    return t("tiles.done", {
+      w: fmtNum(r.w), h: fmtNum(r.h), gsd: r.gsd.toFixed(3), duration: fmtClock(r.seconds), estimate: fmtClock(r.estimateSec),
+    }) + (r.holes ? t("tiles.doneHoles", { holes: fmtNum(r.holes) }) : t("tiles.doneNoHole"));
+  }
+  let advanced = $state(false);
+  const PANEL_W = { key: "hq.gridPanelW", min: 260, max: 620, fallback: 300 };
+  let panelW = $state(loadWidth(PANEL_W.key, PANEL_W.fallback, PANEL_W.min, PANEL_W.max));
   /** Above this, the ortho size is highlighted (disk + computation time). */
   const ORTHO_BIG_BYTES = 500e6;
   const orthoBig = $derived(orthoBytes > ORTHO_BIG_BYTES);
@@ -133,8 +263,15 @@
     return Number((e.target as HTMLInputElement).value);
   }
 
+  /** A fit is due (new map) but the view has no size yet (hidden): done when it gets one. */
+  let fitPending = false;
   function fit(): void {
     if (!mo || !cv) return;
+    if (host.clientWidth < 20 || host.clientHeight < 20) {
+      fitPending = true;
+      return;
+    }
+    fitPending = false;
     const pad = 24;
     const w = host.clientWidth, h = host.clientHeight;
     // World Y spans the canvas width, world X its height; keep 15 % margin for outer tiles.
@@ -146,12 +283,18 @@
     draw();
   }
 
+  /** Altitude range of the map (every cell scanned: once per map, not at every drawing). */
+  let range: ReturnType<typeof heightRange> | null = null, rangeFor: Heightmap | null = null;
   function draw(): void {
     if (!cv) return;
     const dpr = window.devicePixelRatio || 1;
     const w = host.clientWidth, h = host.clientHeight;
-    cv.width = Math.max(1, Math.floor(w * dpr));
-    cv.height = Math.max(1, Math.floor(h * dpr));
+    // Resized only when the panel changed (resizing reallocates the canvas at every drag step).
+    const cw = Math.max(1, Math.floor(w * dpr)), ch = Math.max(1, Math.floor(h * dpr));
+    if (cv.width !== cw || cv.height !== ch) {
+      cv.width = cw;
+      cv.height = ch;
+    }
     const ctx = cv.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#12151b";
@@ -192,7 +335,11 @@
     });
 
     // Seam lines coloured by their cover height (blue = low, red = high).
-    const { lo, hi } = heightRange(app.map.hm);
+    if (rangeFor !== app.map.hm) {
+      range = heightRange(app.map.hm);
+      rangeFor = app.map.hm;
+    }
+    const { lo, hi } = range!;
     const col = (z: number) =>
       `hsl(${Math.round(240 * (1 - Math.max(0, Math.min(1, (z - lo) / Math.max(1e-6, hi - lo)))))}, 85%, 58%)`;
     ctx.lineWidth = 2;
@@ -236,15 +383,34 @@
     draw();
   }
 
-  async function writeToMod(): Promise<void> {
+  /** "Scanner": write the grid (cutscene + plan), then have the game start the scan right away. */
+  async function scan(): Promise<void> {
+    if (launching) return;
+    launching = true;
+    try {
+      if (!(await writeToMod())) return;
+      const r = await live.scan();
+      if (r.ok) writeMsg = { ok: true, text: t("grid.scanStarted") };
+      else if (r.error === "timeout") writeMsg = { ok: false, text: t("grid.scanNoGame") };
+      else if (r.error === "busy") writeMsg = { ok: false, text: t("grid.scanBusy") };
+      // A mod older than the app does not know the command: the save must be reloaded.
+      else if (live.staleMod || r.error?.startsWith("unknown action")) writeMsg = { ok: false, text: t("grid.scanOldMod") };
+      else if (r.error !== "superseded") writeMsg = { ok: false, text: t("grid.scanFailed", { error: r.error ?? "?" }) };
+    } finally {
+      launching = false;
+    }
+  }
+
+  /** Writes the grid for the mod. @returns false when it could not (message shown). */
+  async function writeToMod(): Promise<boolean> {
     writeMsg = null;
     const p = app.paths;
     // The player may have changed resolution since: detect again before writing the grid.
     if (autoRes) await detectResolution();
-    if (!mo || !app.map || !p || blocker) return;
+    if (!mo || !app.map || !p || blocker) return false;
     if (!(await fileExists(joinPath(p.modDir, "content", "hqminimap")))) {
       writeMsg = { ok: false, text: t("grid.modMissing", { dir: p.modDir }) };
-      return;
+      return false;
     }
     try {
       // Cutscene (mod) and plan (userdata) are always written together, with the same stamp.
@@ -258,14 +424,16 @@
       await removeFile(legacyModPlanPath(p));
       await refreshModPlan();
       writeMsg = null;
+      return true;
     } catch (err) {
       writeMsg = { ok: false, text: t("grid.writeFailed", { error: String(err) }) };
+      return false;
     }
   }
 
   onMount(() => {
     void detectResolution();
-    const ro = new ResizeObserver(() => draw());
+    const ro = new ResizeObserver(() => (fitPending ? fit() : draw()));
     ro.observe(host);
     return () => ro.disconnect();
   });
@@ -274,6 +442,7 @@
   $effect(() => {
     // Redraw on any change; fit the view the first time a map shows up.
     void mo;
+    void lab.view;
     if (app.map && fittedFor !== app.map.hm) {
       fittedFor = app.map.hm;
       queueMicrotask(fit);
@@ -286,29 +455,28 @@
     app.map?.exportedAt ? fmtDate(app.map.exportedAt * 1000) : t("map.unknownDate"),
   );
   const hours = $derived(cfg.CAPTURE_TIME_SEC / 3600);
+  const fmtHour = (sec: number) => `${Math.floor(sec / 3600)} h ${String(Math.round((sec % 3600) / 60)).padStart(2, "0")}`;
 </script>
 
-<div class="lab">
+<div class="lab" style:grid-template-columns="{panelW}px 1fr">
   <aside class="panel">
+    <PanelResizer bind:width={panelW} {...PANEL_W} />
     <div class="scroll">
       <div class="status">
+        <!-- The detected map, then in small under it: when it was exported, the scan programmed. -->
         {#if app.map}
-          <p><span class="ok">●</span> {t("grid.status.map", {
-            w: fmtNum(app.map.bounds.width / 1000, 1), h: fmtNum(app.map.bounds.height / 1000, 1), date: exportedLabel,
-          })}</p>
+          <p><span class="ok">●</span> {t("grid.status.map", { w: fmtNum(app.map.bounds.width / 1000, 1), h: fmtNum(app.map.bounds.height / 1000, 1) })}</p>
+          <p class="sub dim">{t("grid.status.exported", { date: exportedLabel })}</p>
         {:else if app.mapError}
           <p class="err">● {t(app.mapError)}</p>
         {:else}
           <p class="warn">● {t("grid.status.noExport")}</p>
         {/if}
-        {#if modPlan === null}
-          <p class="dim">● {t("grid.status.noPlan")}</p>
-        {:else if modPlan}
-          <p title={t("grid.status.planWritten", { date: fmtDate(modPlan.mtimeMs) })}>
-            <span class={modPlanSame ? "ok" : "warn"}>●</span> {t("grid.status.plan", { grid: `${modPlan.nY}×${modPlan.nX}` })}
-            {#if modPlanSame === false}<span class="warn">{t("grid.status.planDiffers")}</span>{/if}
-            {#if lastCaptureStamp && lastCaptureStamp === modPlan.stamp}<span class="dim">{t("grid.status.captured")}</span>{/if}
-          </p>
+        <!-- Last scan sent: settings changed since (orange), or captured (green); nothing otherwise. -->
+        {#if modPlan && modPlanSame === false}
+          <p class="sub warn" title={t("grid.status.planWritten", { date: fmtDate(modPlan.mtimeMs) })}>{t("grid.status.planDiffers")}</p>
+        {:else if modPlan && lastCaptureStamp && lastCaptureStamp === modPlan.stamp}
+          <p class="sub ok" title={t("grid.status.planWritten", { date: fmtDate(modPlan.mtimeMs) })}>{t("grid.status.captured", { grid: `${modPlan.nY}×${modPlan.nX}` })}</p>
         {/if}
       </div>
 
@@ -340,6 +508,10 @@
         <!-- Chosen by hand and different from the game's screenshots: offer the detected one. -->
         <p class="warn">{t("grid.resolutionDetected", { w: detected.width, h: detected.height, a: aspectName(detected.width, detected.height) })}
           <button onclick={useAutoResolution}>{t("grid.resolutionUse")}</button></p>
+      {:else if detected && autoRes && cfg.SCREEN_DETECTED && detectState === "idle" && fromMemory}
+        <p class="dim">{t("grid.resolutionRemembered", { date: fmtDate(cfg.SCREEN_DETECTED.at) })}</p>
+      {:else if detected && autoRes && fromGame}
+        <p class="dim">{t("grid.resolutionFromGame")}</p>
       {:else if detected && autoRes}
         <p class="dim">{t("grid.resolutionAutoOk")}</p>
       {:else if detected}
@@ -348,54 +520,48 @@
         <p class="warn">{t("grid.resolutionNone")}</p>
       {/if}
 
-      <h3>{t("grid.camera")}</h3>
-      <div class="g2">
-        <label>{t("grid.altitude")}
-          <input type="number" min="500" max="50000" step="100" value={cfg.Z_EYE}
-            onchange={(e) => app.setConfig({ Z_EYE: num(e) })} /></label>
-        <label>{t("grid.fov")}
-          <input type="number" min={FOV_V_DEG_MIN} max={FOV_V_DEG_MAX} step="0.5" value={cfg.FOV_V_DEG}
-            onchange={(e) => app.setConfig({ FOV_V_DEG: num(e) })} /></label>
+      <h3>{t("grid.mode")}</h3>
+      <div class="modes">
+        {#each MODE_LIST as m (m)}
+          <button class:on={mode === m} disabled={!app.map} title={t(`grid.mode.${m}.title`)} onclick={() => applyMode(m)}>{t(`grid.mode.${m}`)}</button>
+        {/each}
       </div>
-      <input class="range" type="range" min={FOV_V_DEG_MIN} max={FOV_V_DEG_MAX} step="0.5" value={cfg.FOV_V_DEG}
-        title={`FOV ${FOV_V_DEG_MIN}…${FOV_V_DEG_MAX}°`} oninput={(e) => app.setConfig({ FOV_V_DEG: num(e) })} />
-
-      <h3>{t("grid.grid")} <span class="dim">{t("grid.gridHint", { m: cfg.COVER_MARGIN_M })}</span></h3>
-      <div class="g3">
-        <label>{t("grid.cols")}
-          <input type="number" min="1" max="200" value={cfg.GRID_NY}
-            onchange={(e) => app.setConfig({ GRID_NY: Math.max(1, Math.round(num(e))) })} /></label>
-        <label>{t("grid.rows")}
-          <input type="number" min="1" max="200" value={cfg.GRID_NX}
-            onchange={(e) => app.setConfig({ GRID_NX: Math.max(1, Math.round(num(e))) })} /></label>
-        <button class="min" class:suggest={!!mo && !atBest} disabled={!mo || atBest} title={t("grid.minTitle")}
-          onclick={() => mo && app.setConfig({ GRID_NX: mo.bestGrid.nX, GRID_NY: mo.bestGrid.nY })}>
-          {atBest ? "✓ " : ""}{t("grid.min")}{mo ? ` ${mo.bestGrid.nY}×${mo.bestGrid.nX}` : ""}</button>
-      </div>
-
-      <h3>{t("grid.lighting")}</h3>
-      <div class="g2">
-        <label>{t("grid.hour")}
-          <input type="number" min="5" max="19" step="0.25" value={hours}
-            onchange={(e) => app.setConfig({ CAPTURE_TIME_SEC: Math.round(num(e) * 3600) })} /></label>
-        <label>{t("grid.day")}
-          <input type="number" min="1" max="365" value={cfg.CAPTURE_DAY_OF_YEAR}
-            onchange={(e) => app.setConfig({ CAPTURE_DAY_OF_YEAR: Math.round(num(e)) })} /></label>
-      </div>
+      {#if mode === "custom"}<p class="dim custom">{t("grid.mode.customShort")}</p>{/if}
 
       {#if mo}
-        <h3>{t("grid.result")}</h3>
-        <table class="kv">
+        <table class="kv summary">
           <tbody>
+            <tr><td>{t("grid.summary.session")}</td><td>
+              {#if lab.run}<input class="name" type="text" placeholder={runLabel({ ...lab.run, label: undefined })} bind:value={labelDraft}
+                onchange={saveLabel} onkeydown={(e) => e.key === "Enter" && saveLabel()} />{:else}<span class="dim">{t("grid.summary.noSession")}</span>{/if}</td></tr>
+            <tr><td>{t("grid.r.images")}</td><td><b>{mo.centers.length}</b></td></tr>
+            {#if orthoEst}
+              <tr><td>{t("grid.summary.size")}</td><td class={orthoBig ? "big" : ""} title={orthoBig ? t("grid.r.orthoBigTitle") : undefined}>
+                {orthoBig ? "⚠ " : ""}<b>{fmtBytes(orthoBytes)}</b></td></tr>
+            {/if}
+            <tr><td>{t("grid.summary.time")}</td><td><b>{fmtDuration(captureSec + orthoSec)}</b></td></tr>
+          </tbody>
+        </table>
+      {/if}
+
+      {#if mo}
+        <details class="advanced">
+          <summary>{t("grid.details")}</summary>
+          <p class="dim modeinfo">{mode === "custom" ? t("grid.mode.custom") : t("grid.d.modeAuto", { mode: t(`grid.mode.${mode}.title`) })}</p>
+          <table class="kv">
+          <tbody>
+            <tr><td>{t("grid.d.grid")}</td><td>{cfg.GRID_NY} × {cfg.GRID_NX}</td></tr>
+            <tr><td>{t("grid.d.camera")}</td><td>{t("grid.d.cameraValue", { fov: fmtNum(cfg.FOV_V_DEG, 1), z: fmtNum(cfg.Z_EYE) })}</td></tr>
+            <tr><td>{t("grid.d.sun")}</td><td>{t("grid.d.sunValue", { hour: fmtHour(cfg.CAPTURE_TIME_SEC), day: cfg.CAPTURE_DAY_OF_YEAR })}</td></tr>
             <tr><td>{t("grid.r.images")}</td><td><b>{mo.centers.length}</b> ({cfg.GRID_NY}×{cfg.GRID_NX})</td></tr>
-            <tr><td>{t("grid.r.resolution")}</td><td><b>{mo.geo.gsdX.toFixed(3)}</b> m/px</td></tr>
+            <tr><td>{t("grid.r.resolution")}</td><td><b>{orthoGsd.toFixed(2)}</b> m/px</td></tr>
             {#if orthoEst}
               <tr><td>{t("grid.r.ortho")}</td><td><b>{fmtNum(orthoEst.outW)} × {fmtNum(orthoEst.outH)}</b> px
                 ({fmtNum(orthoEst.megapixels)} MP)</td></tr>
               <tr><td></td><td class={orthoBig ? "big" : "dim"} title={orthoBig ? t("grid.r.orthoBigTitle") : undefined}>
                 {orthoBig ? "⚠ " : ""}{t("grid.r.orthoCost", {
                   size: fmtBytes(orthoBytes),
-                  duration: fmtDuration(orthoEst.megapixels * secPerMp("lanczos3")),
+                  duration: fmtDuration(orthoSec),
                 })}</td></tr>
             {/if}
             <tr><td>{t("grid.r.footprint")}</td><td>{fmtNum(mo.geo.viewY / 1000, 2)} × {fmtNum(mo.geo.viewX / 1000, 2)} km</td></tr>
@@ -408,7 +574,56 @@
             })}</td></tr>
           </tbody>
         </table>
+        </details>
       {/if}
+
+      <details class="advanced" bind:open={advanced}>
+        <summary>{t("grid.advanced")}</summary>
+        <h3>{t("grid.camera")}</h3>
+        <div class="g2">
+          <label>{t("grid.altitude")}
+            <input type="number" min="500" max="50000" step="100" value={cfg.Z_EYE}
+              onchange={(e) => custom({ Z_EYE: num(e) })} /></label>
+          <label>{t("grid.fov")}
+            <input type="number" min={FOV_V_DEG_MIN} max={FOV_V_DEG_MAX} step="0.5" value={cfg.FOV_V_DEG}
+              onchange={(e) => custom({ FOV_V_DEG: num(e) })} /></label>
+        </div>
+        <input class="range" type="range" min={FOV_V_DEG_MIN} max={FOV_V_DEG_MAX} step="0.5" value={cfg.FOV_V_DEG}
+          title={`FOV ${FOV_V_DEG_MIN}…${FOV_V_DEG_MAX}°`} oninput={(e) => custom({ FOV_V_DEG: num(e) })} />
+
+        <h3>{t("grid.grid")} <span class="dim">{t("grid.gridHint", { m: cfg.COVER_MARGIN_M })}</span></h3>
+        <div class="g3">
+          <label>{t("grid.cols")}
+            <input type="number" min="1" max="200" value={cfg.GRID_NY}
+              onchange={(e) => custom({ GRID_NY: Math.max(1, Math.round(num(e))) })} /></label>
+          <label>{t("grid.rows")}
+            <input type="number" min="1" max="200" value={cfg.GRID_NX}
+              onchange={(e) => custom({ GRID_NX: Math.max(1, Math.round(num(e))) })} /></label>
+          <button class="min" class:suggest={!!mo && !atBest} disabled={!mo || atBest} title={t("grid.minTitle")}
+            onclick={() => mo && custom({ GRID_NX: mo.bestGrid.nX, GRID_NY: mo.bestGrid.nY })}>
+            {atBest ? "✓ " : ""}{t("grid.min")}{mo ? ` ${mo.bestGrid.nY}×${mo.bestGrid.nX}` : ""}</button>
+        </div>
+
+        <h3>{t("grid.lighting")}</h3>
+        <div class="g2">
+          <label>{t("grid.hour")}
+            <input type="number" min="5" max="19" step="0.25" value={hours}
+              onchange={(e) => custom({ CAPTURE_TIME_SEC: Math.round(num(e) * 3600) })} /></label>
+          <label>{t("grid.day")}
+            <input type="number" min="1" max="365" value={cfg.CAPTURE_DAY_OF_YEAR}
+              onchange={(e) => custom({ CAPTURE_DAY_OF_YEAR: Math.round(num(e)) })} /></label>
+        </div>
+
+        <h3>{t("grid.orthoSettings")}</h3>
+        <label>{t("tiles.interp")}
+          <select value={lab.interp} disabled={!!job} onchange={(e) => lab.setOrtho({ interp: (e.target as HTMLSelectElement).value as Interp })}>
+            {#each INTERPS as i (i)}
+              <option value={i}>{t(`tiles.interp.${i}`)}{orthoEst ? ` — ${fmtDuration(orthoEst.megapixels * secPerMp(i))} · ${fmtBytes(orthoEst.tiles * bytesPerTile(i))}` : ""}{isMeasured(i) ? "" : " *"}</option>
+            {/each}
+          </select></label>
+        <label class="check"><input type="checkbox" checked={lab.halfRes} disabled={!!job} onchange={(e) => lab.setOrtho({ halfRes: (e.target as HTMLInputElement).checked })} /> {t("tiles.halfRes")}</label>
+
+      </details>
     </div>
 
     <div class="actions">
@@ -421,25 +636,67 @@
         <div class="callout active"><b>{t("grid.capturing")}</b>
           <span>{t("grid.capturingCount", { shots: app.lastCapture?.shots ?? 0, expected: app.lastCapture?.expected ?? 0 })}</span></div>
       {/if}
-      <button class="primary" disabled={!!blocker || !app.paths} onclick={writeToMod}>
-        {modPlan && modPlanSame ? t("grid.rewrite") : t("grid.write")}</button>
+      <button class="primary" disabled={!!blocker || !app.paths || launching} onclick={scan}>
+        {launching ? t("grid.scanLaunching") : t("grid.write")}</button>
       {#if blocker && app.map}<p class="err">{blocker}</p>{/if}
       {#if writeMsg}<p class={writeMsg.ok ? "ok" : "err"}>{writeMsg.text}</p>{/if}
+
+      {#if orthoRun && orthoRun.collected > 0}
+        <div class="ortho">
+          {#if job}
+            <p class="warn">{t("tiles.computing", { label: job.label })}</p>
+            <progress value={job.progress}></progress>
+            <p class="clock">{t("tiles.clock", {
+              elapsed: fmtClock(orthoJob.elapsed), remaining: fmtClock(orthoJob.remaining),
+              total: fmtClock(orthoJob.elapsed + orthoJob.remaining),
+            })}</p>
+            <button onclick={() => orthoJob.cancel()}>{t("tiles.cancel")}</button>
+          {:else}
+            {#if !orthoRun.finished}
+              <p class="dim">{t("grid.auto.after")}</p>
+            {:else if lab.canRetry}
+              <button class="link" onclick={() => lab.startOrtho()}>{t(orthoResult ? "grid.auto.retry" : "grid.auto.manual", { name: runLabel(orthoRun) })}</button>
+            {/if}
+            {#if lab.resIssue}
+              <p class="err">{t("tiles.resolutionMismatch", { w: lab.resIssue.w, h: lab.resIssue.h, a: aspectName(lab.resIssue.w, lab.resIssue.h),
+                pw: lab.resIssue.pw, ph: lab.resIssue.ph, pa: aspectName(lab.resIssue.pw, lab.resIssue.ph) })}</p>
+            {/if}
+            {#if orthoRun.collected < orthoRun.expected}
+              <p class="warn">{t("tiles.incomplete", { collected: orthoRun.collected, expected: orthoRun.expected })}</p>
+            {/if}
+          {/if}
+          {#if orthoResult}<p class={orthoResult.ok ? "ok" : "warn"}>{resultText(orthoResult)}</p>{/if}
+          {#if orthoRun.hasOrtho && (orthoRun.orthoVersion ?? 1) < PYRAMID_VERSION}<p class="warn">{t("tiles.oldOrtho")}</p>{/if}
+          {#if orthoRun.hasOrtho && onShowViewer && !job}
+            <button onclick={() => onShowViewer?.(orthoRun!.id)}>{t("tiles.showViewer")}</button>
+          {/if}
+        </div>
+      {/if}
     </div>
   </aside>
 
-  <div class="view" bind:this={host} onwheel={onWheel} onpointerdown={onDown} onpointermove={onMove}
-    onpointerup={() => (drag = null)} ondblclick={fit} role="presentation">
-    <canvas bind:this={cv}></canvas>
-    <span class="hint">{t("grid.hint")}</span>
+  <div class="main">
+    <div class="view" class:hidden={lab.view !== "grid"} bind:this={host} onwheel={onWheel} onpointerdown={onDown} onpointermove={onMove}
+      onpointerup={() => (drag = null)} ondblclick={fit} role="presentation">
+      <canvas bind:this={cv}></canvas>
+      <span class="hint">{t("grid.hint")}</span>
+    </div>
+    <!-- Kept mounted: the previews survive switching views. -->
+    <div class="tilesview" class:hidden={lab.view !== "tiles"}><CaptureTiles /></div>
+    <div class="switch">
+      <button class:on={lab.view === "grid"} onclick={() => (lab.view = "grid")}>▦ {t("grid.view.grid")}</button>
+      <button class:on={lab.view === "tiles"} onclick={() => (lab.view = "tiles")}>🖼 {t("grid.view.tiles")}</button>
+    </div>
   </div>
 </div>
 
 <style>
   .lab { display: grid; grid-template-columns: 300px 1fr; height: 100%; min-height: 0; }
-  .panel { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); font-size: 12.5px; }
+  .panel { position: relative; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); font-size: 12.5px; }
   .scroll { flex: 1; overflow: auto; padding: 8px 12px 4px; }
   .status { display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  /* Details of the status lines, in small under them (aligned with their text, after the dot). */
+  .status .sub { font-size: 11px; padding-left: 14px; }
   h3 { margin: 9px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
   h3 .dim { text-transform: none; letter-spacing: 0; font-weight: 400; }
   label { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--muted); min-width: 0; }
@@ -462,7 +719,29 @@
     border: 1px solid var(--ok); background: rgba(76, 175, 125, .14); font-size: 12.5px; }
   .callout b { color: #fff; }
   .callout.active { border-color: var(--warn); background: rgba(224, 160, 48, .12); }
-  .view { position: relative; overflow: hidden; cursor: grab; }
+  .main { position: relative; min-width: 0; min-height: 0; }
+  .view, .tilesview { position: absolute; inset: 0; }
+  .view { overflow: hidden; cursor: grab; }
+  .hidden { display: none; }
+  .switch { position: absolute; z-index: 3; top: 10px; right: 12px; display: inline-flex; border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; background: rgba(20, 23, 30, .9); }
+  .switch button { border: none; border-radius: 0; padding: 4px 11px; font-size: 12.5px; background: none; opacity: .65; }
+  .switch button.on { background: rgba(255, 255, 255, .12); opacity: 1; }
+  .modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .modes button { padding: 5px 4px; font-size: 12px; }
+  .modes button.on { border-color: var(--accent); background: rgba(59, 130, 196, .22); color: #fff; }
+  .custom { font-size: 11.5px; margin-top: 4px; }
+  .modeinfo { font-size: 11.5px; margin: 4px 0; }
+  .summary { margin-top: 8px; }
+  .summary td:first-child { width: 78px; }
+  .summary .name { width: 100%; padding: 2px 5px; font-size: 12px; }
+  .advanced { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .advanced summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  label.check { flex-direction: row; align-items: center; gap: 6px; margin-top: 4px; }
+  .ortho { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .ortho progress { width: 100%; }
+  .link { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; text-align: left; }
+  .clock { font-variant-numeric: tabular-nums; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .hint { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
 </style>

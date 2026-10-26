@@ -93,8 +93,9 @@ local function checkNewPlan(capture)
 	end
 end
 
--- Live data / app commands: ticked by the mod-button pump (always displayed); the window pump
--- only takes over when the button pump is not running.
+-- Live data, app commands (the scan is started from the app) and the scan itself: ticked by the
+-- mod-button pump (always displayed), so they run with the window closed; the window pump only
+-- takes over when the button pump is not running.
 local buttonPumpFrame = 0
 -- buttonPumpFrame seen at the previous window step.
 local windowPumpFrame = 0
@@ -112,6 +113,18 @@ local function liveTick()
 	end
 end
 
+--- One frame of work: live data / commands, then the scan (or the watch for a new grid).
+local function pump()
+	liveTick()
+	local capture = captureMod()
+	if capture ~= nil and capture.isBusy() then
+		pcall(capture.tick)
+	elseif capture ~= nil then
+		pcall(checkNewPlan, capture)
+	end
+	pcall(syncState)
+end
+
 local buttonPumpLogged = false
 
 --- Mod-button label (TFUI: handlers.buttonLabel(react)). The button is always displayed, so its
@@ -124,7 +137,7 @@ function handlers.buttonLabel(react)
 		local ok = pcall(function()
 			react.onStep(function()
 				buttonPumpFrame = buttonPumpFrame + 1
-				liveTick()
+				pump()
 			end)
 		end)
 		if ok and not buttonPumpLogged then
@@ -136,18 +149,11 @@ function handlers.buttonLabel(react)
 end
 
 local function onStep()
-	-- The button pump did not tick since the previous window step: tick live data from here.
+	-- The button pump did not tick since the previous window step: do its work from here.
 	if buttonPumpFrame == windowPumpFrame then
-		liveTick()
+		pump()
 	end
 	windowPumpFrame = buttonPumpFrame
-	local capture = captureMod()
-	if capture ~= nil and capture.isBusy() then
-		pcall(capture.tick)
-	elseif capture ~= nil then
-		pcall(checkNewPlan, capture)
-	end
-	pcall(syncState)
 end
 
 --- Status line of the window (TFUI text: handlers.statusText(status)).
@@ -180,8 +186,9 @@ function handlers.bindWindow(react, progress, status)
 		if type(react.onUnmount) == "function" then
 			pcall(function()
 				react.onUnmount(function()
+					-- Without the button pump, the scan stops with the window: abort it cleanly.
 					local capture = captureMod()
-					if capture ~= nil and capture.isBusy() then
+					if buttonPumpFrame == 0 and capture ~= nil and capture.isBusy() then
 						pcall(capture.abort, handlers.t("err_window_closed"))
 					end
 					pumpLogged = false
@@ -213,25 +220,6 @@ function handlers.onExport()
 	else
 		setStatus(handlers.t("status_exported"))
 	end
-end
-
---- "Capturer": play the mosaic written by the app.
-function handlers.onCapture()
-	local capture = captureMod()
-	if capture == nil then
-		setStatus(handlers.t("status_module_missing", "capture"))
-		return
-	end
-	if capture.isBusy() then
-		pcall(capture.abort, handlers.t("err_restarted"))
-	end
-	local ok, res = pcall(capture.start)
-	if not ok then
-		setStatus(handlers.t("status_capture_error", tostring(res)))
-	elseif not res.ok then
-		setStatus(handlers.t("status_capture_impossible", tostring(res.error)))
-	end
-	syncState()
 end
 
 return handlers

@@ -43,7 +43,7 @@
       orthoText = t("steps.ortho.active", { pct: Math.round(orthoJob.running.progress * 100) });
     } else if (captureState === "done" && latestRun) {
       orthoState = latestRun.hasOrtho ? "done" : "todo";
-      orthoText = latestRun.hasOrtho ? t("steps.ortho.done") : t("steps.ortho.todo");
+      orthoText = latestRun.hasOrtho ? t("steps.ortho.done") : t("steps.ortho.missing");
     }
     return [
       { n: 1, state: exportState, text: app.map ? t("steps.export.done") : t("steps.export.todo"), go: "grid" as const },

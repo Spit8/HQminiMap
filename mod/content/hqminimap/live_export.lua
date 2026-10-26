@@ -1,4 +1,4 @@
--- Live game data for the HQminiMap app (Visualiser layers) + app commands (teleport).
+-- Live game data for the HQminiMap app (Visualiser layers) + app commands (teleport, focus, scan).
 -- The app writes <UD>/hqminimap/live_request.lua { enabled, intervals = {towns=…, …}, cmd = {seq, …} };
 -- this module re-reads it every REQUEST_FRAMES and, at the requested cadence, writes
 -- live_towns / live_industries / live_stations / live_lines / live_vehicles / live_stats /
@@ -13,6 +13,10 @@ local M = {}
 -- (os.clock is CPU time, unreliable as a clock in a multi-threaded game; only used for durations).
 local REQUEST_FRAMES = 30
 local STATUS_SEC = 2
+-- An app command is run only within this many seconds of being sent.
+local CMD_MAX_AGE_SEC = 60
+-- Status cadence while the live data are off.
+local STATUS_IDLE_SEC = 10
 -- One job at a time. Long jobs (stations, stats, routes) run in steps, BUDGET_SEC per frame at most.
 local BUDGET_SEC = 0.003
 local MAX_STEPS = 200
@@ -21,7 +25,7 @@ local RETRY_SEC = 30
 local KINDS = { "vehicles", "lines", "stations", "stats", "routes", "stocks", "towns", "industries", "townAreas", "history" }
 -- Version of the files written here; the app warns when the game still runs an older mod
 -- (ug_require keeps the old code until the save is reloaded).
-local FORMAT = 8
+local FORMAT = 9
 -- Straight bridges over unreadable path edges only up to this length (m): longer ones are left open.
 local MAX_BRIDGE = 80
 -- Town outlines: building positions binned on a CELL m grid.
@@ -42,11 +46,60 @@ local active = nil
 local stationPosCache = {}
 --- line → transport mode ("rail", "road", …), filled by the lines job.
 local lineMode = {}
+--- line → set of modes its vehicles use ({ road = true, tram = true } for a mixed line): the
+--- pathfinding follows all of them.
+local lineModes = {}
+--- Where the lines job found each line's mode (diagnostic, live_status.lineModes): from its
+--- vehicles, from the line itself (no vehicle), or nowhere ("other").
+local modeSources = nil
+--- Mode of each TransportMode of the game.
+local MODE_OF = {
+	TRAIN = "rail", ELECTRIC_TRAIN = "rail", TRAM = "tram", ELECTRIC_TRAM = "tram", TRAM_TRACK = "tram",
+	ELECTRIC_TRAM_TRACK = "tram", BUS = "road", TRUCK = "road", CAR = "road", SHIP = "water", SMALL_SHIP = "water",
+	AIRCRAFT = "air", SMALL_AIRCRAFT = "air", HELICOPTER = "air",
+}
+
+--- Modes a line accepts (LINE.vehicleInfo.transportModes): for a line without vehicles. In game
+--- it is a vector (one entry per mode, index = mode + 1; seen: 15 booleans); a table keyed by the
+--- mode is read too. Often all false for a line without vehicles.
+local function lineDeclaredModes(line)
+	local out, sample = {}, nil
+	pcall(function()
+		local tm = line.vehicleInfo.transportModes
+		local n = 0
+		pcall(function()
+			n = #tm
+		end)
+		local vals = {}
+		for name, mode in pairs(MODE_OF) do
+			local e = api.type.enum.TransportMode[name]
+			if e ~= nil then
+				local ok, v = pcall(function()
+					if n > 0 then
+						return tm[e + 1]
+					end
+					return tm[e]
+				end)
+				if ok and (v == true or (tonumber(v) or 0) > 0) then
+					out[mode] = true
+				end
+				vals[#vals + 1] = name .. "=" .. tostring(ok and v)
+			end
+		end
+		table.sort(vals)
+		sample = type(tm) .. "#" .. tostring(n) .. " " .. table.concat(vals, ",")
+	end)
+	return out, sample
+end
 --- line → { fp = stops fingerprint, edges = {edge = true}, extra = {key = "x,y,x,y,…"} }: what was
 --- seen on the line's vehicle paths (network edges, lane geometries, bridges over gaps, free legs).
 local lineEdges = {}
 --- edge → "x0,y0,tx0,ty0,x1,y1,tx1,ty1" (or false: no BASE_EDGE, e.g. inside a station).
 local edgeGeom = {}
+--- street edge → { f = lanes along the edge, b = lanes against it } (or false: unknown / not a street).
+local edgeLanes = {}
+--- How the lane counts were read (diagnostic: the street APIs are not verified in TF3).
+local lanesDiag = { rep = 0, network = 0, unknown = 0, samples = {} }
 local routesSignature = nil
 local routesDiag = nil
 local historyDiag = nil
@@ -163,13 +216,35 @@ local function carrierMode(carrier)
 	return nil
 end
 
---- "rail" | "road" | "tram" | "water" | "air" | "other" from a construction file name (fallback).
-local function fileMode(file)
+--- "rail" | "road" | "tram" | "water" | "air" | "other" from a construction file name (fallback,
+--- for stations no line serves yet). Order matters: "airport" contains "port", "transport" too.
+function M.fileMode(file)
 	file = tostring(file or ""):lower()
-	return file:find("rail") and "rail" or file:find("tram") and "tram" or file:find("harbor") and "water"
-		or file:find("port") and "water" or file:find("water") and "water" or file:find("air") and "air"
-		or file:find("road") and "road" or file:find("bus") and "road" or file:find("truck") and "road" or "other"
+	local function has(...)
+		for _, w in ipairs({ ... }) do
+			if file:find(w, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+	if has("tram") then
+		return "tram"
+	elseif has("rail", "train") then
+		return "rail"
+	elseif has("airport", "airfield", "aircraft", "/air/", "air_") then
+		return "air"
+	end
+	local harbour = has("harbor", "harbour", "water", "ship")
+		or (file:gsub("airport", ""):gsub("transport", ""):find("port", 1, true) ~= nil)
+	if harbour then
+		return "water"
+	elseif has("road", "bus", "truck", "street") then
+		return "road"
+	end
+	return "other"
 end
+local fileMode = M.fileMode
 
 local function stationIs(station, cargo)
 	local ok, v = pcall(function()
@@ -257,10 +332,17 @@ jobs.stations = {
 				passengers = passengers or stationIs(st, false)
 			end
 			if n > 0 then
-				local mode = nil
+				-- Mode of the lines serving it, the most frequent one (stop shared by buses and trams).
+				local mode, count = nil, {}
 				pcall(function()
 					for _, ln in ipairs(api.engine.system.lineSystem.getLinesForStationGroup(group)) do
-						mode = mode or lineMode[ln]
+						local m = lineMode[ln]
+						if m then
+							count[m] = (count[m] or 0) + 1
+							if mode == nil or count[m] > count[mode] then
+								mode = m
+							end
+						end
 					end
 				end)
 				s.out[#s.out + 1] = {
@@ -278,6 +360,7 @@ jobs.stations = {
 
 function jobs.lines()
 	local out = {}
+	modeSources = { vehicles = 0, line = 0, none = 0 }
 	for _, ln in ipairs(playerLines()) do
 		local entry = { id = ln, name = nameOf(ln) or ("#" .. tostring(ln)), stops = {} }
 		pcall(function()
@@ -285,20 +368,58 @@ function jobs.lines()
 			entry.r, entry.g, entry.b = c.x, c.y, c.z
 		end)
 		local line = comp(ln, "LINE")
+		local stopFile = nil
 		for _, stop in ipairs(line and line.stops or {}) do
 			local sg = comp(stop.stationGroup, "STATION_GROUP")
 			local st = sg and sg.stations and sg.stations[(stop.station or 0) + 1]
 			local p = st and stationPos(st)
+			stopFile = stopFile or (p and p.file ~= "" and p.file) or nil
 			if p then
 				entry.stops[#entry.stops + 1] = { g = stop.stationGroup, x = round1(p.x), y = round1(p.y) }
 			end
 		end
 		local v = lineVehicles(ln)
 		entry.vehicles = #v
-		if #v > 0 then
-			local tv = comp(v[1], "TRANSPORT_VEHICLE")
-			entry.carrier = tv and tv.carrier
-			lineMode[ln] = carrierMode(entry.carrier) or lineMode[ln]
+		-- Mode: the first vehicle's; the pathfinding follows every vehicle's (mixed lines).
+		local modes, first = {}, nil
+		for _, veh in ipairs(v) do
+			local tv = comp(veh, "TRANSPORT_VEHICLE")
+			if tv and entry.carrier == nil then
+				entry.carrier = tv.carrier
+			end
+			local m = tv and carrierMode(tv.carrier)
+			if m then
+				modes[m] = true
+				first = first or m
+			end
+		end
+		if first then
+			lineMode[ln] = first
+			modeSources.vehicles = modeSources.vehicles + 1
+		else
+			-- No vehicle: the modes the line accepts.
+			local decl, sample = lineDeclaredModes(line)
+			local m = decl.rail and "rail" or decl.tram and "tram" or decl.road and "road" or decl.water and "water"
+				or decl.air and "air" or nil
+			-- Else the kind of station of its first stop (file name of its construction).
+			if m == nil and stopFile then
+				local f = fileMode(stopFile)
+				if f ~= "other" then
+					m = f
+					decl = { [f] = true }
+				end
+			end
+			if m then
+				lineMode[ln] = m
+				modes = decl
+				modeSources.line = modeSources.line + 1
+			elseif lineMode[ln] == nil then
+				modeSources.none = modeSources.none + 1
+				modeSources.sample = modeSources.sample or (tostring(sample) .. " | stop file: " .. tostring(stopFile))
+			end
+		end
+		if next(modes) then
+			lineModes[ln] = modes
 		end
 		entry.mode = lineMode[ln] or "other"
 		out[#out + 1] = entry
@@ -444,6 +565,126 @@ local function edgeGeometry(edge)
 	return g or false
 end
 
+--- Length of a Lua table or of a game vector (userdata: no # in some builds): #, :size(), or count.
+local function seqLen(v)
+	if v == nil then
+		return 0
+	end
+	local ok, n = pcall(function()
+		return #v
+	end)
+	if ok and type(n) == "number" and n > 0 then
+		return n
+	end
+	ok, n = pcall(function()
+		return v:size()
+	end)
+	if ok and type(n) == "number" then
+		return n
+	end
+	local k = 0
+	pcall(function()
+		while k < 64 and v[k + 1] ~= nil do
+			k = k + 1
+		end
+	end)
+	return k
+end
+
+local function field(v, name)
+	local ok, x = pcall(function()
+		return v[name]
+	end)
+	if ok then
+		return x -- may be false (forward = false): not "ok and x or nil"
+	end
+	return nil
+end
+
+--- Driving lanes of a street edge, per direction: from its street type (laneConfigs, sidewalks
+--- first and last), else from its TRANSPORT_NETWORK lanes open to buses (split evenly). Cached.
+--- None of these game APIs is documented for TF3: what each step returned on the first edges that
+--- gave nothing is kept in lanesDiag.samples (live_status.routes.streetLanes).
+local function streetLanes(edge)
+	local c = edgeLanes[edge]
+	if c ~= nil then
+		return c
+	end
+	local st = comp(edge, "BASE_EDGE_STREET")
+	if st == nil then
+		edgeLanes[edge] = false
+		return false
+	end
+	local res, trace = false, {}
+	local function note(k, v)
+		trace[#trace + 1] = k .. "=" .. tostring(v)
+	end
+	local stype = field(st, "streetType")
+	note("streetType", stype)
+	local okRep, t = pcall(function()
+		return api.res.streetTypeRep.get(stype)
+	end)
+	note("get", okRep and type(t) or ("error: " .. tostring(t)))
+	pcall(function()
+		note("name", api.res.streetTypeRep.getName(stype))
+	end)
+	local lc = okRep and t and field(t, "laneConfigs") or nil
+	local n = seqLen(lc)
+	note("laneConfigs", lc == nil and "nil" or (type(lc) .. "#" .. n))
+	if n >= 3 then
+		local f, b, flags = 0, 0, {}
+		for k = 2, n - 1 do
+			local fw = field(lc[k], "forward")
+			flags[#flags + 1] = tostring(fw)
+			if fw == false then
+				b = b + 1
+			else
+				f = f + 1
+			end
+		end
+		note("forward", table.concat(flags, "/"))
+		res = { f = f, b = b }
+		lanesDiag.rep = lanesDiag.rep + 1
+	end
+	if not res then
+		local tn = comp(edge, "TRANSPORT_NETWORK")
+		local lanes = tn and field(tn, "edges") or nil
+		local m = seqLen(lanes)
+		local bus = nil
+		pcall(function()
+			bus = api.type.enum.TransportMode.BUS
+		end)
+		note("tn.edges", lanes == nil and "nil" or m)
+		note("BUS", bus)
+		local count, modesSeen = 0, nil
+		for k = 1, m do
+			local tm = field(lanes[k], "transportModes")
+			if modesSeen == nil and tm ~= nil then
+				local parts = {}
+				for q = 1, math.min(16, seqLen(tm)) do
+					parts[#parts + 1] = tostring(field(tm, q))
+				end
+				modesSeen = type(tm) .. "[" .. table.concat(parts, ",") .. "]"
+			end
+			if tm ~= nil and bus ~= nil and (tonumber(field(tm, bus + 1)) or 0) > 0 then
+				count = count + 1
+			end
+		end
+		note("modes", modesSeen)
+		if count > 0 then
+			res = { f = math.ceil(count / 2), b = math.floor(count / 2) }
+			lanesDiag.network = lanesDiag.network + 1
+		else
+			lanesDiag.unknown = lanesDiag.unknown + 1
+		end
+	end
+	if #lanesDiag.samples < 3 and (not res or #lanesDiag.samples < 1) then
+		lanesDiag.samples[#lanesDiag.samples + 1] = "edge " .. edge .. ": " .. table.concat(trace, "; ")
+	end
+	edgeLanes[edge] = res
+	return res
+end
+
 --- Points of an EdgeGeometry (lane inside a crossing / construction, or a ship's free leg).
 --- Points of an EdgeGeometry read as a Lua table (getComponent converts it, so the native
 --- EdgeGeometry.calcPos cannot be used): straight, cubic (offset) spline or arc, computed here.
@@ -507,6 +748,88 @@ local function ptsString(pts)
 	return table.concat(out, ",")
 end
 
+--- Free legs (ships, aircraft): one track per crossing, both ways together: the mean of its last
+--- FREE_TRIPS trips (a trip the other way is turned round), so one odd trip does not show. Trips
+--- whose ends are within FREE_SNAP m of a crossing's ends (either way) are that crossing.
+local FREE_TRIPS = 3
+local FREE_SNAP = 150
+
+--- pts resampled to n points evenly spaced along it.
+local function resample(pts, n)
+	local acc = { 0 }
+	for i = 2, #pts do
+		acc[i] = acc[i - 1] + math.sqrt((pts[i][1] - pts[i - 1][1]) ^ 2 + (pts[i][2] - pts[i - 1][2]) ^ 2)
+	end
+	local total, out, j = acc[#pts], {}, 2
+	for k = 0, n - 1 do
+		local t = total * k / (n - 1)
+		while j < #pts and acc[j] < t do
+			j = j + 1
+		end
+		local a, b = acc[j - 1], acc[j]
+		local u = b > a and (t - a) / (b - a) or 0
+		out[#out + 1] = { pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * u, pts[j - 1][2] + (pts[j][2] - pts[j - 1][2]) * u }
+	end
+	return out
+end
+
+--- Records a free-leg trip on the line `le` and returns its crossing's key and mean track.
+local function freeTrip(le, pts)
+	local a, b = pts[1], pts[#pts]
+	local function near(p, q)
+		return math.abs(p[1] - q[1]) <= FREE_SNAP and math.abs(p[2] - q[2]) <= FREE_SNAP
+	end
+	local leg
+	for _, l in ipairs(le.free) do
+		if near(l.a, a) and near(l.b, b) then
+			leg = l
+			break
+		elseif near(l.a, b) and near(l.b, a) then
+			-- The way back: turned round, so all the trips of a crossing run the same way.
+			local r = {}
+			for k = #pts, 1, -1 do
+				r[#r + 1] = pts[k]
+			end
+			pts, leg = r, l
+			break
+		end
+	end
+	if not leg then
+		leg = { a = a, b = b, trips = {}, key = string.format("free:%d,%d>%d,%d", round1(a[1] / 50), round1(a[2] / 50), round1(b[1] / 50), round1(b[2] / 50)) }
+		le.free[#le.free + 1] = leg
+	end
+	-- The same trip is seen on every pass while the vehicle travels it: count it once.
+	local sig = ptsString(pts)
+	local known = false
+	for _, t in ipairs(leg.trips) do
+		known = known or t.sig == sig
+	end
+	if not known then
+		leg.trips[#leg.trips + 1] = { sig = sig, pts = pts }
+		if #leg.trips > FREE_TRIPS then
+			table.remove(leg.trips, 1)
+		end
+	end
+	if #leg.trips == 1 then
+		return leg.key, leg.trips[1].pts
+	end
+	local n = 2
+	for _, t in ipairs(leg.trips) do
+		n = math.max(n, #t.pts)
+	end
+	local mean = {}
+	for k = 1, n do
+		mean[k] = { 0, 0 }
+	end
+	for _, t in ipairs(leg.trips) do
+		for k, p in ipairs(resample(t.pts, n)) do
+			mean[k][1] = mean[k][1] + p[1] / #leg.trips
+			mean[k][2] = mean[k][2] + p[2] / #leg.trips
+		end
+	end
+	return leg.key, mean
+end
+
 --- Walk a network path in order and record its pieces on the line `le`: BASE_EDGE edges by id,
 --- other lanes (crossings, stations) by their geometry, and a straight bridge over any edge whose
 --- shape cannot be read, so the drawn track has no hole. `d` collects diagnostics.
@@ -524,12 +847,35 @@ local function isNode(entity)
 	return v
 end
 
+--- Reads one path element: a pair { EdgeId, dir } (vehicle paths) or an object with .edgeId/.dir
+--- (EdgeIdDir), read under pcall since userdata may refuse a missing key. → id, forward, how
+--- ("pair", "field" or "none": no direction found, taken as along the geometry).
+local function pathStep(e)
+	local function get(k)
+		local ok, v = pcall(function()
+			return e[k]
+		end)
+		if ok then
+			return v
+		end
+	end
+	local id = get(1) or get("edgeId") or e
+	local dir, how = get(2), "pair"
+	if dir == nil then
+		dir, how = get("dir"), "field"
+	end
+	if dir == nil then
+		return id, true, "none"
+	end
+	return id, dir ~= false, how
+end
+
 local function walkPath(path, le, d)
 	local prevEnd, gap = nil, false
 	for _, e in ipairs(path and path.edges or {}) do
-		local id = e[1] or e.edgeId or e
+		local id, fwd, how = pathStep(e)
 		local entity, index = id and id.entity, id and id.index or 0
-		local fwd = e[2] ~= false
+		d.dirs[how] = d.dirs[how] + 1
 		local first, last = nil, nil
 		local skipped = false
 		if entity and entity >= 0 and isNode(entity) then
@@ -607,7 +953,8 @@ end
 
 --- Transport modes the game's pathfinding may use for a line's mode (legs between its stops).
 local LEG_MODES = {
-	rail = { "TRAIN", "ELECTRIC_TRAIN" }, road = { "BUS", "TRUCK", "CAR" }, tram = { "TRAM", "ELECTRIC_TRAM" },
+	rail = { "TRAIN", "ELECTRIC_TRAIN" }, road = { "BUS", "TRUCK", "CAR" },
+	tram = { "TRAM", "ELECTRIC_TRAM", "TRAM_TRACK", "ELECTRIC_TRAM_TRACK" },
 }
 --- A leg's path is recomputed after this many routes passes (track changes).
 local LEG_REFRESH = 10
@@ -630,10 +977,16 @@ end
 
 --- Path of every leg of a line (stop i → stop i+1, last → first) from the game's pathfinding, so a
 --- leg shows even when no vehicle was seen on it. Cached; `d` counts computed / cached / failed.
-local function walkLegs(line, mode, le, d)
-	local names = LEG_MODES[mode]
+--- `modes`: the line's modes (set, "rail" = true …); legs only for the network ones.
+local function walkLegs(line, modes, le, d)
+	local names = {}
+	for m in pairs(modes or {}) do
+		for _, n in ipairs(LEG_MODES[m] or {}) do
+			names[#names + 1] = n
+		end
+	end
 	local stops = line and line.stops or {}
-	if names == nil or #stops < 2 then
+	if #names == 0 or #stops < 2 then
 		return
 	end
 	local modes = {}
@@ -688,7 +1041,7 @@ jobs.routes = {
 			lines = playerLines(), i = 1, out = {}, used = {}, usedOrder = {},
 			d = {
 				missing = 0, bridges = 0, lanes = 0, free = 0, bigGaps = 0, nodes = 0, samples = {},
-				legsComputed = 0, legsCached = 0, legsFailed = 0,
+				legsComputed = 0, legsCached = 0, legsFailed = 0, dirs = { pair = 0, field = 0, none = 0 },
 				paths = 0, edgesSum = 0, edgesMax = 0, idxSum = 0, idxN = 0, states = {},
 			},
 		}
@@ -707,11 +1060,12 @@ jobs.routes = {
 		fp = table.concat(fp, ",")
 		local le = lineEdges[ln]
 		if le == nil or le.fp ~= fp then
-			le = { fp = fp, edges = {}, extra = {} }
+			le = { fp = fp, edges = {}, extra = {}, free = {} }
 			lineEdges[ln] = le
 		end
+		le.free = le.free or {}
 		-- Every leg from the pathfinding, then the vehicles' actual paths (detours, other terminals).
-		local okL, errL = pcall(walkLegs, line, lineMode[ln], le, s.d)
+		local okL, errL = pcall(walkLegs, line, lineModes[ln] or (lineMode[ln] and { [lineMode[ln]] = true }), le, s.d)
 		if not okL then
 			warn("routes", "legs of line " .. tostring(ln) .. ": " .. tostring(errL))
 		end
@@ -747,9 +1101,8 @@ jobs.routes = {
 						end
 					end
 					if #pts >= 2 then
-						local a, b = pts[1], pts[#pts]
-						local key = string.format("free:%d,%d>%d,%d", round1(a[1] / 50), round1(a[2] / 50), round1(b[1] / 50), round1(b[2] / 50))
-						le.extra[key] = ptsString(pts)
+						local key, mean = freeTrip(le, pts)
+						le.extra[key] = ptsString(mean)
 						s.d.free = s.d.free + 1
 					end
 				end
@@ -801,7 +1154,10 @@ jobs.routes = {
 		routesDiag = {
 			missing = d.missing, bridges = d.bridges, lanes = d.lanes, free = d.free, bigGaps = d.bigGaps, nodes = d.nodes,
 			samples = d.samples,
+			streetLanes = lanesDiag,
 			legs = { computed = d.legsComputed, cached = d.legsCached, failed = d.legsFailed },
+			-- How each path step gave its direction (pair [2], field .dir, none = taken as forward).
+			dirs = d.dirs,
 			pathStats = {
 				paths = d.paths, edgesAvg = d.paths > 0 and math.floor(d.edgesSum / d.paths + 0.5) or 0, edgesMax = d.edgesMax,
 				edgeIndexAvg = d.idxN > 0 and math.floor(d.idxSum / d.idxN + 0.5) or 0, states = d.states,
@@ -810,7 +1166,9 @@ jobs.routes = {
 		table.sort(s.usedOrder)
 		local parts, sig = {}, {}
 		for _, edge in ipairs(s.usedOrder) do
-			parts[#parts + 1] = tostring(edge) .. "," .. edgeGeom[edge]
+			-- Streets: + driving lanes along / against the edge (the app limits the lines' lanes to them).
+			local ln = streetLanes(edge)
+			parts[#parts + 1] = tostring(edge) .. "," .. edgeGeom[edge] .. (ln and ("," .. ln.f .. "," .. ln.b) or "")
 		end
 		for _, l in ipairs(s.out) do
 			sig[#sig + 1] = tostring(l.id) .. "=" .. l.e .. "/" .. l.p
@@ -1091,18 +1449,41 @@ local function runCommand(cmd, react)
 		end
 		return { seq = cmd.seq, ok = ok, error = ok and nil or tostring(err) }
 	end
+	-- Scan scheduled by the app (capture_plan + cutscene written just before): start it now. The
+	-- scan is ticked by the GUI pump (mod button, always there), window open or not.
+	if cmd.action == "scan" then
+		local ok, res = pcall(function()
+			local capture = ug_require "hqminimap::/hqminimap/capture.lua"
+			if capture.isBusy() then
+				return { ok = false, error = "busy" }
+			end
+			return capture.start()
+		end)
+		if not ok then
+			return { seq = cmd.seq, ok = false, error = tostring(res) }
+		end
+		return { seq = cmd.seq, ok = res.ok == true, error = res.ok and nil or tostring(res.error) }
+	end
 	return { seq = cmd.seq, ok = false, error = "unknown action " .. tostring(cmd.action) }
 end
 
 local function writeStatus(t)
-	local cam = nil
+	local cam, screen = nil, nil
 	pcall(function()
 		local c = api.gui.camera.getCameraData()
 		cam = { x = round1(c.x), y = round1(c.y) }
 	end)
+	-- Size of the game view in pixels = size of its screenshots (the app plans the scan with it).
+	pcall(function()
+		local v = api.gui.camera.getSize()
+		local w, h = tonumber(v.x or v[1]), tonumber(v.y or v[2])
+		if w and h and w > 0 and h > 0 then
+			screen = { w = math.floor(w + 0.5), h = math.floor(h + 0.5) }
+		end
+	end)
 	io_util.saveTable("live_status", {
 		version = FORMAT, t = t, enabled = request and request.enabled and true or false,
-		lastCmdSeq = lastCmdSeq, cmd = cmdResult, jobs = jobStats, camera = cam, routes = routesDiag,
+		lastCmdSeq = lastCmdSeq, cmd = cmdResult, jobs = jobStats, camera = cam, screen = screen, routes = routesDiag, lineModes = modeSources,
 		history = historyDiag, format = FORMAT,
 	})
 end
@@ -1161,13 +1542,28 @@ function M.tick(react)
 		local cmd = request and request.cmd
 		if type(cmd) == "table" and type(cmd.seq) == "number" and cmd.seq > lastCmdSeq then
 			lastCmdSeq = cmd.seq
-			cmdResult = runCommand(cmd, react)
+			-- Sent more than CMD_MAX_AGE_SEC ago (left in the file, read again after a save or mod
+			-- reload): dropped, never replayed (a scan would start on its own).
+			local wall = io_util.nowUnix()
+			-- A scan must be stamped (requests of older apps left a scan in the file).
+			local stale = (cmd.action == "scan" and type(cmd.at) ~= "number")
+				or (type(cmd.at) == "number" and wall ~= nil and math.abs(wall - cmd.at) > CMD_MAX_AGE_SEC)
+			if stale then
+				cmdResult = { seq = cmd.seq, ok = false, error = "stale" }
+			else
+				cmdResult = runCommand(cmd, react)
+			end
 			writeStatus(t)
 			lastStatus = t
 		end
 	end
 	if request == nil or not request.enabled then
 		active = nil
+		-- Live data off: the status still tells the app the game runs, and its screen size.
+		if t - lastStatus >= STATUS_IDLE_SEC then
+			lastStatus = t
+			writeStatus(t)
+		end
 		return
 	end
 	if active then

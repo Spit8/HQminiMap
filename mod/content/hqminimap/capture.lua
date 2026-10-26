@@ -15,12 +15,16 @@ local PLAN_PATH = "hqminimap::/hqminimap/mosaic_plan.lua"
 local CUTSCENE_PREFIX = "hqminimap::/hqminimap/cutscenes/mosaic_run_p"
 local SCREENSHOT_SCALE = 1
 -- Fallback timings (the plan always provides them).
-local SEG_DUR = 1
-local SHOT_OFFSET = 0.25
+-- Defaults when the plan does not say (the app writes them): 1.25 s per tile, shot at 0.3125 s.
+local SEG_DUR = 1.25
+local SHOT_OFFSET = 0.3125
 local ENV_SETTLE_SEC = 2
-local MIN_MAX_WAIT_FRAMES = 3600
--- playCutscene must report playing within this many frames.
-local PLAY_START_TIMEOUT = 90
+-- Waits are in wall-clock seconds (io_util.nowUnix, whole seconds), never in frames: the game may run
+-- at 30 or 240 fps. A cutscene may last its length plus PLAY_MARGIN_SEC, at least MIN_MAX_WAIT_SEC.
+local MIN_MAX_WAIT_SEC = 60
+local PLAY_MARGIN_SEC = 10
+-- playCutscene must report playing within this many seconds.
+local PLAY_START_SEC = 3
 -- Capture lighting defaults (the plan overrides them): sun away from zenith = no water glint.
 local DEFAULT_TIME_SEC = 36000
 local DEFAULT_DAY_OF_YEAR = 171
@@ -287,10 +291,15 @@ end
 
 -- ---------------------------------------------------------------- cutscenes
 
+--- Seconds for the waits: the wall clock, else (no os.time) the frames counted by step at 60 fps.
+local function nowSec(j)
+	return io_util.nowUnix() or (j.frames or 0) / 60
+end
+
 local function playPitch(j, pitchIdx)
 	j.pitchIdx = pitchIdx
 	j.segShot = {}
-	j.waitFrames = 0
+	j.phaseStart = nowSec(j)
 	j.playingSeen = false
 	local path = string.format("%s%02d.lua", j.plan.cutscenePathPrefix or CUTSCENE_PREFIX, pitchIdx)
 	local ok, err = pcall(function()
@@ -379,8 +388,7 @@ function M.start()
 		segDur = segDur,
 		shotOffset = tonumber(plan.shotOffset) or SHOT_OFFSET,
 		settleSec = settleSec,
-		settleFrames = math.ceil(settleSec * 60),
-		maxWaitFrames = math.max(MIN_MAX_WAIT_FRAMES, math.ceil(per * segDur * 60) + 600),
+		maxWaitSec = math.max(MIN_MAX_WAIT_SEC, math.ceil(per * segDur) + PLAY_MARGIN_SEC),
 		maxShots = per * plan.pitchCount,
 		shotsTaken = 0,
 		shotTimes = {},
@@ -389,7 +397,8 @@ function M.start()
 		lighting = lightingSnapshot(),
 		startedAt = io_util.nowUnix(),
 		phase = "settle",
-		waitFrames = 0,
+		frames = 0,
+		phaseStart = io_util.nowUnix() or 0,
 	}
 	pcall(applyCaptureLighting)
 	settings.setProgress(0)
@@ -403,10 +412,12 @@ function M.start()
 end
 
 local function step(j)
-	j.waitFrames = j.waitFrames + 1
+	-- Seconds since the phase began (whole seconds: "> n" waits n to n + 1 s).
+	j.frames = j.frames + 1
+	local waited = nowSec(j) - j.phaseStart
 	-- Sky / time of day settle before the first cutscene.
 	if j.phase == "settle" then
-		if j.waitFrames >= j.settleFrames then
+		if waited > j.settleSec then
 			local ok, err = playPitch(j, 1)
 			if not ok then
 				finishJob(j, err)
@@ -447,11 +458,11 @@ local function step(j)
 		finishJob(j, nil)
 		return
 	end
-	if not j.playingSeen and j.waitFrames >= PLAY_START_TIMEOUT then
+	if not j.playingSeen and waited > PLAY_START_SEC then
 		finishJob(j, i18n.t("err_not_started"))
 		return
 	end
-	if j.waitFrames >= j.maxWaitFrames then
+	if waited > j.maxWaitSec then
 		finishJob(j, i18n.t("err_timeout", j.shotsTaken))
 	end
 end

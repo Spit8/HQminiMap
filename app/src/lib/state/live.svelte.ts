@@ -13,10 +13,13 @@ import { townOutline } from "$lib/core/towns";
 import { ensureDir, fileStat, joinPath, readText, writeText } from "$lib/platform/fsx";
 import type { GamePaths } from "$lib/platform/paths";
 
+import { perf } from "./perf.svelte";
 const LS_SETTINGS = "hq.live";
 const POLL_MS = 700;
 /** A command not acknowledged within this delay is reported as failed (mod not running?). */
 const CMD_TIMEOUT_MS = 6000;
+/** The scan: the game may be slow to read the request (heavy map, low frame rate). */
+const SCAN_TIMEOUT_MS = 12000;
 /**
  * Vehicle trails: fallback tracks of ships / aircraft and gap filling of the other lines. One point
  * per step (m), at most max points per vehicle; only ships' / aircraft's trails are kept on disk.
@@ -70,17 +73,19 @@ export type CommandState = { seq: number; state: "pending" | "ok" | "error"; err
 
 class LiveState {
   settings = $state<LiveSettings>(loadSettings());
-  towns = $state<Town[]>([]);
-  industries = $state<Industry[]>([]);
-  stations = $state<Station[]>([]);
-  lines = $state<Line[]>([]);
-  vehicles = $state<Vehicle[]>([]);
-  stats = $state<LiveStats | null>(null);
+  // Replaced whole on each read of their file, never mutated: raw (no deep proxies on every read,
+  // and the map sees the same objects until a file changes).
+  towns = $state.raw<Town[]>([]);
+  industries = $state.raw<Industry[]>([]);
+  stations = $state.raw<Station[]>([]);
+  lines = $state.raw<Line[]>([]);
+  vehicles = $state.raw<Vehicle[]>([]);
+  stats = $state.raw<LiveStats | null>(null);
   /** line → track polylines (world), accumulated by the mod from its vehicles' paths. */
   routes = $state<Map<number, Pt[][]>>(new Map());
   /** Same tracks per edge (shared edges are drawn as bands). */
   routeParts = $state<RouteParts | null>(null);
-  stocks = $state<LiveStocks | null>(null);
+  stocks = $state.raw<LiveStocks | null>(null);
   /**
    * Fallback for ships / aircraft without a known track: positions of their vehicles, accumulated
    * here (line → vehicle → points). `trailsVersion` changes when a trail grows.
@@ -89,12 +94,14 @@ class LiveState {
   trailsVersion = $state(0);
   /** town → outline rings (world), from the mod's building grid. */
   townAreas = $state<Map<number, { rings: Pt[][]; pop: number | null }>>(new Map());
-  history = $state<LiveHistory | null>(null);
+  history = $state.raw<LiveHistory | null>(null);
   /** Previous vehicle positions + times (ms) of the last two updates, for smooth animation. */
   /** Mean time between two vehicle updates as received (ms): the glide duration of the map. */
   vehicleIntervalMs = $state(2000);
   private lastVehiclesMs = 0;
   status = $state<LiveStatus | null>(null);
+  /** When the status file last changed (ms): the game runs if it is recent. */
+  statusAt = $state(0);
   /** Game time (unix s) of each data file. */
   updatedAt = $state<Partial<Record<LiveKind, number>>>({});
   command = $state<CommandState>(null);
@@ -135,6 +142,7 @@ class LiveState {
     this.cmdSeq = Math.max(this.cmdSeq, this.status?.lastCmdSeq ?? 0) + 1;
     this.command = { seq: this.cmdSeq, state: "pending" };
     this.cmdSentMs = Date.now();
+    this.cmdTimeoutMs = CMD_TIMEOUT_MS;
     await this.writeRequest({ seq: this.cmdSeq, action: "teleport", x: Math.round(x), y: Math.round(y), dist });
   }
 
@@ -143,16 +151,35 @@ class LiveState {
     this.cmdSeq = Math.max(this.cmdSeq, this.status?.lastCmdSeq ?? 0) + 1;
     this.command = { seq: this.cmdSeq, state: "pending" };
     this.cmdSentMs = Date.now();
+    this.cmdTimeoutMs = CMD_TIMEOUT_MS;
     await this.writeRequest({ seq: this.cmdSeq, action: "focus", x: Math.round(x), y: Math.round(y), dist, kind, id, open });
   }
+
+  /**
+   * Start the scheduled scan in the game. Resolves with the mod's answer, or error "timeout" when the
+   * game does not answer (not running, no game loaded, mod not active).
+   */
+  async scan(): Promise<{ ok: boolean; error?: string }> {
+    this.cmdSeq = Math.max(this.cmdSeq, this.status?.lastCmdSeq ?? 0) + 1;
+    const seq = this.cmdSeq;
+    this.command = { seq, state: "pending" };
+    this.cmdSentMs = Date.now();
+    this.cmdTimeoutMs = SCAN_TIMEOUT_MS;
+    const answer = new Promise<{ ok: boolean; error?: string }>((resolve) => this.waiters.set(seq, resolve));
+    await this.writeRequest({ seq, action: "scan" });
+    return answer;
+  }
+  private waiters = new Map<number, (r: { ok: boolean; error?: string }) => void>();
+  private cmdTimeoutMs = CMD_TIMEOUT_MS;
 
   private async writeRequest(cmd: LiveRequest["cmd"] = null): Promise<void> {
     const p = this.paths;
     if (!p) return;
-    // Keep the last command in the file so a re-write (settings change) does not lose it;
-    // the mod only runs a command whose seq is newer than the last one it ran.
-    const req: LiveRequest = { enabled: this.settings.enabled, intervals: this.settings.intervals, cmd: cmd ?? this.lastCmd };
-    if (cmd) this.lastCmd = cmd;
+    // The pending command stays in the file until the mod answers (a settings re-write must not
+    // lose it), then it is removed: a mod that restarts (save or mod reloaded) never replays it.
+    // It also carries its sending time: the mod ignores a command older than a minute.
+    if (cmd) this.lastCmd = { ...cmd, at: Math.floor(Date.now() / 1000) };
+    const req: LiveRequest = { enabled: this.settings.enabled, intervals: this.settings.intervals, cmd: this.lastCmd };
     try {
       await ensureDir(p.exportDir);
       await writeText(joinPath(p.exportDir, "live_request.lua"), renderRequest(req));
@@ -174,6 +201,8 @@ class LiveState {
     const p = this.paths;
     if (!p || this.busy) return;
     this.busy = true;
+    // Changes found in this poll are applied together at the end (one map update, not one per file).
+    const apply: (() => void)[] = [];
     try {
       for (const kind of LIVE_KINDS) {
         const path = joinPath(p.exportDir, `live_${kind}.lua`);
@@ -185,8 +214,11 @@ class LiveState {
             this.mtimes.delete(path);
             continue;
           }
-          this.updatedAt = { ...this.updatedAt, [kind]: parsed.t };
-          this.townAreas = new Map([...parsed.towns].map(([id, a]) => [id, { rings: townOutline(a.cells, parsed.cell), pop: a.pop }]));
+          const areas = new Map([...parsed.towns].map(([id, a]) => [id, { rings: townOutline(a.cells, parsed.cell), pop: a.pop }]));
+          apply.push(() => {
+            this.updatedAt = { ...this.updatedAt, [kind]: parsed.t };
+            this.townAreas = areas;
+          });
           continue;
         }
         if (kind === "stats" || kind === "routes" || kind === "stocks" || kind === "history") {
@@ -196,14 +228,18 @@ class LiveState {
             this.mtimes.delete(path);
             continue;
           }
-          this.updatedAt = { ...this.updatedAt, [kind]: parsed.t };
           if (kind === "routes") {
-            this.routes = buildRoutes(parsed as Parameters<typeof buildRoutes>[0]);
-            this.routeParts = routeParts(parsed as Parameters<typeof routeParts>[0]);
-          }
-          else if (kind === "stocks") this.stocks = parsed as LiveStocks;
-          else if (kind === "history") this.history = parsed as LiveHistory;
-          else this.stats = parsed as LiveStats;
+            // Edges sampled once, for both the tracks and the lanes.
+            const parts = routeParts(parsed as Parameters<typeof routeParts>[0]);
+            const built = buildRoutes(parsed as Parameters<typeof buildRoutes>[0], new Map(parts.edges));
+            apply.push(() => {
+              this.routes = built;
+              this.routeParts = parts;
+            });
+          } else if (kind === "stocks") apply.push(() => (this.stocks = parsed as LiveStocks));
+          else if (kind === "history") apply.push(() => (this.history = parsed as LiveHistory));
+          else apply.push(() => (this.stats = parsed as LiveStats));
+          apply.push(() => (this.updatedAt = { ...this.updatedAt, [kind]: parsed.t }));
           continue;
         }
         const parsed = text ? parseLive(kind, text) : null;
@@ -211,31 +247,41 @@ class LiveState {
           this.mtimes.delete(path); // being written: retry next poll
           continue;
         }
-        this.updatedAt = { ...this.updatedAt, [kind]: parsed.t };
-        if (kind === "vehicles") {
-          const nowMs = Date.now(), set = this.settings.intervals.vehicles * 1000;
-          if (this.lastVehiclesMs) {
-            const gap = Math.min(2 * set, Math.max(0.5 * set, nowMs - this.lastVehiclesMs));
-            this.vehicleIntervalMs = 0.7 * this.vehicleIntervalMs + 0.3 * gap;
-          } else this.vehicleIntervalMs = set;
-          this.lastVehiclesMs = nowMs;
-          this.vehicles = parsed.items as Vehicle[];
-          this.recordTrails();
-        } else if (kind === "towns") this.towns = parsed.items as Town[];
-        else if (kind === "industries") this.industries = parsed.items as Industry[];
-        else if (kind === "stations") this.stations = parsed.items as Station[];
-        else this.lines = parsed.items as Line[];
+        apply.push(() => {
+          this.updatedAt = { ...this.updatedAt, [kind]: parsed.t };
+          if (kind === "vehicles") {
+            const nowMs = Date.now(), set = this.settings.intervals.vehicles * 1000;
+            if (this.lastVehiclesMs) {
+              const gap = Math.min(2 * set, Math.max(0.5 * set, nowMs - this.lastVehiclesMs));
+              this.vehicleIntervalMs = 0.7 * this.vehicleIntervalMs + 0.3 * gap;
+            } else this.vehicleIntervalMs = set;
+            this.lastVehiclesMs = nowMs;
+            this.vehicles = parsed.items as Vehicle[];
+            this.recordTrails();
+          } else if (kind === "towns") this.towns = parsed.items as Town[];
+          else if (kind === "industries") this.industries = parsed.items as Industry[];
+          else if (kind === "stations") this.stations = parsed.items as Station[];
+          else this.lines = parsed.items as Line[];
+        });
       }
       const statusPath = joinPath(p.exportDir, "live_status.lua");
       if (await this.changed(statusPath)) {
         const s = parseStatus((await readText(statusPath)) ?? "");
-        if (s) this.status = s;
+        if (s) {
+          this.status = s;
+          this.statusAt = Date.now();
+        }
       }
       this.updateCommand();
     } finally {
+      // Lines first (vehicles' trails look up their line's mode), then the rest, synchronously.
+      for (const f of apply) f();
       this.busy = false;
     }
   }
+
+  /** vehicle → line its trail is filed under. */
+  private trailLine = new Map<number, number>();
 
   /** Grow the trails of every vehicle (a point each time it moved `step` m). */
   private recordTrails(): void {
@@ -243,7 +289,16 @@ class LiveState {
     let grew = false;
     for (const v of this.vehicles) {
       const mode = modes.get(v.line);
-      const { step: TRAIL_STEP, max: TRAIL_MAX } = freeMode(mode) ? TRAIL.free : TRAIL.network;
+      const { step: TRAIL_STEP, max } = freeMode(mode) ? TRAIL.free : TRAIL.network;
+      // Shorter trails when the performance controller asks for it.
+      const TRAIL_MAX = Math.round(max * perf.caps.trailShare);
+      // A vehicle moved to another line: its trail leaves the old one.
+      const was = this.trailLine.get(v.id);
+      if (was !== undefined && was !== v.line) {
+        this.trails.get(was)?.delete(v.id);
+        grew = true;
+      }
+      this.trailLine.set(v.id, v.line);
       let byVehicle = this.trails.get(v.line);
       if (!byVehicle) this.trails.set(v.line, (byVehicle = new Map()));
       let pts = byVehicle.get(v.id);
@@ -251,9 +306,21 @@ class LiveState {
       const last = pts[pts.length - 1];
       if (!last || Math.hypot(v.x - last[0], v.y - last[1]) >= TRAIL_STEP) {
         pts.push([v.x, v.y]);
-        if (pts.length > TRAIL_MAX) pts.shift();
         grew = true;
       }
+      if (pts.length > TRAIL_MAX) pts.splice(0, pts.length - TRAIL_MAX);
+    }
+    // Vehicles gone (sold) and lines deleted: their trails go too (the list is the whole fleet).
+    if (this.vehicles.length) {
+      const alive = new Set(this.vehicles.map((v) => v.id));
+      for (const [line, byVehicle] of this.trails) {
+        for (const id of byVehicle.keys()) if (!alive.has(id)) {
+          byVehicle.delete(id);
+          grew = true;
+        }
+        if (!byVehicle.size) this.trails.delete(line);
+      }
+      for (const id of this.trailLine.keys()) if (!alive.has(id)) this.trailLine.delete(id);
     }
     if (grew) {
       this.trailsVersion++;
@@ -267,8 +334,22 @@ class LiveState {
     const s = this.status;
     if (s?.cmd && s.cmd.seq >= c.seq) {
       this.command = s.cmd.ok ? { seq: c.seq, state: "ok" } : { seq: c.seq, state: "error", error: s.cmd.error ?? "" };
-    } else if (Date.now() - this.cmdSentMs > CMD_TIMEOUT_MS) {
+    } else if (Date.now() - this.cmdSentMs > this.cmdTimeoutMs) {
       this.command = { seq: c.seq, state: "error", error: "timeout" };
+    } else {
+      return;
+    }
+    // Answered (or given up): out of the request file.
+    if (this.lastCmd?.seq === c.seq) {
+      this.lastCmd = null;
+      void this.writeRequest();
+    }
+    // Answer whoever waits for this command (and drop older ones: superseded).
+    const done = this.command;
+    for (const [seq, resolve] of this.waiters) {
+      if (seq > c.seq) continue;
+      this.waiters.delete(seq);
+      resolve(seq === c.seq && done?.state === "ok" ? { ok: true } : { ok: false, error: seq === c.seq ? (done?.error ?? "") : "superseded" });
     }
   }
 }

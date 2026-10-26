@@ -1,5 +1,5 @@
 /**
- * Ortho cost model for TileLab estimates: seconds per output megapixel (render + PNG tiles) and
+ * Ortho cost model for GridLab estimates: seconds per output megapixel (render + PNG tiles) and
  * bytes per pyramid tile, both per interpolation (a softer image compresses better). Starts from
  * measured defaults and learns from each successful export on this machine (localStorage).
  */

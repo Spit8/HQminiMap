@@ -29,6 +29,8 @@ interface Golden {
 
 /** Comment lines carry the generator name: compare everything else. */
 const code = (s: string) => s.split("\n").filter((l) => !l.startsWith("--")).join("\n");
+/** Timing the reference generator used (1 s per tile; the app now defaults to 1.25 s, HQ-044). */
+const REF_TIMING = { SEG_DUR: 1, SHOT_OFFSET: 0.25 };
 
 function suite(label: string, goldenFile: string, terrainDir: string) {
   const gPath = join(FIX, goldenFile);
@@ -40,7 +42,7 @@ function suite(label: string, goldenFile: string, terrainDir: string) {
     for (const g of goldens) {
       it(g.name, () => {
         expect(hm).not.toBeNull();
-        const cfg: MosaicConfig = { ...DEFAULT_CONFIG, ...(g.config as Partial<MosaicConfig>) };
+        const cfg: MosaicConfig = { ...DEFAULT_CONFIG, ...REF_TIMING, ...(g.config as Partial<MosaicConfig>) };
         const mo = computeMosaic(cfg, hm);
         expect(mo.zRef).toBe(g.zRef);
         expect(terrainSourceLabel(hm!)).toBe(g.terrainSource);
@@ -75,7 +77,7 @@ suite("real map, local only", "golden_real.json", "real");
 describe("capture plan as userdata", () => {
   const goldens: Golden[] = JSON.parse(readFileSync(join(FIX, "golden_synthetic.json"), "utf8"));
   const hm = parseHeightmap(readFileSync(join(FIX, "synthetic", "heightmap.lua"), "utf8"))!;
-  const mo = computeMosaic({ ...DEFAULT_CONFIG, ...(goldens[0].config as Partial<MosaicConfig>) }, hm);
+  const mo = computeMosaic({ ...DEFAULT_CONFIG, ...REF_TIMING, ...(goldens[0].config as Partial<MosaicConfig>) }, hm);
 
   it("wraps the reference plan in data() with its stamp, readable by parsePlan", () => {
     const text = modFiles(mo, hm, 1_800_000_123).plan;
@@ -116,7 +118,9 @@ describe("capture timing", () => {
 
   it("validates the shot inside the still hold", () => {
     for (const t of Object.values(CAPTURE_PRESETS)) expect(timingIssue(t)).toBeNull();
-    expect(timingIssue({ segDur: 0.1, shotOffset: 0.05, envSettleSec: 0 })?.kind).toBe("segTooShort");
+    expect(timingIssue({ segDur: 0.04, shotOffset: 0.02, envSettleSec: 0 })?.kind).toBe("segTooShort");
+    // Short segments keep a still hold (margins scaled down): 0.1 s per tile, shot at 0.04 s.
+    expect(timingIssue({ segDur: 0.1, shotOffset: 0.04, envSettleSec: 2 })).toBeNull();
     expect(timingIssue({ segDur: 0.5, shotOffset: 0.45, envSettleSec: 1 })?.kind).toBe("shotOutsideHold");
     expect(timingIssue({ segDur: 0.5, shotOffset: 0.01, envSettleSec: 1 })?.kind).toBe("shotOutsideHold");
   });

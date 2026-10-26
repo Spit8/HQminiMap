@@ -3,7 +3,7 @@
   import GridLab from "$lib/ui/GridLab.svelte";
   import Settings from "$lib/ui/Settings.svelte";
   import Steps from "$lib/ui/Steps.svelte";
-  import TileLab from "$lib/ui/TileLab.svelte";
+  import { perf } from "$lib/state/perf.svelte";
   import Viewer from "$lib/ui/Viewer.svelte";
   import { fmtClock, t as t_ } from "$lib/i18n/index.svelte";
   import { app } from "$lib/state/app.svelte";
@@ -11,17 +11,34 @@
   import { live } from "$lib/state/live.svelte";
   import { runs } from "$lib/state/runs.svelte";
   import { stepsBar } from "$lib/state/stepsBar.svelte";
+  import { lab } from "$lib/state/lab.svelte";
   import { updates } from "$lib/state/updates.svelte";
 
   const TABS = [
     { id: "grid", label: "tabs.grid" },
-    { id: "tiles", label: "tabs.tiles" },
     { id: "viewer", label: "tabs.viewer" },
     { id: "settings", label: "tabs.settings" },
   ] as const;
   type TabId = (typeof TABS)[number]["id"];
 
-  let tab = $state<TabId>("grid");
+  /** First launch: GridLab (the map is made there); afterwards the app always opens on the Visualiser. */
+  const LS_LAUNCHED = "hq.launched";
+  function firstTab(): TabId {
+    try {
+      if (localStorage.getItem(LS_LAUNCHED)) return "viewer";
+      localStorage.setItem(LS_LAUNCHED, "1");
+    } catch {
+      /* storage unavailable */
+    }
+    return "grid";
+  }
+  let tab = $state<TabId>(firstTab());
+
+  /** Open a page; "tiles" is GridLab's captures view (steps bar, ortho indicator). */
+  function go(to: TabId | "tiles"): void {
+    if (to === "tiles" || to === "grid") lab.view = to === "tiles" ? "tiles" : "grid";
+    tab = to === "tiles" ? "grid" : to;
+  }
   let viewerRun = $state<string | null>(null);
 
   // Fullscreen belongs to the viewer: leaving the tab leaves it.
@@ -33,6 +50,20 @@
   $effect(() => runs.start(app.paths));
   // Live game data (Visualiser layers) + the cadences / commands written for the mod.
   $effect(() => live.start(app.paths));
+  perf.start();
+
+  // A capture starts in the game: show it arriving (GridLab › Captures).
+  $effect(() => {
+    if (lab.captureShown) go("tiles");
+  });
+  // Its ortho is built: open it in the Visualiser.
+  $effect(() => {
+    const id = lab.doneRun;
+    if (!id) return;
+    viewerRun = id;
+    tab = "viewer";
+    lab.doneRun = null;
+  });
 
   onMount(() => {
     void app.init().then(() => {
@@ -54,7 +85,7 @@
       <button class="steps-btn" title={t_("steps.showTitle")} onclick={() => stepsBar.show()}>☰ {t_("steps.show")}</button>
     {/if}
     {#if orthoJob.running}
-      <button class="job" title={t_("header.orthoTitle")} onclick={() => (tab = "tiles")}>
+      <button class="job" title={t_("header.orthoTitle")} onclick={() => go("tiles")}>
         {t_("header.ortho", { pct: Math.round(orthoJob.running.progress * 100), elapsed: fmtClock(orthoJob.elapsed) })}
         <progress value={orthoJob.running.progress}></progress>
       </button>
@@ -65,15 +96,14 @@
       </button>
     {/if}
   </header>
-  <div>{#if app.paths && stepsBar.visible}<Steps onGo={(t) => (tab = t)} onHide={() => stepsBar.hide()} />{/if}</div>
+  <div>{#if app.paths && stepsBar.visible}<Steps onGo={go} onHide={() => stepsBar.hide()} />{/if}</div>
   <main>
-    {#if tab === "grid"}<GridLab />{/if}
     {#if tab === "settings"}<Settings />{/if}
-    <!-- Kept mounted: thumbnails and the map survive tab changes. -->
-    <div class="pane" class:hidden={tab !== "tiles"}>
-      <TileLab onShowViewer={(id) => { viewerRun = id; tab = "viewer"; }} />
+    <!-- Kept mounted: the capture previews, the ortho state and the map survive tab changes. -->
+    <div class="pane" class:hidden={tab !== "grid"}>
+      <GridLab onShowViewer={(id) => { viewerRun = id; tab = "viewer"; }} />
     </div>
-    <div class="pane" class:hidden={tab !== "viewer"}><Viewer runId={viewerRun} /></div>
+    <div class="pane" class:hidden={tab !== "viewer"}><Viewer runId={viewerRun} active={tab === "viewer"} /></div>
   </main>
 </div>
 

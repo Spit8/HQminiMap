@@ -8,7 +8,7 @@ export const LIVE_KINDS = [
   "towns", "industries", "stations", "lines", "vehicles", "stats", "routes", "stocks", "townAreas", "history",
 ] as const;
 /** Format of the files written by the mod (live_status.format); older = the game runs an old mod. */
-export const LIVE_FORMAT = 8;
+export const LIVE_FORMAT = 9;
 export type LiveKind = (typeof LIVE_KINDS)[number];
 
 export interface Town { id: number; name: string; x: number; y: number; size: number }
@@ -61,6 +61,8 @@ export interface LiveStatus {
   cmd: { seq: number; ok: boolean; error: string | null } | null;
   jobs: Partial<Record<LiveKind, { ms: number; t: number; ok: boolean; error?: string; warn?: string }>>;
   camera: { x: number; y: number } | null;
+  /** Size of the game view in pixels (= its screenshots), from the game itself. */
+  screen: { w: number; h: number } | null;
   /** Format of the running mod (null = before format 3). */
   format: number | null;
 }
@@ -72,6 +74,13 @@ const num = (v: LuaValue | undefined, d = 0): number => (typeof v === "number" &
 const str = (v: LuaValue | undefined, d = ""): string => (typeof v === "string" ? v : d);
 
 /** Data file → { t, items } (null if unreadable, e.g. being written). */
+const KNOWN_MODES = new Set(["rail", "road", "tram", "water", "air", "other"]);
+/** A mode the app does not know (newer mod or game) is shown as "other" (icon, colour, filters). */
+const modeOf = (v: LuaValue | undefined): StationMode => {
+  const m = str(v, "other");
+  return (KNOWN_MODES.has(m) ? m : "other") as StationMode;
+};
+
 export function parseLive(kind: "towns" | "industries" | "stations" | "lines" | "vehicles", text: string): { t: number; items: unknown[] } | null {
   const root = obj(parseUserdata(text) ?? undefined);
   if (!Object.keys(root).length) return null;
@@ -90,7 +99,7 @@ export function parseLive(kind: "towns" | "industries" | "stations" | "lines" | 
     case "stations":
       return { t, items: arr(root.stations).map((v): Station => {
         const o = obj(v);
-        return { id: num(o.id), name: str(o.name), x: num(o.x), y: num(o.y), mode: str(o.mode, "other") as StationMode, cargo: o.cargo === true, passengers: o.passengers === true };
+        return { id: num(o.id), name: str(o.name), x: num(o.x), y: num(o.y), mode: modeOf(o.mode), cargo: o.cargo === true, passengers: o.passengers === true };
       }) };
     case "lines":
       return { t, items: arr(root.lines).map((v): Line => {
@@ -101,7 +110,7 @@ export function parseLive(kind: "towns" | "industries" | "stations" | "lines" | 
           color: has ? [num(o.r), num(o.g), num(o.b)] : null,
           stops: arr(o.stops).map((s) => ({ g: num(obj(s).g), x: num(obj(s).x), y: num(obj(s).y) })),
           vehicles: num(o.vehicles), carrier: typeof o.carrier === "number" ? o.carrier : null,
-          mode: str(o.mode, "other") as StationMode,
+          mode: modeOf(o.mode),
         };
       }) };
     case "vehicles":
@@ -155,7 +164,11 @@ export function parseStats(text: string): LiveStats | null {
 }
 
 /** Network edge: Hermite curve from its two end positions and tangents (world metres). */
-export interface RouteEdge { x0: number; y0: number; tx0: number; ty0: number; x1: number; y1: number; tx1: number; ty1: number }
+export interface RouteEdge {
+  x0: number; y0: number; tx0: number; ty0: number; x1: number; y1: number; tx1: number; ty1: number;
+  /** Streets: driving lanes along (f) / against (b) the edge geometry (FORMAT 9; absent: unknown). */
+  lanes?: { f: number; b: number };
+}
 export interface LiveRoutes {
   t: number;
   edges: Map<number, RouteEdge>;
@@ -170,9 +183,11 @@ export function parseRoutes(text: string): LiveRoutes | null {
   const edges = new Map<number, RouteEdge>();
   for (const part of str(root.edges).split(";")) {
     const n = part.split(",").map(Number);
-    if (n.length === 9 && n.every(Number.isFinite)) {
-      const [id, x0, y0, tx0, ty0, x1, y1, tx1, ty1] = n as [number, number, number, number, number, number, number, number, number];
-      edges.set(id, { x0, y0, tx0, ty0, x1, y1, tx1, ty1 });
+    if ((n.length === 9 || n.length === 11) && n.every(Number.isFinite)) {
+      const [id, x0, y0, tx0, ty0, x1, y1, tx1, ty1, f, b] = n as number[];
+      const e: RouteEdge = { x0: x0!, y0: y0!, tx0: tx0!, ty0: ty0!, x1: x1!, y1: y1!, tx1: tx1!, ty1: ty1! };
+      if (n.length === 11) e.lanes = { f: f!, b: b! };
+      edges.set(id!, e);
     }
   }
   const lines: LiveRoutes["lines"] = new Map();
@@ -269,6 +284,7 @@ export function parseStatus(text: string): LiveStatus | null {
   if (!Object.keys(root).length) return null;
   const cmd = obj(root.cmd);
   const cam = obj(root.camera);
+  const scr = obj(root.screen);
   const jobs: LiveStatus["jobs"] = {};
   for (const [k, v] of Object.entries(obj(root.jobs))) {
     const o = obj(v);
@@ -281,6 +297,7 @@ export function parseStatus(text: string): LiveStatus | null {
     t: num(root.t), enabled: root.enabled === true, lastCmdSeq: num(root.lastCmdSeq),
     cmd: Object.keys(cmd).length ? { seq: num(cmd.seq), ok: cmd.ok === true, error: typeof cmd.error === "string" ? cmd.error : null } : null,
     jobs, camera: Object.keys(cam).length ? { x: num(cam.x), y: num(cam.y) } : null,
+    screen: num(scr.w) > 0 && num(scr.h) > 0 ? { w: Math.round(num(scr.w)), h: Math.round(num(scr.h)) } : null,
     format: typeof root.format === "number" ? root.format : null,
   };
 }
@@ -291,13 +308,18 @@ export function parseStatus(text: string): LiveStatus | null {
  */
 export type LiveCommand =
   | { seq: number; action: "teleport"; x: number; y: number; dist: number }
-  | { seq: number; action: "focus"; x: number; y: number; dist: number; kind: string; id: number; open: boolean };
+  | { seq: number; action: "focus"; x: number; y: number; dist: number; kind: string; id: number; open: boolean }
+  /** Start the scan scheduled by the app (capture_plan + cutscene, written just before). */
+  | { seq: number; action: "scan" };
+
+/** Every command also carries `at`: when the app sent it (unix s); the mod drops stale ones. */
+export type StampedCommand = LiveCommand & { at?: number };
 
 export interface LiveRequest {
   enabled: boolean;
   /** Seconds between exports per kind (0 = off). */
   intervals: Record<LiveKind, number>;
-  cmd: LiveCommand | null;
+  cmd: StampedCommand | null;
 }
 
 export const DEFAULT_INTERVALS: Record<LiveKind, number> = {

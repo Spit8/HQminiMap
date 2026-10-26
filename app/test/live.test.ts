@@ -61,6 +61,17 @@ describe("live files", () => {
     expect(s.cmd).toEqual({ seq: 4, ok: true, error: null });
     expect(s.jobs.towns).toEqual({ ms: 3, t: 10, ok: true, error: undefined });
   });
+
+  it("shows a mode it does not know as other", () => {
+    const r = parseLive("lines", "function data() return { t = 1, lines = { { id = 9, name = \"Z\", mode = \"zeppelin\", stops = {} } } } end")!;
+    expect((r.items[0] as Line).mode).toBe("other");
+  });
+
+  it("reads the game's view size (its screenshots' size), absent with an older mod", () => {
+    const s = parseStatus("function data() return { t = 1, screen = { w = 3440, h = 1440 } } end")!;
+    expect(s.screen).toEqual({ w: 3440, h: 1440 });
+    expect(parseStatus("function data() return { t = 1 } end")!.screen).toBeNull();
+  });
 });
 
 describe("request", () => {
@@ -70,5 +81,10 @@ describe("request", () => {
     expect(parseUserdata(text)).toEqual({
       enabled: true, intervals: { ...DEFAULT_INTERVALS }, cmd: { seq: 2, action: "teleport", x: 300, y: -400, dist: 900 },
     });
+  });
+
+  it("carries the scan command started from GridLab", () => {
+    const text = renderRequest({ enabled: false, intervals: DEFAULT_INTERVALS, cmd: { seq: 7, action: "scan" } });
+    expect((parseUserdata(text) as { cmd: unknown }).cmd).toEqual({ seq: 7, action: "scan" });
   });
 });

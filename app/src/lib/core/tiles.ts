@@ -59,6 +59,13 @@ export const SHOT_MATCH_AFTER_SEC = 2;
 export interface ShotMatch<T> {
   /** File per capture index tile (chrono order), null when not found (yet). */
   matches: (T | null)[];
+  /**
+   * Per tile: "sure" = its file can be moved out of the screenshots folder; "wait" = an image is
+   * still being written in the tile's time window (it may be the right one): try again later.
+   * Nobody takes screenshots during a scan, so every image paired inside the scan's time span is
+   * ours; the player's screenshots, outside that span, are never candidates.
+   */
+  certainty: ("sure" | "wait")[];
   /** Images taken during the run that belong to no tile (manual player screenshots). */
   extras: T[];
 }
@@ -69,16 +76,19 @@ export interface ShotMatch<T> {
  * tile k+1 always gets a later file than tile k. Files younger than MIN_FILE_AGE_MS are skipped.
  */
 export function matchShots<T extends ShotFile>(files: T[], shotTimes: number[], nowMs: number): ShotMatch<T> {
-  if (!shotTimes.length) return { matches: [], extras: [] };
+  if (!shotTimes.length) return { matches: [], certainty: [], extras: [] };
   const lo = Math.min(...shotTimes) - SHOT_MATCH_BEFORE_SEC;
   const hi = Math.max(...shotTimes) + SHOT_MATCH_AFTER_SEC;
-  const keyed = files
-    .filter((f) => IMAGE_EXT.test(f.name) && nowMs - f.mtimeMs >= MIN_FILE_AGE_MS)
+  const all = files
+    .filter((f) => IMAGE_EXT.test(f.name))
     .map((f) => {
       const p = parseShotName(f.name);
       return { f, time: p ? p.time : Math.floor(f.mtimeMs / 1000), n: p ? p.n : -1 };
     })
-    .filter((k) => k.time >= lo && k.time <= hi)
+    .filter((k) => k.time >= lo && k.time <= hi);
+  const young = all.filter((k) => nowMs - k.f.mtimeMs < MIN_FILE_AGE_MS);
+  const keyed = all
+    .filter((k) => nowMs - k.f.mtimeMs >= MIN_FILE_AGE_MS)
     .sort((a, b) => a.time - b.time || a.n - b.n || a.f.mtimeMs - b.f.mtimeMs);
   // Write lag (file time − shot time, usually 0 or 1 s): the lag that gives the most tiles an
   // exact-second file. Then each tile takes the candidate closest to shotTime + lag, so a manual
@@ -94,27 +104,70 @@ export function matchShots<T extends ShotFile>(files: T[], shotTimes: number[], 
   }
   const pass = (lag: number) => {
     const picked: number[] = [];
-    let from = 0;
+    let from = 0, lastN = -1;
     for (const t of shotTimes) {
       let hit = -1, best = Infinity;
       for (let i = from; i < keyed.length; i++) {
         if (keyed[i].time > t + SHOT_MATCH_AFTER_SEC) break;
         if (keyed[i].time < t - SHOT_MATCH_BEFORE_SEC) continue;
         const d = Math.abs(keyed[i].time - (t + lag));
-        if (d < best) { best = d; hit = i; }
+        // Same distance: the file whose game counter follows the previous tile's wins.
+        if (d < best || (d === best && lastN >= 0 && keyed[i].n === lastN + 1)) { best = d; hit = i; }
       }
       picked.push(hit);
-      if (hit >= 0) from = hit + 1;
+      if (hit >= 0) {
+        from = hit + 1;
+        lastN = keyed[hit].n;
+      }
     }
     return picked;
   };
   const picked = pass(lag);
   const used = new Set(picked.filter((i) => i >= 0));
   const matches = picked.map((i) => (i >= 0 ? keyed[i].f : null));
+  const inWindow = (time: number, t: number) => time >= t - SHOT_MATCH_BEFORE_SEC && time <= t + SHOT_MATCH_AFTER_SEC;
+  const certainty = shotTimes.map((t) => (young.some((k) => inWindow(k.time, t)) ? ("wait" as const) : ("sure" as const)));
   // Extras only between the first and the last matched tile (later files may be the next tiles).
   const lastUsed = Math.max(-1, ...used);
   const extras = keyed.filter((_, i) => !used.has(i) && i < lastUsed).map((k) => k.f);
-  return { matches, extras };
+  return { matches, certainty, extras };
+}
+
+/** Latest a shot's file may be written after the shot (big PNGs), s: sanity check of the counter pairing. */
+export const COUNTER_MAX_LAG_SEC = 6;
+
+/**
+ * Counter of the scan's first image (the game numbers screenshots img_N, +1 each): the lowest
+ * counter among the game's images written from the scan start up to shortly after its first shot.
+ * Null if there is none (yet) or the names carry no counter.
+ */
+export function counterBase<T extends ShotFile>(files: T[], startedAt: number, shotTimes: number[]): number | null {
+  if (!shotTimes.length) return null;
+  let base: number | null = null;
+  for (const f of files) {
+    const p = parseShotName(f.name);
+    if (!p || p.time < startedAt - SHOT_MATCH_BEFORE_SEC || p.time > shotTimes[0] + COUNTER_MAX_LAG_SEC) continue;
+    if (base === null || p.n < base) base = p.n;
+  }
+  return base;
+}
+
+/**
+ * Pairing by the game's counter: nobody takes screenshots during a scan, so shot k (0-based, in
+ * `ks`) is the file numbered base + k, whatever the write delays (the time pairing can drift when
+ * big PNGs are written late). Sanity: the file is written from a second before its shot to
+ * COUNTER_MAX_LAG_SEC after, else it is not taken. Files still being written are skipped.
+ */
+export function matchByCounter<T extends ShotFile>(files: T[], base: number, ks: number[], shotTimes: number[], nowMs: number): (T | null)[] {
+  const byN = new Map<number, { f: T; time: number }>();
+  for (const f of files) {
+    const p = parseShotName(f.name);
+    if (p && nowMs - f.mtimeMs >= MIN_FILE_AGE_MS) byN.set(p.n, { f, time: p.time });
+  }
+  return ks.map((k) => {
+    const c = byN.get(base + k), t = shotTimes[k];
+    return c && c.time >= t - SHOT_MATCH_BEFORE_SEC && c.time <= t + COUNTER_MAX_LAG_SEC ? c.f : null;
+  });
 }
 
 /**

@@ -43,6 +43,10 @@ export interface MosaicConfig {
   SPEED_PRESET?: string;
   /** Screen size follows the game's latest screenshot (default); false once chosen by hand. */
   SCREEN_AUTO?: boolean;
+  /** Last game resolution read from a screenshot or a capture tile (kept when none is readable). */
+  SCREEN_DETECTED?: { w: number; h: number; at: number };
+  /** GridLab capture mode (core/modes.ts): its settings are solved for the map; "custom" when set by hand. */
+  MODE?: "simple" | "x4" | "x16" | "x64" | "custom";
 }
 
 export const DEFAULT_CONFIG: MosaicConfig = {

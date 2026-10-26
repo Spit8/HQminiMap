@@ -45,8 +45,10 @@ comps = {
   -- Only reached by the pathfinding (no vehicle path goes through it).
   [708] = { BASE_EDGE = { position0 = { x = 500, y = 500 }, position1 = { x = 600, y = 500 },
                           tangent0 = { x = 100, y = 0 }, tangent1 = { x = 100, y = 0 } } },
+  -- A street (2 lanes along, 1 against, between two sidewalks).
   [701] = { BASE_EDGE = { position0 = { x = 1000, y = 2000 }, position1 = { x = 1100, y = 2100 },
-                          tangent0 = { x = 100, y = 100 }, tangent1 = { x = 100, y = 100 } } },
+                          tangent0 = { x = 100, y = 100 }, tangent1 = { x = 100, y = 100 } },
+            BASE_EDGE_STREET = { streetType = 7 } },
   [702] = {},
   [1001] = { TOWN_BUILDING = {}, BOUNDING_VOLUME = { bbox = { min = { x = 0, y = 0 }, max = { x = 10, y = 10 } } } },
   [1002] = { TOWN_BUILDING = {}, BOUNDING_VOLUME = { bbox = { min = { x = 60, y = 0 }, max = { x = 70, y = 10 } } } },
@@ -76,6 +78,9 @@ comps = {
   [402] = { CONSTRUCTION = { transf = { 1100, 2100 }, fileName = "station/rail/cargo_station.con" } },
   [501] = { NAME = { name = "Ligne 1" }, COLOR = { color = { x = 0.1, y = 0.5, z = 1 } },
             LINE = { stops = { { stationGroup = 301, station = 0, terminal = 0 }, { stationGroup = 301, station = 1, terminal = 0 } } } },
+  -- A rail line without vehicles: its mode comes from the line (vehicleInfo), its track from the pathfinding.
+  [503] = { NAME = { name = "Ligne vide" }, LINE = { vehicleInfo = { transportModes = { TRAIN = true } },
+            stops = { { stationGroup = 301, station = 0, terminal = 0 }, { stationGroup = 301, station = 1, terminal = 0 } } } },
   [601] = { NAME = { name = "Bus; 1" }, TRANSPORT_VEHICLE = { carrier = 1, line = 501, config = { capacities = { 40, 0, 10 } } },
             MOVE_PATH = { state = 2, dyn = { pathPos = { edgeIndex = 3 } }, path = { edges = { { { entity = 701, index = 0 }, true },
               { { entity = 707, index = 0 }, true }, { { entity = 702, index = 0 }, true },
@@ -88,11 +93,13 @@ api = {
            Mat4f = { getTransl = function(m) return { x = m[1], y = m[2], z = 0 } end },
            NodeId = { new = function(e, i) return { entity = e, index = i } end },
            enum = { Carrier = { ROAD = 0, RAIL = 1, TRAM = 2, OTHER = 3, AIR = 4, WATER = 5 },
-                    TransportMode = { TRAIN = "TRAIN", ELECTRIC_TRAIN = "ELECTRIC_TRAIN", BUS = "BUS", TRUCK = "TRUCK", CAR = "CAR", TRAM = "TRAM", ELECTRIC_TRAM = "ELECTRIC_TRAM" },
+                    TransportMode = { TRAIN = "TRAIN", ELECTRIC_TRAIN = "ELECTRIC_TRAIN", BUS = "BUS", TRUCK = "TRUCK", CAR = "CAR", TRAM = "TRAM", ELECTRIC_TRAM = "ELECTRIC_TRAM", TRAM_TRACK = "TRAM_TRACK", ELECTRIC_TRAM_TRACK = "ELECTRIC_TRAM_TRACK", SHIP = "SHIP" },
                     StockListType = { InputStock = "IN", OutputStock = "OUT", StorageStock = "STORE" } },
            -- No calcPos: the native helper cannot take the Lua tables getComponent returns.
            EdgeGeometry = { Type = { ARC = "ARC", STRAIGHT = "STRAIGHT", CUBIC_SPLINE = "CUBIC_SPLINE", CUBIC_OFFSET_SPLINE = "CUBIC_OFFSET_SPLINE" } } },
-  res = { cargoTypeRep = { getPassengerCargoTypeId = function() return 0 end,
+  res = { streetTypeRep = { get = function(id) return id == 7 and { laneConfigs = {
+              { forward = true }, { forward = true }, { forward = true }, { forward = false }, { forward = false } } } or nil end },
+          cargoTypeRep = { getPassengerCargoTypeId = function() return 0 end,
                            getAll = function() return { [0] = "PASSENGERS", [1] = "COAL", [2] = "GOODS" } end,
                            get = function(id) return { name = ({ [0] = "Passagers", [1] = "Charbon", [2] = "Marchandises" })[id] } end } },
   engine = {
@@ -111,19 +118,20 @@ api = {
     },
     util = { getPlayer = function() return 1 end, vehicle = { getPosition = function(v) return { x = 1500.4, y = 2500.6, z = 3 } end },
              station = { isStationOfType = function(st, cargo) return cargo end },
-             -- Leg 3110:0 → 3120:2 goes through edge 708; the way back is not found.
+             -- Leg 3110:0 → 3120:2 goes through edge 708 against its geometry (an EdgeIdDir-like
+             -- object, .edgeId/.dir, not a pair); the way back is not found.
              pathfinding = { findPathNodeToNode = function(a, b, modes)
                LEGCALLS = (LEGCALLS or 0) + 1
                if a[1].entity == 3110 and b[1].entity == 3120 and b[1].index == 2 and modes[1] == "TRAIN" then
-                 return { { { entity = 708, index = 0 }, true } }
+                 return { { edgeId = { entity = 708, index = 0 }, dir = false } }
                end
                return {}
              end },
              logbook = { getLogValuePerYear = function(e, n) return n == "itemsTransported" and 1234 or n == "itemsLoaded" and 50 or 70 end } },
     system = {
-      lineSystem = { getLinesForPlayer = function() return { 501, 502 } end, getLinesForStationGroup = function() return { 501 } end },
+      lineSystem = { getLinesForPlayer = function() return { 501, 502, 503 } end, getLinesForStationGroup = function() return { 501 } end },
       simEntityAtTerminalSystem = { getLineStopSimEntitiesCount = function(l, k, c) return c == 0 and 3 or 2 end },
-      transportVehicleSystem = { getLineVehicles = function(l) return l == 501 and { 601, 603 } or { 602 } end },
+      transportVehicleSystem = { getLineVehicles = function(l) return l == 501 and { 601, 603 } or l == 502 and { 602 } or {} end },
       townBuildingSystem = { getLandUsePersonCapacities = function() return { 100, 50, 10 } end },
       simEntityAtVehicleSystem = { getVehicleSimEntitiesCountForCargoType = function(v, c) return c == 0 and 12 or 3 end },
       simEntityAtStockSystem = { getStockCount = function(sl, i) return sl == 801 and (i == 0 and 30 or 12) or 250 end },
@@ -133,7 +141,7 @@ api = {
         getConstructionClosestTown = function(con) return con == 2001 and 101 or -1 end },
     },
   },
-  gui = { camera = { focusPosition = function(p, d) FOCUS = { x = p.x, y = p.y, z = p.z, d = d } end,
+  gui = { camera = { getSize = function() return { x = 3440, y = 1440 } end, focusPosition = function(p, d) FOCUS = { x = p.x, y = p.y, z = p.z, d = d } end,
                      getCameraData = function() return { x = 1, y = 2 } end } },
 }
 REACT = { fireEvent = function(src, name, p) OPENED = { name = name, entity = p.entity, stack = p.stack } end }
@@ -173,11 +181,16 @@ print = function() end
     stats = s["live_stats"]
     sl, ss = stats.lines[1], stats.stations[1]
     print("stats line:", sl.transported, sl.waitP, sl.waitC, "station:", ss.id, ss.loaded, ss.unloaded, ss.waitP, ss.waitC)
-    assert (sl.transported, sl.waitP, sl.waitC) == (1234, 6, 8) and (ss.loaded, ss.unloaded, ss.waitP) == (50, 70, 9)
+    # Station 301 also serves the vehicle-less line 503 (its waiting count adds up).
+    assert (sl.transported, sl.waitP, sl.waitC) == (1234, 6, 8) and (ss.loaded, ss.unloaded, ss.waitP) == (50, 70, 15)
     routes = s["live_routes"]
     print("routes:", routes.edges, "| line 501:", routes.lines[1].e, routes.lines[1].p, "| ship:", routes.lines[2].p)
-    # Signed ids: 701 both ways (601 along it, 603 against it); 708 from the pathfinding.
-    assert routes.lines[1].e == "701,-701,704,706,708", routes.lines[1].e
+    # Signed ids: 701 both ways (601 along it, 603 against it); 708 from the pathfinding, against it.
+    assert routes.lines[1].e == "701,-701,704,706,-708", routes.lines[1].e
+    # Street 701: its lanes along / against it follow its geometry; the rail edges have none.
+    edge701 = [e for e in routes.edges.split(";") if e.startswith("701,")][0].split(",")
+    assert edge701[-2:] == ["2", "1"] and len(edge701) == 11, edge701
+    assert all(len(e.split(",")) == 9 for e in routes.edges.split(";") if not e.startswith("701,"))
     # 702 unreadable: bridged 701 end (1100, 2100) → 704 start (1150, 2100), 50 m; 703 is a lane;
     # 705 unreadable but the gap 703 end (1120) → 706 start (2000) is 880 m: left open, no diagonal.
     assert routes.lines[1].p == "1100,2100,1150,2100|1100,2100,1120,2100", routes.lines[1].p
@@ -188,7 +201,17 @@ print = function() end
     assert st2.routes.bridges == 1 and st2.routes.bigGaps == 1 and st2.routes.lanes == 1 and st2.routes.free == 1 and st2.jobs.routes.warn
     lg = st2.routes.legs
     print("legs:", lg.computed, lg.cached, lg.failed, "calls", g.LEGCALLS)
-    assert lg.failed == 1 and (lg.computed + lg.cached) >= 1
+    # The way back has no route: once for line 501, once for the vehicle-less line 503 (same stops).
+    assert lg.failed == 2 and (lg.computed + lg.cached) >= 2
+    empty = [l for l in s["live_lines"].lines.values() if l.id == 503][0]
+    lm = st2.lineModes
+    print("line 503:", empty.mode, empty.vehicles, "| routes:", routes.lines[3].e, "| modes from", lm.vehicles, lm.line, lm.none)
+    assert empty.mode == "rail" and routes.lines[3].e == "-708" and (lm.vehicles, lm.line, lm.none) == (2, 1, 0)
+    print("screen:", st2.screen.w, st2.screen.h)
+    assert (st2.screen.w, st2.screen.h) == (3440, 1440)
+    dirs = st2.routes.dirs
+    print("dirs:", dirs.pair, dirs.field, dirs.none)
+    assert dirs.field >= 1 and dirs.pair >= 1 and dirs.none == 0
     ps = st2.routes.pathStats
     print("nodes:", st2.routes.nodes, "pathStats:", ps.paths, ps.edgesAvg, ps.edgesMax, ps.edgeIndexAvg, dict(ps.states))
     assert st2.routes.nodes == 1 and ps.edgesMax == 7 and ps.edgeIndexAvg == 3
@@ -207,7 +230,7 @@ print = function() end
     hist = s["live_history"]
     print("history:", hist.lines[1].tr, hist.stations[1].ld, "|", hist.stations[1].ul, "| diag", s["live_status"].history.n)
     assert hist.lines[1].tr == "1000,10;2000,25;3000,45" and hist.stations[1].ld == "1000,7" and hist.stations[1].ul == ""
-    assert s["live_status"].format == 8
+    assert s["live_status"].format == 9
     rt.execute('REQUEST.cmd = { seq = 1, action = "teleport", x = 300, y = -400, dist = 900 }')
     run(2)
     f = g.FOCUS
@@ -230,6 +253,34 @@ print = function() end
     rt.execute('REQUEST.cmd = { seq = 5, action = "focus", x = 1, y = 2, kind = "lines", id = 501, open = false }')
     run(2)
     assert g.OPENED is None and g.FOCUS.x == 1 and s["live_status"].cmd.ok
+    # Mode of a station no line serves yet, from its construction file ("airport" contains "port").
+    for file, want in (("station/air/airport.con", "air"), ("station/water/harbor_small.con", "water"),
+                       ("station/rail/modern.con", "rail"), ("station/street/tram_stop.con", "tram"),
+                       ("station/street/bus_stop.con", "road"), ("station/transport_hub.con", "other")):
+        got = live.fileMode(file)
+        assert got == want, (file, got, want)
+    # Ship legs: the mean of the last 3 trips (ends within 150 m: same leg; a trip seen again counts once).
+    def trip(x: int) -> None:
+        rt.execute(f'comps[602].MOVE_PATH_AIRCRAFT.path1 = {{ {{ {{ type = "CUBIC_SPLINE", length = 500, cubicSpline = {{ '
+                   f'pos = {{ {{ x = {x}, y = 0 }}, {{ x = {x}, y = 500 }} }}, tangent = {{ {{ x = 0, y = 500 }}, {{ x = 0, y = 500 }} }} }} }}, true }} }}')
+        run(10)
+    def ship_x() -> set[str]:
+        pts = [p for p in g.SAVED["live_routes"].lines[2].p.split("|") if len(p.split(",")) > 4][0].split(",")
+        return set(pts[0::2])
+    trip(60)
+    assert ship_x() == {"30"}, ship_x()  # (0 + 60) / 2
+    trip(-60)
+    trip(90)
+    assert ship_x() == {"30"}, ship_x()  # the first trip (0) dropped: (60 − 60 + 90) / 3
+    # The way back (500 → 0) is the same crossing, turned round: still one track, averaged.
+    rt.execute('comps[602].MOVE_PATH_AIRCRAFT.path1 = { { { type = "CUBIC_SPLINE", length = 500, cubicSpline = { '
+               'pos = { { x = 120, y = 500 }, { x = 120, y = 0 } }, tangent = { { x = 0, y = -500 }, { x = 0, y = -500 } } } }, true } }')
+    run(10)
+    polys = [p for p in g.SAVED["live_routes"].lines[2].p.split("|") if len(p.split(",")) > 4]
+    assert len(polys) == 1, polys
+    ys = polys[0].split(",")[1::2]
+    assert ship_x() == {"50"} and ys[0] == "0" and ys[-1] == "500", (ship_x(), ys)  # (−60 + 90 + 120) / 3
+    print("ship mean of 3 trips OK")
     print("OK")
 
 

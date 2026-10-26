@@ -23,5 +23,9 @@ describe("screen resolution", () => {
     expect(aspectName(1366, 768)).toBe("16:9");
     expect(sameAspect(3840, 1620, 2560, 1080)).toBe(true);
     expect(sameAspect(1920, 1080, 2560, 1080)).toBe(false);
+    // 2560×1080 captures for a 3440×1440 grid: 0.8 % narrower, gaps at the seams → refused.
+    expect(sameAspect(2560, 1080, 3440, 1440)).toBe(false);
+    // The other way round: 0.8 % wider, more overlap → fine.
+    expect(sameAspect(3440, 1440, 2560, 1080)).toBe(true);
   });
 });

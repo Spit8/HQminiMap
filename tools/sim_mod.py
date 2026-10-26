@@ -7,7 +7,7 @@ restored, capture_index written; then runs the export. --short N plays a cutscen
 (plan/cutscene mismatch): the capture must end in an explicit error.
 
   pip install lupa
-  python tools/sim_mod.py <capture_plan.lua | mosaic_plan.lua> [--short N] [--lang fr|en]
+  python tools/sim_mod.py <capture_plan.lua | mosaic_plan.lua> [--short N] [--lang fr|en] [--fps N]
 """
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ def main() -> None:
     plan_src = Path(sys.argv[1]).read_text(encoding="utf-8")
     short = int(sys.argv[sys.argv.index("--short") + 1]) if "--short" in sys.argv else None
     lang = sys.argv[sys.argv.index("--lang") + 1] if "--lang" in sys.argv else "fr"
+    # Game frame rate: the mod's waits must not depend on it (they are in seconds).
+    fps = int(sys.argv[sys.argv.index("--fps") + 1]) if "--fps" in sys.argv else 60
     rt = L.LuaRuntime()
     rt.globals().PLAN_SRC = plan_src
     rt.globals().SHORT = short
@@ -77,11 +79,13 @@ app = {
   -- Re-read at each call (like the game); only the capture plan exists in this simulation.
   loadUserdata = function(dir, name)
     if dir == "hqminimap" and name == "capture_plan" then SIM.planLoads = (SIM.planLoads or 0) + 1; return PLAN end
+    if dir == "hqminimap" and name == "live_request" then return REQUEST end
     return nil
   end,
   getUserDataFolder = function() return "C:/UD" end,
 }
-os = { time = function() return 1800000000 end }
+-- Wall clock: advanced by the frame loop (SIM.wall, seconds).
+os = { time = function() return 1800000000 + math.floor(SIM.wall or 0) end }
 print = function(s) SIM.logs[#SIM.logs + 1] = tostring(s) end
 local cache = {}
 ug_require = function(p)
@@ -102,19 +106,35 @@ end
     sim = rt.eval("SIM")
     for _ in range(100):  # idle window: the new grid must be announced
         sim.step()
+        sim.wall = (sim.wall or 0) + 1 / fps
     announced = status.old(status)
     print(f"  idle status='{announced}'")
-    assert ("Nouvelle grille" if lang == "fr" else "New grid") in announced, announced
+    assert ("Nouveau scan" if lang == "fr" else "New scan") in announced, announced
     sim.planLoads = 0
-    h.onCapture()
+    # The app starts the scan (live_request cmd "scan"); the mod button's pump runs it, window closed.
+    h.buttonLabel(rt.eval("{ onStep = function(f) SIM.btnStep = f end }"))
+    # A scan left in the request by an older app (no time stamp), or sent long ago: never run.
+    capture0 = rt.eval('ug_require("hqminimap::/hqminimap/capture.lua")')
+    for stale in ('{ seq = 1, action = "scan" }', '{ seq = 2, action = "scan", at = 1799990000 }'):
+        rt.execute(f'REQUEST = {{ cmd = {stale} }}')
+        for _ in range(40):
+            sim.btnStep()
+            sim.wall = (sim.wall or 0) + 1 / fps
+        assert not capture0.isBusy() and sim.saves["hqminimap/live_status"].cmd.error == "stale", "stale scan ran"
+    print("  stale scan commands dropped")
+    sim.planLoads = 0  # the idle pump re-read the plan meanwhile
+    rt.execute('REQUEST = { cmd = { seq = 3, action = "scan", at = 1800000000 } }')
     frames = 0
     capture = rt.eval('ug_require("hqminimap::/hqminimap/capture.lua")')
-    while capture.isBusy() and frames < 100000:
-        h.bindWindow(react, progress, status)  # every render re-registers the step
-        sim.step()
+    while (capture.isBusy() or frames < 40) and frames < 100000:
+        sim.btnStep()
         frames += 1
+        sim.wall = (sim.wall or 0) + 1 / fps
         if sim.t is not None:
-            sim.t = sim.t + 1 / 60
+            sim.t = sim.t + 1 / fps
+    ls = sim.saves["hqminimap/live_status"]
+    print(f"  scan command: seq={ls.cmd.seq} ok={ls.cmd.ok} error={ls.cmd.error}")
+    assert ls.cmd.seq == 3 and ls.cmd.ok
     n = int(rt.eval("PLAN.nX * PLAN.nY * PLAN.pitchCount"))
     idx = sim.saves["hqminimap/capture_index"]
     tiles = [idx.tiles[i] for i in range(1, len(idx.tiles) + 1)]
