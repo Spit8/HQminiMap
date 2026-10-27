@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  🇬🇧 English · 🇫🇷 Français · 🇩🇪 Deutsch · 🇮🇹 Italiano · 🇪🇸 Español · 🇨🇳 简体中文<br>
+  <img src="https://flagcdn.com/20x15/gb.png" width="20" height="15" alt=""> English · <img src="https://flagcdn.com/20x15/fr.png" width="20" height="15" alt=""> Français · <img src="https://flagcdn.com/20x15/de.png" width="20" height="15" alt=""> Deutsch · <img src="https://flagcdn.com/20x15/it.png" width="20" height="15" alt=""> Italiano · <img src="https://flagcdn.com/20x15/es.png" width="20" height="15" alt=""> Español · <img src="https://flagcdn.com/20x15/cn.png" width="20" height="15" alt=""> 简体中文<br>
   💻 Windows · Linux · macOS
 </p>
 
 <p align="center">
   <a href="https://github.com/Spit8/HQminiMap/releases/latest"><b>⬇ Télécharger l'app</b></a> ·
   <a href="https://mod.io/g/transportfever3/m/<<MODIO_SLUG>>"><b>🧩 Le mod (Mod Hub)</b></a> ·
-  <a href="README.md">🇬🇧 English version</a>
+  <a href="README.md"><img src="https://flagcdn.com/20x15/gb.png" width="20" height="15" alt=""> English version</a>
 </p>
 
 ![Le visualiseur HQminiMap : orthophoto de la carte avec lignes, gares et véhicules](captures/Viewer_FR.png)
