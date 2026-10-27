@@ -5,9 +5,29 @@
       "role": "CREATOR"
     }
   ],
-  "description": "Exports the map, scans it from above and streams your live game data (towns, lines, stations, vehicles, industries) to the free HQminiMap desktop app, which builds a high-resolution orthophoto and an interactive live map. Get the app: https://github.com/Spit8/HQminiMap/releases/latest",
   "name": "HQminiMap",
-  "summary": "High-res map and live data for the free HQminiMap app",
+  "summary": "High-res map and live data of your game, in the free HQminiMap desktop app",
+  "description": "Exports the map, scans it from above and streams your live game data to the free HQminiMap desktop app, which builds a high-resolution orthophoto and an interactive live map.\nGet the app: https://github.com/Spit8/HQminiMap/releases/latest",
+  "localization": {
+    "fr": {
+      "summary": "Carte haute résolution et données en direct de ta partie, dans l'app gratuite HQminiMap"
+    },
+    "de": {
+      "summary": "Hochauflösende Karte und Live-Daten deines Spiels in der kostenlosen HQminiMap-App"
+    },
+    "it": {
+      "summary": "Mappa ad alta risoluzione e dati in tempo reale della tua partita nell'app gratuita HQminiMap"
+    },
+    "es": {
+      "summary": "Mapa en alta resolución y datos en directo de tu partida en la app gratuita HQminiMap"
+    },
+    "zh_CN": {
+      "summary": "高分辨率地图与实时游戏数据，在免费的 HQminiMap 桌面应用中查看"
+    },
+    "zh_TW": {
+      "summary": "高分辨率地图与实时游戏数据，在免费的 HQminiMap 桌面应用中查看"
+    }
+  },
   "tags": [
     "Script Mod"
   ],
