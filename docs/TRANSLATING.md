@@ -1,22 +1,41 @@
 # Traduire HQminiMap
 
-Deux parties à traduire. Le français est la langue source de l'app, l'anglais la langue de repli du mod.
+Langues : français et anglais (écrits à la main), allemand, italien, espagnol et chinois simplifié
+(générés). Le français est la langue de repli de l'app, l'anglais celle du mod.
 
-## L'app (`app/src/lib/i18n/`)
-1. Copier `en.ts` sous le code de la langue, par exemple `de.ts`, et renommer l'objet (`export const de`).
-2. Traduire les valeurs **sans toucher aux clés** ni aux paramètres `{nom}`, qui doivent tous rester présents.
-3. Dans `index.svelte.ts`, ajouter la langue à `LOCALES` (`{ fr, en, de }`) et son format de nombres/dates dans `I18n.tag`.
-4. Vérifier :
-   - `npm run check` signale toute clé manquante (le type `Record<MessageKey, string>`) ;
-   - `npm test` vérifie que chaque langue a les mêmes clés et les mêmes `{paramètres}` que `fr.ts`.
+## Langues écrites à la main : fr, en
+- App : `app/src/lib/i18n/fr.ts` (référence des clés) et `en.ts`. Ne pas toucher aux clés ni aux paramètres `{nom}`.
+- Mod : tables `en` et `fr` de `mod/content/hqminimap/i18n.lua`, en gardant les `%s` / `%d` **dans le même ordre**.
 
-La langue suit le système au premier lancement, puis se choisit dans **Réglages → Langue**.
+Toute nouvelle clé doit être ajoutée à `fr.ts` et `en.ts` (et au mod si besoin), puis traduite dans
+les autres langues : voir ci-dessous.
 
-## Le mod (`mod/content/hqminimap/i18n.lua`)
-1. Copier la table `en` sous le code à deux lettres (`de = { … }`).
-2. Traduire les valeurs en gardant les `%s` / `%d` **dans le même ordre**.
-3. La langue du jeu est lue via `api.util.getLanguage()`. Au premier affichage, le mod écrit dans le log (`stdout.txt`) une ligne `[hqminimap] game language: …` qui montre ce que le jeu renvoie. Une langue sans table retombe sur l'anglais.
+## Langues générées : de, it, es, zh
+Produites depuis l'anglais par `lowCost_Translator` (LLM local), avec le contexte de chaque chaîne et
+un glossaire tiré des traductions officielles de Transport Fever 3. Marche à suivre complète :
+[`tools/i18n/README.md`](../tools/i18n/README.md). En résumé :
 
-Les textes de la fenêtre (boutons, aide, état) viennent de `handlers.t("clé")` et `handlers.statusText(status)`, déclarés dans `hqminimap.tfui.json`. Les traductions ne demandent donc aucune régénération TFUI.
+1. `cd app && npx tsx ../tools/i18n/export.mts` (textes à traduire → `tools/i18n/units.json`) ;
+2. traduction avec `lowCost_Translator` (seules les chaînes nouvelles ou changées sont traduites) ;
+3. relecture de `tools/i18n/out/review_<lang>.csv`, corrections dans `tools/i18n/overrides.json` ;
+4. `npx tsx ../tools/i18n/import.mts`, puis `npm run check && npm test`.
 
-> Le jeu utilise gettext (`_("…")`, catalogues `.mo` dans `base/strings/<lang>/LC_MESSAGES/`). L'emplacement des catalogues d'un mod n'est pas vérifié pour TF3 : on garde donc nos propres tables tant que ce n'est pas confirmé.
+Ne jamais modifier à la main `app/src/lib/i18n/{de,it,es,zh}.ts` ni les tables générées de
+`i18n.lua` : elles sont réécrites à chaque import.
+
+Choix de traduction (repris du jeu) : tutoiement ; vocabulaire du jeu pour les objets (lignes, gares,
+entrepôts…) ; allemand à la suisse (« ss », pas de « ß ») ; boutons à l'infinitif (de, es) ou à
+l'impératif (it) ; chinois simplifié uniquement.
+
+## Vérifications
+- `npm run check` signale toute clé manquante (type `Record<MessageKey, string>`) ;
+- `npm test` vérifie que chaque langue a les mêmes clés et `{paramètres}` que `fr.ts`, et que chaque
+  table du mod a les mêmes clés et `%` que `en`.
+
+La langue suit le système au premier lancement, puis se choisit dans **Options → Langue**. Le mod suit
+la langue du jeu (`api.util.getLanguage()`, ligne `[hqminimap] game language: …` dans `stdout.txt`) ;
+une langue sans table retombe sur l'anglais, `zh_TW` prend le chinois simplifié.
+
+Les textes de la fenêtre du mod (boutons, aide, état) viennent de `handlers.t("clé")` et
+`handlers.statusText(status)`, déclarés dans `hqminimap.tfui.json` : les traductions ne demandent aucune
+régénération TFUI.

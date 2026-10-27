@@ -110,7 +110,9 @@ api = {
       elseif ct == "TOWN_BUILDING" then fn(1001); fn(1002) end
     end,
     terrain = {
-      makeMapFromGame = function() return {
+      makeMapFromGame = function(hm)
+        if hm then HMAP_CALLS = (HMAP_CALLS or 0) + 1 end
+        return {
         towns = { { existing = 101, name = "Ville", pos = { x = 10.4, y = 20.6 } } },
         industries = { { existing = 201, tag = "coal_mine", fileName = "::/industries/coal_mine/coal_mine.con", pos = { x = -5, y = 7 } } },
       } end,
@@ -145,7 +147,13 @@ api = {
                      getCameraData = function() return { x = 1, y = 2 } end } },
 }
 REACT = { fireEvent = function(src, name, p) OPENED = { name = name, entity = p.entity, stack = p.stack } end }
-ug_require = function(p) return assert(load(file(p:gsub("^hqminimap::/", ""))))() end
+local _mods = {}
+ug_require = function(p)
+  if _mods[p] then return _mods[p] end
+  local m = assert(load(file(p:gsub("^hqminimap::/", ""))))()
+  _mods[p] = m
+  return m
+end
 print = function() end
 ''')
     live = rt.eval('ug_require("hqminimap::/hqminimap/live_export.lua")')
@@ -256,7 +264,9 @@ print = function() end
     # Mode of a station no line serves yet, from its construction file ("airport" contains "port").
     for file, want in (("station/air/airport.con", "air"), ("station/water/harbor_small.con", "water"),
                        ("station/rail/modern.con", "rail"), ("station/street/tram_stop.con", "tram"),
-                       ("station/street/bus_stop.con", "road"), ("station/transport_hub.con", "other")):
+                       ("station/street/bus_stop.con", "road"), ("station/transport_hub.con", "other"),
+                       ("station/support_hub.con", "other"), ("station/report_office.con", "other"),
+                       ("station/chair_stop.con", "other")):
         got = live.fileMode(file)
         assert got == want, (file, got, want)
     # Ship legs: the mean of the last 3 trips (ends within 150 m: same leg; a trip seen again counts once).
@@ -281,6 +291,14 @@ print = function() end
     ys = polys[0].split(",")[1::2]
     assert ship_x() == {"50"} and ys[0] == "0" and ys[-1] == "500", (ship_x(), ys)  # (−60 + 90 + 120) / 3
     print("ship mean of 3 trips OK")
+    hmap = int(g.HMAP_CALLS or 0)
+    print("heightmap calls during live jobs:", hmap)
+    assert hmap == 0, hmap
+    before = int(g.WRITES["live_vehicles"])
+    rt.execute('ug_require("hqminimap::/hqminimap/capture.lua").isBusy = function() return true end')
+    run(5)
+    assert int(g.WRITES["live_vehicles"]) == before, (before, int(g.WRITES["live_vehicles"]))
+    print("live jobs suspended while a scan runs")
     print("OK")
 
 

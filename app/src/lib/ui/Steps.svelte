@@ -3,6 +3,7 @@
   import { t } from "$lib/i18n/index.svelte";
   import { app } from "$lib/state/app.svelte";
   import { orthoJob } from "$lib/state/orthoJob.svelte";
+  import { lab } from "$lib/state/lab.svelte";
   import { runs } from "$lib/state/runs.svelte";
 
   let { onGo, onHide }: { onGo: (tab: "grid" | "tiles" | "viewer") => void; onHide: () => void } = $props();
@@ -22,7 +23,10 @@
     let captureState: State = "idle";
     let captureText = t("steps.capture.idle");
     if (plan) {
-      if (!capOfPlan) {
+      if (!capOfPlan && lab.scanSentStamp === plan.stamp) {
+        captureState = "active";
+        captureText = t("steps.capture.sent");
+      } else if (!capOfPlan) {
         captureState = "todo";
         captureText = t("steps.capture.todo", { grid });
       } else if (cap!.error) {

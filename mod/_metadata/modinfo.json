@@ -5,9 +5,9 @@
       "role": "CREATOR"
     }
   ],
-  "description": "Exporte la carte et capture une mosaïque top-down pour l'application HQminiMap.",
+  "description": "Exports the map, scans it from above and streams your live game data (towns, lines, stations, vehicles, industries) to the free HQminiMap desktop app, which builds a high-resolution orthophoto and an interactive live map. Get the app: https://github.com/Spit8/HQminiMap/releases/latest",
   "name": "HQminiMap",
-  "summary": "Carte haute qualité (export + capture pour l'app HQminiMap)",
+  "summary": "High-res map and live data for the free HQminiMap app",
   "tags": [
     "Script Mod"
   ],

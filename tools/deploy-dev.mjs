@@ -1,24 +1,43 @@
 #!/usr/bin/env node
 /**
- * Dev deploy: copy mod/ into the game's local mods folder (<userdata>/staging_area/hqminimap).
- * Keeps the capture files the app wrote there (content/hqminimap/mosaic_plan.lua, cutscenes/).
+ * Dev deploy: copy mod/ into the game's staging area (<userdata>/staging_area/hqminimap), the folder
+ * the Mod Hub publishes from. Keeps the capture files the app wrote there (content/hqminimap/
+ * mosaic_plan.lua, cutscenes/) and the Mod Hub link to the mod.io entry (_metadata/mod.io_fileid.txt,
+ * written by the game at the first upload: without it the next upload creates a new mod).
  * Cross-platform (Node ≥ 18).
  *
  *   node tools/deploy-dev.mjs [<userdata>]
- *   (default userdata: Windows %PUBLIC%\Documents\Steam\RUNE\3493540\local)
+ *   (default userdata: the most recently used <Steam>/userdata/<SteamID>/3493540/local of the
+ *   default Steam install)
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(root, "mod");
-const userdata = process.argv[2]
-  ?? join(process.env.PUBLIC ?? "C:\\Users\\Public", "Documents", "Steam", "RUNE", "3493540", "local");
+const userdata = process.argv[2] ?? defaultUserdata();
+
+/** Most recently used TF3 userdata folder of the default Steam install (any Steam account). */
+function defaultUserdata() {
+  const steam = process.platform === "win32"
+    ? join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "Steam")
+    : process.platform === "darwin"
+      ? join(homedir(), "Library", "Application Support", "Steam")
+      : join(homedir(), ".local", "share", "Steam");
+  const users = join(steam, "userdata");
+  const found = existsSync(users)
+    ? readdirSync(users).map((id) => join(users, id, "3493540", "local")).filter((p) => existsSync(p))
+    : [];
+  found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return found[0] ?? join(users, "<SteamID>", "3493540", "local");
+}
 const dest = join(userdata, "staging_area", "hqminimap");
 
-/** Files written by the app that a deploy must not touch. */
+/** Files written by the app or the game that a deploy must not touch. */
 const keep = (rel) =>
+  rel === join("_metadata", "mod.io_fileid.txt") ||
   rel === join("content", "hqminimap", "mosaic_plan.lua") ||
   rel.startsWith(join("content", "hqminimap", "cutscenes"));
 

@@ -1,6 +1,6 @@
 -- Live game data for the HQminiMap app (Visualiser layers) + app commands (teleport, focus, scan).
 -- The app writes <UD>/hqminimap/live_request.lua { enabled, intervals = {towns=…, …}, cmd = {seq, …} };
--- this module re-reads it every REQUEST_FRAMES and, at the requested cadence, writes
+-- this module re-reads it every REQUEST_SEC (REQUEST_FRAMES without a clock) and, at the requested cadence, writes
 -- live_towns / live_industries / live_stations / live_lines / live_vehicles / live_stats /
 -- live_routes, plus live_status (job timings, first warning, last command). Driven every frame by
 -- the GUI pumps (handlers). Fields verified in game by the live probe (2026-10-25).
@@ -9,8 +9,9 @@ local io_util = ug_require "hqminimap::/hqminimap/io_util.lua"
 
 local M = {}
 
--- Cadence: request re-read every REQUEST_FRAMES frames; jobs and status on wall-clock seconds
--- (os.clock is CPU time, unreliable as a clock in a multi-threaded game; only used for durations).
+-- Cadence: request re-read on the wall clock (REQUEST_SEC, below; every REQUEST_FRAMES frames when
+-- os.time is unavailable); jobs and status on wall-clock seconds (os.clock is CPU time, unreliable as
+-- a clock in a multi-threaded game; only used for durations).
 local REQUEST_FRAMES = 30
 local STATUS_SEC = 2
 -- An app command is run only within this many seconds of being sent.
@@ -61,7 +62,9 @@ local MODE_OF = {
 
 --- Modes a line accepts (LINE.vehicleInfo.transportModes): for a line without vehicles. In game
 --- it is a vector (one entry per mode, index = mode + 1; seen: 15 booleans); a table keyed by the
---- mode is read too. Often all false for a line without vehicles.
+--- mode is read too. Often all false for a line without vehicles. The first vector read is logged
+--- once with the enum values (a possible offset of 1 between index and mode).
+local declaredLogged = false
 local function lineDeclaredModes(line)
 	local out, sample = {}, nil
 	pcall(function()
@@ -83,12 +86,25 @@ local function lineDeclaredModes(line)
 				if ok and (v == true or (tonumber(v) or 0) > 0) then
 					out[mode] = true
 				end
-				vals[#vals + 1] = name .. "=" .. tostring(ok and v)
+				-- Enum value next to the name: tells whether index = mode + 1 is the right offset.
+				vals[#vals + 1] = name .. "(" .. tostring(e) .. ")=" .. tostring(ok and v)
 			end
 		end
 		table.sort(vals)
-		sample = type(tm) .. "#" .. tostring(n) .. " " .. table.concat(vals, ",")
+		-- The raw vector, by index, for the same check.
+		local raw = {}
+		for i = 1, n do
+			local ok, v = pcall(function()
+				return tm[i]
+			end)
+			raw[#raw + 1] = tostring(ok and v)
+		end
+		sample = type(tm) .. "#" .. tostring(n) .. " " .. table.concat(vals, ",") .. " raw=[" .. table.concat(raw, ",") .. "]"
 	end)
+	if sample ~= nil and not declaredLogged then
+		declaredLogged = true
+		io_util.log("line declared modes: " .. sample)
+	end
 	return out, sample
 end
 --- line → { fp = stops fingerprint, edges = {edge = true}, extra = {key = "x,y,x,y,…"} }: what was
@@ -232,11 +248,12 @@ function M.fileMode(file)
 		return "tram"
 	elseif has("rail", "train") then
 		return "rail"
-	elseif has("airport", "airfield", "aircraft", "/air/", "air_") then
+	elseif has("airport", "airfield", "aircraft", "/air/") or file:find("[_/]air_", 1) or file:find("^air_", 1) then
 		return "air"
 	end
-	local harbour = has("harbor", "harbour", "water", "ship")
-		or (file:gsub("airport", ""):gsub("transport", ""):find("port", 1, true) ~= nil)
+	-- "port" as its own token: support / report / sport / transport / airport are not harbours.
+	local stripped = file:gsub("airport", ""):gsub("transport", ""):gsub("support", ""):gsub("report", ""):gsub("sport", "")
+	local harbour = has("harbor", "harbour", "water", "ship") or (stripped:find("port", 1, true) ~= nil)
 	if harbour then
 		return "water"
 	elseif has("road", "bus", "truck", "street") then
@@ -261,7 +278,7 @@ local jobs = {}
 
 function jobs.towns()
 	local out = {}
-	local map = api.engine.terrain.makeMapFromGame(true, true, true, false)
+	local map = api.engine.terrain.makeMapFromGame(false, true, false, false)
 	for _, t in ipairs(map.towns or {}) do
 		local size = 0
 		pcall(function()
@@ -276,7 +293,7 @@ end
 
 function jobs.industries()
 	local out = {}
-	local map = api.engine.terrain.makeMapFromGame(true, true, true, false)
+	local map = api.engine.terrain.makeMapFromGame(false, false, true, false)
 	for _, ind in ipairs(map.industries or {}) do
 		local level = nil
 		pcall(function()
@@ -467,23 +484,48 @@ local function vehicleLoad(v)
 end
 
 --- Compact "vehicleId,lineId,x,y,pass,passCap,cargo,cargoCap,name;…" (metres; -1 = unknown).
-function jobs.vehicles()
-	local parts = {}
-	local t = now()
-	for _, ln in ipairs(playerLines()) do
-		for _, v in ipairs(lineVehicles(ln)) do
-			local ok, p = pcall(function()
-				return api.engine.util.vehicle.getPosition(v)
-			end)
-			if ok and p then
-				local pn, pc, cn, cc = vehicleLoad(v)
-				parts[#parts + 1] = string.format("%d,%d,%d,%d,%d,%d,%d,%d,%s", v, ln, round1(p.x), round1(p.y),
-					pn, pc, cn, cc, vehicleName(v, t))
+--- Spread over frames: one vehicle per step (the pump's budget loops steps).
+jobs.vehicles = {
+	begin = function()
+		local list = {}
+		for _, ln in ipairs(playerLines()) do
+			for _, v in ipairs(lineVehicles(ln)) do
+				list[#list + 1] = { v = v, ln = ln }
 			end
 		end
-	end
-	return { v = table.concat(parts, ";"), n = #parts }
-end
+		return { list = list, i = 1, parts = {}, t = now() }
+	end,
+	step = function(s)
+		local item = s.list[s.i]
+		s.i = s.i + 1
+		if item == nil then
+			return true
+		end
+		pcall(function()
+			local p = api.engine.util.vehicle.getPosition(item.v)
+			if not p then
+				return
+			end
+			local pn, pc, cn, cc = vehicleLoad(item.v)
+			s.parts[#s.parts + 1] = string.format("%d,%d,%d,%d,%d,%d,%d,%d,%s", math.floor(item.v), math.floor(item.ln),
+				round1(p.x), round1(p.y), math.floor(pn), math.floor(pc), math.floor(cn), math.floor(cc),
+				vehicleName(item.v, s.t))
+		end)
+		return s.i > #s.list
+	end,
+	finish = function(s)
+		local seen = {}
+		for _, item in ipairs(s.list) do
+			seen[item.v] = true
+		end
+		for id in pairs(vehicleNames) do
+			if not seen[id] then
+				vehicleNames[id] = nil
+			end
+		end
+		return { v = table.concat(s.parts, ";"), n = #s.parts }
+	end,
+}
 
 --- Traffic: per line (transported per year, waiting at its stops) and per station group (loaded /
 --- unloaded per year, waiting). Waiting = passengers (waitP) and all other cargo types (waitC).
@@ -859,7 +901,16 @@ local function pathStep(e)
 			return v
 		end
 	end
-	local id = get(1) or get("edgeId") or e
+	local id = get(1) or get("edgeId")
+	if type(id) ~= "table" and type(id) ~= "userdata" then
+		return nil, true, "none"
+	end
+	local entOk, ent = pcall(function()
+		return id.entity
+	end)
+	if not entOk or ent == nil then
+		return nil, true, "none"
+	end
 	local dir, how = get(2), "pair"
 	if dir == nil then
 		dir, how = get("dir"), "field"
@@ -892,6 +943,8 @@ local function walkPath(path, le, d)
 					mask = mask + 2
 				end
 				le.edges[entity] = mask
+				le.edgeSeen = le.edgeSeen or {}
+				le.edgeSeen[entity] = routesPass
 				local n = {}
 				for v in g:gmatch("-?%d+") do
 					n[#n + 1] = tonumber(v)
@@ -909,6 +962,8 @@ local function walkPath(path, le, d)
 						-- Lanes inside constructions (stations, depots): a straight piece, no arc.
 						first, last = pts[1], pts[#pts]
 						le.extra["tn:" .. entity .. ":" .. index] = ptsString({ first, last })
+						le.extraSeen = le.extraSeen or {}
+						le.extraSeen["tn:" .. entity .. ":" .. index] = routesPass
 						if not fwd then
 							first, last = last, first
 						end
@@ -939,6 +994,8 @@ local function walkPath(path, le, d)
 				if len <= MAX_BRIDGE then
 					le.extra[string.format("br:%d,%d", round1(prevEnd[1]), round1(prevEnd[2]))] =
 						ptsString({ prevEnd, first })
+					le.extraSeen = le.extraSeen or {}
+					le.extraSeen[string.format("br:%d,%d", round1(prevEnd[1]), round1(prevEnd[2]))] = routesPass
 					d.bridges = d.bridges + 1
 				else
 					d.bigGaps = d.bigGaps + 1
@@ -958,9 +1015,77 @@ local LEG_MODES = {
 }
 --- A leg's path is recomputed after this many routes passes (track changes).
 local LEG_REFRESH = 10
+--- Pathfinding calls per routes step (the rest of a line waits for the next frame).
+local LEG_PER_STEP = 4
+local legBudget = 0
 --- "nodeA>nodeB" → { pass, path = {{EdgeId, dir}} } (false path: no route found).
 local legCache = {}
 local routesPass = 0
+
+local function legHash(key)
+	local h = 0
+	for i = 1, #key do
+		h = (h * 33 + key:byte(i)) % LEG_REFRESH
+	end
+	return h
+end
+
+--- Drop geometry caches every LEG_REFRESH passes, and legs not seen for ~3 passes of that.
+local function purgeGeomCaches()
+	if routesPass % LEG_REFRESH ~= 0 then
+		return
+	end
+	edgeGeom = {}
+	nodeCache = {}
+	edgeLanes = {}
+	stationPosCache = {}
+	for k, c in pairs(legCache) do
+		if routesPass - (c.pass or 0) >= 3 * LEG_REFRESH then
+			legCache[k] = nil
+		end
+	end
+end
+
+local function purgeLines(lines)
+	local alive = {}
+	for _, ln in ipairs(lines or {}) do
+		alive[ln] = true
+	end
+	for ln in pairs(lineEdges) do
+		if not alive[ln] then
+			lineEdges[ln] = nil
+		end
+	end
+	for ln in pairs(lineMode) do
+		if not alive[ln] then
+			lineMode[ln] = nil
+		end
+	end
+	for ln in pairs(lineModes) do
+		if not alive[ln] then
+			lineModes[ln] = nil
+		end
+	end
+end
+
+--- Forget edges and extra pieces of one line not seen for ~3 refresh cycles.
+local function forgetStalePieces(le)
+	local limit = 3 * LEG_REFRESH
+	le.edgeSeen = le.edgeSeen or {}
+	le.extraSeen = le.extraSeen or {}
+	for e, p in pairs(le.edgeSeen) do
+		if routesPass - p >= limit then
+			le.edges[e] = nil
+			le.edgeSeen[e] = nil
+		end
+	end
+	for k, p in pairs(le.extraSeen) do
+		if routesPass - p >= limit then
+			le.extra[k] = nil
+			le.extraSeen[k] = nil
+		end
+	end
+end
 
 --- Vehicle node of a line stop's terminal (where its vehicles stop): entity, index.
 local function stopNode(stop)
@@ -1004,7 +1129,14 @@ local function walkLegs(line, modes, le, d)
 		if ea and eb then
 			local key = ea .. ":" .. ia .. ">" .. eb .. ":" .. ib
 			local c = legCache[key]
-			if c == nil or routesPass - c.pass >= LEG_REFRESH then
+			local refresh = c == nil or routesPass - c.pass >= LEG_REFRESH
+			-- Spread recomputes across passes (hash) so one frame does not pathfind every leg.
+			local turn = c == nil or legHash(key) == (routesPass % LEG_REFRESH)
+			if refresh and turn then
+				if legBudget <= 0 then
+					return true
+				end
+				legBudget = legBudget - 1
 				local ok, path = pcall(function()
 					local P = api.engine.util.pathfinding
 					return P.findPathNodeToNode({ api.type.NodeId.new(ea, ia) }, { api.type.NodeId.new(eb, ib) }, modes)
@@ -1019,7 +1151,7 @@ local function walkLegs(line, modes, le, d)
 					end
 				end
 				legCache[key] = c
-			else
+			elseif c then
 				d.legsCached = d.legsCached + 1
 			end
 			if c.path then
@@ -1037,8 +1169,11 @@ end
 jobs.routes = {
 	begin = function()
 		routesPass = routesPass + 1
+		local lines = playerLines()
+		purgeGeomCaches()
+		purgeLines(lines)
 		return {
-			lines = playerLines(), i = 1, out = {}, used = {}, usedOrder = {},
+			lines = lines, i = 1, out = {}, used = {}, usedOrder = {},
 			d = {
 				missing = 0, bridges = 0, lanes = 0, free = 0, bigGaps = 0, nodes = 0, samples = {},
 				legsComputed = 0, legsCached = 0, legsFailed = 0, dirs = { pair = 0, field = 0, none = 0 },
@@ -1048,7 +1183,6 @@ jobs.routes = {
 	end,
 	step = function(s)
 		local ln = s.lines[s.i]
-		s.i = s.i + 1
 		if ln == nil then
 			return true
 		end
@@ -1064,10 +1198,14 @@ jobs.routes = {
 			lineEdges[ln] = le
 		end
 		le.free = le.free or {}
+		forgetStalePieces(le)
 		-- Every leg from the pathfinding, then the vehicles' actual paths (detours, other terminals).
-		local okL, errL = pcall(walkLegs, line, lineModes[ln] or (lineMode[ln] and { [lineMode[ln]] = true }), le, s.d)
+		legBudget = LEG_PER_STEP
+		local okL, more = pcall(walkLegs, line, lineModes[ln] or (lineMode[ln] and { [lineMode[ln]] = true }), le, s.d)
 		if not okL then
-			warn("routes", "legs of line " .. tostring(ln) .. ": " .. tostring(errL))
+			warn("routes", "legs of line " .. tostring(ln) .. ": " .. tostring(more))
+		elseif more then
+			return false
 		end
 		for _, v in ipairs(lineVehicles(ln)) do
 			pcall(function()
@@ -1103,6 +1241,8 @@ jobs.routes = {
 					if #pts >= 2 then
 						local key, mean = freeTrip(le, pts)
 						le.extra[key] = ptsString(mean)
+						le.extraSeen = le.extraSeen or {}
+						le.extraSeen[key] = routesPass
 						s.d.free = s.d.free + 1
 					end
 				end
@@ -1123,6 +1263,7 @@ jobs.routes = {
 				if not s.used[edge] then
 					s.used[edge] = true
 					s.usedOrder[#s.usedOrder + 1] = edge
+					streetLanes(edge)
 				end
 			end
 		end
@@ -1143,6 +1284,7 @@ jobs.routes = {
 			polys[#polys + 1] = le.extra[k]
 		end
 		s.out[#s.out + 1] = { id = ln, e = table.concat(ids, ","), p = table.concat(polys, "|") }
+		s.i = s.i + 1
 		return s.i > #s.lines
 	end,
 	finish = function(s)
@@ -1208,7 +1350,7 @@ jobs.stocks = {
 				s.cargo[#s.cargo + 1] = { id = id, name = okN and n or tostring(name) }
 			end
 		end)
-		local map = api.engine.terrain.makeMapFromGame(true, true, true, false)
+		local map = api.engine.terrain.makeMapFromGame(false, false, true, false)
 		for _, ind in ipairs(map.industries or {}) do
 			s.items[#s.items + 1] = { kind = "industry", entity = ind.existing }
 		end
@@ -1263,7 +1405,7 @@ jobs.townAreas = {
 	begin = function()
 		local s = { buildings = {}, i = 1, cells = {}, order = {}, towns = {} }
 		pcall(function()
-			for _, t in ipairs(api.engine.terrain.makeMapFromGame(true, true, true, false).towns or {}) do
+			for _, t in ipairs(api.engine.terrain.makeMapFromGame(false, true, false, false).towns or {}) do
 				s.towns[#s.towns + 1] = { id = t.existing, x = t.pos.x, y = t.pos.y }
 			end
 		end)
@@ -1361,7 +1503,8 @@ local function series(entity, logName)
 		end
 		local n = log.times_native:size()
 		for i = math.max(1, n - HISTORY_POINTS + 1), n do
-			out[#out + 1] = string.format("%d,%d", vecAt(log.times_native, i), vecAt(log.values_native, i))
+			local tv, vv = tonumber(vecAt(log.times_native, i)) or 0, tonumber(vecAt(log.values_native, i)) or 0
+			out[#out + 1] = string.format("%d,%d", math.floor(tv), math.floor(vv))
 		end
 		if historyDiag == nil and n > 0 then
 			historyDiag = { name = logName, n = n, first = out[1], last = out[#out] }
@@ -1534,20 +1677,37 @@ local function advance(t)
 end
 
 --- One frame of work: read the request, run a pending command, run (or continue) at most one job.
+-- Request re-read on the wall clock (frame count depends on the game's fps; os.time has whole
+-- seconds, so this is about once a second). Without a clock: every REQUEST_FRAMES frames.
+local REQUEST_SEC = 0.5
+local lastRequestAt = nil
+
 function M.tick(react)
 	local t = now()
 	frame = frame + 1
-	if frame == 1 or frame % REQUEST_FRAMES == 0 then
-		request = io_util.loadTable("live_request")
+	local wall = io_util.nowUnix()
+	local due
+	if wall ~= nil then
+		due = lastRequestAt == nil or wall - lastRequestAt >= REQUEST_SEC
+	else
+		due = frame == 1 or frame % REQUEST_FRAMES == 0
+	end
+	if due then
+		lastRequestAt = wall
+		local loaded = io_util.loadTable("live_request")
+		-- A failed read must not drop the request we already have (that would cancel the running job).
+		if loaded ~= nil then
+			request = loaded
+		end
 		local cmd = request and request.cmd
 		if type(cmd) == "table" and type(cmd.seq) == "number" and cmd.seq > lastCmdSeq then
 			lastCmdSeq = cmd.seq
 			-- Sent more than CMD_MAX_AGE_SEC ago (left in the file, read again after a save or mod
 			-- reload): dropped, never replayed (a scan would start on its own).
 			local wall = io_util.nowUnix()
-			-- A scan must be stamped (requests of older apps left a scan in the file).
+			-- A scan must be stamped. Without a clock, a stamped command cannot be aged: treat it as stale.
 			local stale = (cmd.action == "scan" and type(cmd.at) ~= "number")
-				or (type(cmd.at) == "number" and wall ~= nil and math.abs(wall - cmd.at) > CMD_MAX_AGE_SEC)
+				or (type(cmd.at) == "number" and (wall == nil or math.abs(wall - cmd.at) > CMD_MAX_AGE_SEC))
 			if stale then
 				cmdResult = { seq = cmd.seq, ok = false, error = "stale" }
 			else
@@ -1556,6 +1716,18 @@ function M.tick(react)
 			writeStatus(t)
 			lastStatus = t
 		end
+	end
+	local captureBusy = false
+	pcall(function()
+		local cap = ug_require "hqminimap::/hqminimap/capture.lua"
+		captureBusy = cap ~= nil and cap.isBusy()
+	end)
+	if captureBusy then
+		if t - lastStatus >= STATUS_SEC then
+			lastStatus = t
+			writeStatus(t)
+		end
+		return
 	end
 	if request == nil or not request.enabled then
 		active = nil

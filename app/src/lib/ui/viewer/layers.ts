@@ -184,7 +184,7 @@ export interface LiveLayers {
    */
   update(frame: Frame, data: LiveData, routes: Map<number, Pt[][]>, parts: RouteParts | null, trails: Map<number, Pt[][]>,
     fills: Map<number, Pt[][]>, areas: TownAreas,
-    labels: Labels, opts: LiveOptions): { layoutMs: number };
+    labels: Labels, opts: LiveOptions, towns: readonly object[], locale: string): { layoutMs: number };
   /** Features drawn on the map (all live layers). */
   count(): number;
   /** Move vehicles along their current glide (from where they were drawn to their latest position). */
@@ -209,6 +209,10 @@ export function createLiveLayers(): LiveLayers {
     labels: { towns: true, industries: false, warehouses: false, stations: true, lines: false, vehicles: false }, glideMs: 2000,
     iconScale: 1, textScale: 1, lineWidth: 1, lineOpacity: 0.75, vehicleBadge: "none",
   };
+  /** Style fields that restyle every layer without rebuilding features. */
+  const styleSig = (o: LiveOptions) =>
+    [o.iconScale, o.textScale, o.lineWidth, o.lineOpacity, o.vehicleBadge, ...LAYERS.map((l) => (o.labels[l] ? 1 : 0))].join("|");
+  let prevStyle = styleSig(opts);
   /** Track width (px) at this resolution: Options factor, and thicker when zoomed in close (< 6 m/px). */
   const lw = (px: number, res: number) => px * opts.lineWidth * (res < 6 ? Math.min(1.6, 1 + 0.2 * Math.log2(6 / res)) : 1);
   /** Sizes scaled by Options → Map. */
@@ -493,10 +497,15 @@ export function createLiveLayers(): LiveLayers {
     frontVehicles.addFeatures(src.vehicles.getFeatures().filter((f) => f.get("line") === selectedLine));
   }
 
+  /** Last key refreshSelection restyled the town outlines for (they read the selection). */
+  let outlinesFor: string | null = null;
   function refreshSelection(): void {
     selection.clear();
     const f = selectedKey ? byKey.get(selectedKey) : undefined;
-    areaSrc.changed();
+    if (outlinesFor !== selectedKey) {
+      outlinesFor = selectedKey;
+      areaSrc.changed();
+    }
     if (!f) return;
     const color = f.get("hl") as string;
     if (selectedLine !== null) {
@@ -524,11 +533,13 @@ export function createLiveLayers(): LiveLayers {
 
   /** Inputs each group was last built from: rebuilt only when one of them changed (=== element-wise). */
   const builtFrom = new Map<string, unknown[]>();
-  const changed = (group: string, deps: unknown[]): boolean => {
+  const same = (group: string, deps: unknown[]): boolean => {
     const prev = builtFrom.get(group);
-    if (prev && prev.length === deps.length && prev.every((v, i) => v === deps[i])) return false;
+    return !!prev && prev.length === deps.length && prev.every((v, i) => v === deps[i]);
+  };
+  /** Remember deps only after a rebuild finished, so a throw retries next time. */
+  const remember = (group: string, deps: unknown[]) => {
     builtFrom.set(group, deps);
-    return true;
   };
   /** Keys of a layer leave byKey when its group is rebuilt. */
   const forgetKeys = (layer: LayerId) => {
@@ -544,13 +555,18 @@ export function createLiveLayers(): LiveLayers {
       for (const s of Object.values(src)) n += s.getFeatures().length;
       return n;
     },
-    update(frame, d, routes, parts, trails, fills, areas, labels, o) {
+    update(frame, d, routes, parts, trails, fills, areas, labels, o, towns, locale) {
       const optsChanged = opts.plainLines !== o.plainLines || opts.maxTrackedLines !== o.maxTrackedLines;
+      const nextStyle = styleSig(o);
+      const styleDirty = nextStyle !== prevStyle;
+      prevStyle = nextStyle;
       opts = o;
+      if (styleDirty) for (const layer of layers) layer.changed();
       let layoutMs = 0;
       const m = (x: number, y: number) => toMap(frame, x, y);
       const mapRing = (r: Pt[]) => [...r, r[0]!].map(([x, y]) => m(x, y));
-      if (changed("towns", [frame, areas, ...d.towns])) {
+      const townDeps = [frame, areas, ...d.towns];
+      if (!same("towns", townDeps)) {
         forgetKeys("towns");
         src.towns.clear(true);
         areaSrc.clear(true);
@@ -567,9 +583,11 @@ export function createLiveLayers(): LiveLayers {
           }
           return point;
         }));
+        remember("towns", townDeps);
       }
-      // Industry names name the nearest town: rebuilt with the towns too.
-      if (changed("industries", [frame, ...d.towns, ...d.industries])) {
+      // Industry names name the nearest town (every town, not the filtered list) and follow the language.
+      const industryDeps = [frame, locale, ...towns, ...d.industries];
+      if (!same("industries", industryDeps)) {
         forgetKeys("industries");
         src.industries.clear(true);
         src.industries.addFeatures(d.industries.map((i) => {
@@ -580,8 +598,10 @@ export function createLiveLayers(): LiveLayers {
               details: { type: industryLabel(i.type), level: i.level ?? "—", ...stockDetails(i.stocks, labels) } },
             stockLabel ? `${name}\n${stockLabel}` : name, typeColor(i.type));
         }));
+        remember("industries", industryDeps);
       }
-      if (changed("warehouses", [frame, ...d.warehouses])) {
+      const warehouseDeps = [frame, locale, ...d.warehouses];
+      if (!same("warehouses", warehouseDeps)) {
         forgetKeys("warehouses");
         src.warehouses.clear(true);
         src.warehouses.addFeatures(d.warehouses.map((w) => {
@@ -590,9 +610,11 @@ export function createLiveLayers(): LiveLayers {
             { layer: "warehouses", id: w.id, name: w.name, x: w.x, y: w.y, details: { total: stockTotal(w.stocks), ...stockDetails(w.stocks, labels) } },
             stockLabel ? `${w.name}\n${stockLabel}` : w.name, WAREHOUSE_COLOR);
         }));
+        remember("warehouses", warehouseDeps);
       }
-      // Station colours are those of the lines stopping there.
-      if (changed("stations", [frame, ...d.stations, ...d.lines])) {
+      // Station colours are those of the lines stopping there. Labels follow the language.
+      const stationDeps = [frame, locale, ...d.stations, ...d.lines];
+      if (!same("stations", stationDeps)) {
         forgetKeys("stations");
         src.stations.clear(true);
         // Busiest stations first: they keep their label when labels collide (declutter).
@@ -615,15 +637,19 @@ export function createLiveLayers(): LiveLayers {
           }), { layer: "stations", id: s.id, name: s.name, x: s.x, y: s.y, details }, figures ? `${s.name}\n${figures}` : s.name,
           colors[0] ?? STOP_NO_LINE);
         }));
+        remember("stations", stationDeps);
       }
       const lineColor = new Map<number, Line["color"]>();
       for (const l of d.lines) lineColor.set(l.id, l.color);
-      // Lines without a recorded track drawn from their vehicles' trails (ships, aircraft): only then
-      // do the trails (new every vehicle update) matter to the lines.
-      const usesTrails = d.lines.some((l) => !routes.has(l.id) && (l.mode === "water" || l.mode === "air"));
+      // Lines without a recorded track drawn from their vehicles' trails (ships, aircraft): only those
+      // trails matter here (the whole trail map changes on every vehicle update).
+      const trailDeps: unknown[] = [];
+      for (const l of d.lines) {
+        if (!routes.has(l.id) && (l.mode === "water" || l.mode === "air")) trailDeps.push(trails.get(l.id) ?? null);
+      }
       let linesRebuilt = false;
-      if (changed("lines", [frame, routes, parts, fills, selectedLine, usesTrails ? trails : null, ...d.lines]) || optsChanged) {
-        builtFrom.set("lines", [frame, routes, parts, fills, selectedLine, usesTrails ? trails : null, ...d.lines]);
+      const lineDeps = [frame, locale, routes, parts, fills, selectedLine, ...trailDeps, ...d.lines];
+      if (!same("lines", lineDeps) || optsChanged) {
         linesRebuilt = true;
         forgetKeys("lines");
         src.lines.clear(true);
@@ -637,7 +663,7 @@ export function createLiveLayers(): LiveLayers {
           .slice(0, o.maxTrackedLines ?? Infinity).map((l) => l.id));
         const routed = parts && !o.plainLines ? d.lines.filter((l) => tracked.has(l.id)) : [];
         const lanesIn = routed.map((l) => ({ id: l.id, rank: lineRank(l), twoWay: l.mode === "road" || l.mode === "tram" }));
-        const lanesKey = lanesIn.map((l) => `${l.id}:${l.rank}:${+l.twoWay}`).join(",");
+        const lanesKey = lanesIn.map((l) => `${l.id}:${+l.twoWay}`).join(",");
         let lanes = { pieces: [] as ReturnType<typeof laneLayout>["pieces"], joints: [] as ReturnType<typeof laneLayout>["joints"] };
         if (parts && routed.length) {
           if (lanesMemo?.parts === parts && lanesMemo.key === lanesKey) lanes = lanesMemo.out;
@@ -710,18 +736,22 @@ export function createLiveLayers(): LiveLayers {
           seenNames.add(c.name);
           lineLabelSrc.addFeature(new Feature({ geometry: new LineString(c.piece.map(([x, y]) => m(x, y))), name: c.name }));
         }
+        remember("lines", lineDeps);
       }
       // Vehicles: updated in place (same features: no re-index, no flicker); only new ones are added
       // and gone ones removed. A new frame (another background) rebuilds them.
-      const frameChanged = changed("vehicleFrame", [frame]);
+      const frameDeps = [frame];
+      const frameChanged = !same("vehicleFrame", frameDeps);
       if (frameChanged) {
         src.vehicles.clear(true);
         vehicleFeatures = new Map();
         forgetKeys("vehicles");
+        remember("vehicleFrame", frameDeps);
       }
       const now = Date.now();
       const seen = new Set<number>();
       const added: Feature[] = [];
+      let lineMoved = false;
       for (const v of d.vehicles) {
         seen.add(v.id);
         // Glide from where the vehicle is drawn to its new position (no jump back and forth).
@@ -746,6 +776,7 @@ export function createLiveLayers(): LiveLayers {
         const hover = `${title} · ${lineName}${lt ? ` · ${lt}` : ""}`;
         let f = vehicleFeatures.get(v.id);
         if (f) {
+          if (f.get("line") !== v.line) lineMoved = true;
           f.setProperties(props, true);
           if (!glides.has(v.id)) (f.getGeometry() as Point).setCoordinates(m(pos.x, pos.y));
           info(f, i, hover, rgb(color));
@@ -769,7 +800,7 @@ export function createLiveLayers(): LiveLayers {
         drawn.delete(id);
         glides.delete(id);
       }
-      if (linesRebuilt || added.length || removed || frameChanged) refreshFront();
+      if (linesRebuilt || added.length || removed || frameChanged || lineMoved) refreshFront();
       refreshSelection();
       return { layoutMs };
     },

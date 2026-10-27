@@ -27,6 +27,23 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
+function cleanPresetName(name: string): string {
+  return name.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+}
+
+function sanitizeStore(raw: PresetStore | null): PresetStore {
+  const presets: FilterPreset[] = [];
+  const seen = new Set<string>();
+  for (const p of raw?.presets ?? []) {
+    if (!p || typeof p.name !== "string" || !p.state) continue;
+    const name = cleanPresetName(p.name);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    presets.push({ name, state: normalizeFilters(p.state) });
+  }
+  const defaultName = raw?.defaultName && presets.some((p) => p.name === raw.defaultName) ? raw.defaultName : null;
+  return { presets, defaultName };
+}
 function save(key: string, v: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(v));
@@ -36,7 +53,7 @@ function save(key: string, v: unknown): void {
 }
 
 class ViewerFilters {
-  store = $state<PresetStore>(load(LS_PRESETS, { presets: [], defaultName: null }));
+  store = $state<PresetStore>(sanitizeStore(load(LS_PRESETS, { presets: [], defaultName: null })));
   current = $state<FilterState>(this.initial());
   /** Name of the preset the current state was loaded from (null = unsaved). */
   activeName = $state<string | null>(null);
@@ -82,7 +99,7 @@ class ViewerFilters {
   }
 
   saveAs(name: string): void {
-    const n = name.trim();
+    const n = cleanPresetName(name);
     if (!n) return;
     const presets = this.store.presets.filter((p) => p.name !== n);
     presets.push({ name: n, state: structuredClone($state.snapshot(this.current)) as FilterState });
@@ -101,7 +118,7 @@ class ViewerFilters {
   }
 
   rename(from: string, to: string): void {
-    const n = to.trim();
+    const n = cleanPresetName(to);
     if (!n || this.store.presets.some((p) => p.name === n)) return;
     this.store = {
       presets: this.store.presets.map((p) => (p.name === from ? { ...p, name: n } : p)),
@@ -135,7 +152,12 @@ class ViewerFilters {
     const data = JSON.parse(text) as { format?: string; presets?: FilterPreset[] };
     if (data.format !== "hqminimap-filters" || !Array.isArray(data.presets)) throw new Error("format");
     const byName = new Map(this.store.presets.map((p) => [p.name, p]));
-    for (const p of data.presets) if (p && typeof p.name === "string") byName.set(p.name, { name: p.name, state: normalizeFilters(p.state) });
+    for (const p of data.presets) {
+      if (!p || typeof p.name !== "string") continue;
+      const name = cleanPresetName(p.name);
+      if (!name) continue;
+      byName.set(name, { name, state: normalizeFilters(p.state) });
+    }
     this.store = { ...this.store, presets: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)) };
     this.persist();
     return data.presets.length;

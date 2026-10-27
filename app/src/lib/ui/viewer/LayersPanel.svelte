@@ -118,8 +118,12 @@
   async function exportPresets(): Promise<void> {
     const path = await save({ defaultPath: "hqminimap-filters.json", filters: [{ name: "JSON", extensions: ["json"] }] });
     if (!path) return;
-    await writeText(path, vf.exportJson());
-    message = t("lp.exported");
+    try {
+      await writeText(path, vf.exportJson());
+      message = t("lp.exported");
+    } catch (err) {
+      message = t("lp.exportError", { error: String(err) });
+    }
   }
 
   async function importPresets(): Promise<void> {

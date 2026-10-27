@@ -53,7 +53,11 @@ function M.run()
 		},
 	}
 	-- Heightmap first: the app reloads when map.lua changes, map.lua must come last.
+	-- A failed heightmap must not publish a map the app would load without relief.
 	local okHm, n = exportHeightmap(bounds, waterLevel, exportedAt)
+	if not okHm then
+		return { ok = false, error = "heightmap failed" }
+	end
 	local ok, info = io_util.saveTable("map", payload)
 	if not ok then
 		return { ok = false, error = "map: " .. tostring(info) }

@@ -4,6 +4,7 @@
    * ortho or while one is computed). Reads the chosen run's plan into `lab`. The history (clean-up)
    * is in Options.
    */
+  import { onDestroy } from "svelte";
   import { luaNum, parsePlan } from "$lib/core/lua";
   import { sameAspect } from "$lib/core/png";
   import { t } from "$lib/i18n/index.svelte";
@@ -69,28 +70,36 @@
     return () => clearInterval(timer);
   });
 
+  let loadSeq = 0;
+
   async function loadRun(run: RunMeta, withPreviews: boolean): Promise<void> {
-    const stale = () => run.id !== shownRun || (withPreviews && !previewsWanted);
+    const seq = ++loadSeq;
+    const stale = () => seq !== loadSeq || run.id !== shownRun || (withPreviews && !previewsWanted);
     const text = await readText(joinPath(run.dir, "mosaic_plan.lua"));
     const hmText = await readText(joinPath(run.dir, "heightmap.lua"));
     if (stale()) return;
     const plan = text ? parsePlan(text) : null;
-    lab.plan = plan;
-    lab.planState = plan ? "ok" : "missing";
     const w = hmText ? luaNum(hmText, "width") : NaN, h = hmText ? luaNum(hmText, "height") : NaN;
     lab.extent = Number.isFinite(w) && Number.isFinite(h) ? { x: w, y: h } : null;
-    if (plan && run.collected > 0) {
+    if (!plan) {
+      lab.plan = null;
+      lab.planState = "missing";
+      return;
+    }
+    let adjusted = plan;
+    if (run.collected > 0) {
       const size = await captureSize(run);
       if (stale()) return;
       lab.resIssue = size && !sameAspect(size.width, size.height, plan.screenW, plan.screenH)
         ? { w: size.width, h: size.height, pw: plan.screenW, ph: plan.screenH } : null;
-      // Same shape, another size (scaling): the ortho's ground resolution follows the real pixels
-      // (half the pixels: twice the metres per pixel), instead of upsampling or dropping detail.
       if (size && !lab.resIssue && size.height !== plan.screenH) {
         const k = plan.screenH / size.height;
-        lab.plan = { ...plan, gsdX: plan.gsdX * k, gsdY: plan.gsdY * k };
+        adjusted = { ...plan, gsdX: plan.gsdX * k, gsdY: plan.gsdY * k };
       }
     }
+    if (stale()) return;
+    lab.plan = adjusted;
+    lab.planState = "ok";
     if (!withPreviews) return;
     const next: Record<number, string> = { ...thumbs };
     for (let seq = 1; seq <= run.nX * run.nY; seq++) {
@@ -108,6 +117,8 @@
     }
     thumbs = next;
   }
+
+  onDestroy(releaseThumbs);
 </script>
 
 <div class="tiles">

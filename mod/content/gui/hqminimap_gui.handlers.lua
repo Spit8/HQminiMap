@@ -66,18 +66,27 @@ local function setStatus(text)
 	syncState()
 end
 
--- Watch for a new grid written by the app (~every 1.5 s): announce it in the window status.
+-- Watch for a new grid written by the app (~every 1.5 s of wall clock, every PLAN_CHECK_FRAMES
+-- frames without os.time): announce it in the window status.
+local PLAN_CHECK_SEC = 1.5
 local PLAN_CHECK_FRAMES = 90
+local planCheckAt = nil
 local planCheckFrame = 0
 local seenPlanStamp = nil
 
 local function checkNewPlan(capture)
+	local io_util = requireHq "hqminimap::/hqminimap/io_util.lua"
+	local wall = io_util and io_util.nowUnix() or nil
 	planCheckFrame = planCheckFrame + 1
-	if planCheckFrame < PLAN_CHECK_FRAMES then
+	if wall ~= nil then
+		if planCheckAt ~= nil and wall - planCheckAt < PLAN_CHECK_SEC then
+			return
+		end
+		planCheckAt = wall
+	elseif planCheckFrame < PLAN_CHECK_FRAMES then
 		return
 	end
 	planCheckFrame = 0
-	local io_util = requireHq "hqminimap::/hqminimap/io_util.lua"
 	local settings = settingsMod()
 	if io_util == nil or settings == nil then
 		return
@@ -127,9 +136,11 @@ end
 
 local buttonPumpLogged = false
 
---- Mod-button label (TFUI: handlers.buttonLabel(react)). The button is always displayed, so its
---- recipe also installs a step pump: live data / commands keep running with the window closed.
-function handlers.buttonLabel(react)
+--- Mod-button icon (TFUI: ImageView path = handlers.buttonIcon(react); mod/content/gui/icons, the
+--- @2x file is picked on high-DPI screens like the game's own icons). The button is always
+--- displayed, so its recipe also installs a step pump: live data / commands keep running with the
+--- window closed.
+function handlers.buttonIcon(react)
 	if react ~= nil then
 		lastReact = react
 	end
@@ -145,7 +156,7 @@ function handlers.buttonLabel(react)
 			print("[hqminimap] button pump installed")
 		end
 	end
-	return "HQminiMap"
+	return "hqminimap::/gui/icons/hqminimap.tga"
 end
 
 local function onStep()
@@ -188,7 +199,8 @@ function handlers.bindWindow(react, progress, status)
 				react.onUnmount(function()
 					-- Without the button pump, the scan stops with the window: abort it cleanly.
 					local capture = captureMod()
-					if buttonPumpFrame == 0 and capture ~= nil and capture.isBusy() then
+					-- The button pump stopped (its frame did not move since the last window step).
+					if buttonPumpFrame == windowPumpFrame and capture ~= nil and capture.isBusy() then
 						pcall(capture.abort, handlers.t("err_window_closed"))
 					end
 					pumpLogged = false

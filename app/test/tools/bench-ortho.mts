@@ -1,7 +1,7 @@
 /**
  * Full-scale ortho benchmark (synthetic tiles, real lattice): mirrors ortho.worker without the
  * Worker/Tauri plumbing — OrthoRenderer band by band + streaming pyramid + PNG tile encoding.
- *   npx tsx test/tools/bench-ortho.mts [plan.lua heightmap.lua] [--half] [--interp lanczos3]
+ *   npx tsx test/tools/bench-ortho.mts <plan.lua> <heightmap.lua> [--half] [--interp lanczos3]
  */
 import { readFileSync } from "node:fs";
 import { encode } from "fast-png";
@@ -15,9 +15,12 @@ const files = args.filter((a) => !a.startsWith("--") && !["lanczos3", "bicubic",
 const half = args.includes("--half");
 const ii = args.indexOf("--interp");
 const interp = (ii >= 0 ? args[ii + 1] : "lanczos3") as Interp;
-const UD = "C:/Users/Public/Documents/Steam/RUNE/3493540/local/minimapper";
-const plan = parsePlan(readFileSync(files[0] ?? `${UD}/tiles/mosaic_plan.lua`, "utf8"))!;
-const hm = parseHeightmap(readFileSync(files[1] ?? `${UD}/heightmap.lua`, "utf8"))!;
+if (files.length < 2) {
+  console.error("usage: npx tsx test/tools/bench-ortho.mts <plan.lua> <heightmap.lua> [--half] [--interp lanczos3]");
+  process.exit(1);
+}
+const plan = parsePlan(readFileSync(files[0]!, "utf8"))!;
+const hm = parseHeightmap(readFileSync(files[1]!, "utf8"))!;
 
 // Synthetic tile: same noise texture for every tile (content does not change the cost).
 const W = plan.screenW, H = plan.screenH;

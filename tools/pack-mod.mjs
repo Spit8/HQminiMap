@@ -17,8 +17,9 @@ const outIdx = process.argv.indexOf("--out");
 const outDir = outIdx > 0 ? process.argv[outIdx + 1] : join(root, "dist");
 const version = JSON.parse(readFileSync(join(root, "app", "package.json"), "utf8")).version;
 
-/** Written by the app at run time, never shipped. */
+/** Written by the app at run time (or by the Mod Hub at upload), never shipped. */
 const skip = (rel) =>
+  rel === "_metadata/mod.io_fileid.txt" ||
   rel === "content/hqminimap/mosaic_plan.lua" || rel.startsWith("content/hqminimap/cutscenes/") || rel.endsWith(".log");
 
 function walk(dir) {

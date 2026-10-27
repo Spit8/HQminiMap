@@ -1,6 +1,7 @@
 /**
- * TF3 folders used by the app, derived from the userdata root (`.../Steam/RUNE/3493540/local`).
- * The root is auto-detected by the Rust `detect_paths` command; the user can override it.
+ * TF3 folders used by the app, derived from the userdata root (Steam: `<Steam>/userdata/<SteamID>/3493540/local`).
+ * The root and the mod folder (staging_area, mods or Mod Hub download) are auto-detected by the Rust
+ * `detect_paths` command; the user can override both.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { fileExists, joinPath } from "./fsx";
@@ -25,7 +26,7 @@ export function gamePaths(userdata: string, modDir?: string): GamePaths {
     userdata,
     exportDir: joinPath(userdata, MOD_ID),
     fallbackDir: joinPath(userdata, "towns_industries"),
-    modDir: modDir || joinPath(userdata, "staging_area", MOD_ID),
+    modDir: modDir || joinPath(userdata, "mods", MOD_ID),
     screenshots: joinPath(userdata, "screenshots"),
     runsDir: joinPath(userdata, MOD_ID, "runs"),
   };
@@ -39,7 +40,7 @@ export async function exportFile(p: GamePaths, name: string): Promise<string> {
   return (await fileExists(fb)) ? fb : main;
 }
 
-/** Capture plan read by the mod at each « Capturer » (app.loadUserdata, never cached). */
+/** Capture plan read by the mod at each scan (app.loadUserdata, never cached). */
 export function capturePlanPath(p: GamePaths): string {
   return joinPath(p.exportDir, "capture_plan.lua");
 }
@@ -53,10 +54,17 @@ export function cutsceneDir(p: GamePaths): string {
   return joinPath(p.modDir, "content", MOD_ID, "cutscenes");
 }
 
-export async function detectUserdata(): Promise<{ userdata: string | null; candidates: string[] }> {
+export interface DetectedPaths {
+  userdata: string | null;
+  /** Installed mod root: staging_area, manual install in mods, or a Mod Hub (mod.io) download. */
+  modDir: string | null;
+  candidates: string[];
+}
+
+export async function detectUserdata(): Promise<DetectedPaths> {
   try {
     return await invoke("detect_paths");
   } catch {
-    return { userdata: null, candidates: [] };
+    return { userdata: null, modDir: null, candidates: [] };
   }
 }

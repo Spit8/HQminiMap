@@ -36,6 +36,8 @@ class Lab {
   planState = $state<"loading" | "ok" | "missing">("loading");
   /** Captures of another shape than the plan's screen. */
   resIssue = $state<{ w: number; h: number; pw: number; ph: number } | null>(null);
+  /** planStamp of the last scan command the game accepted (the steps say "scan started" only then). */
+  scanSentStamp = $state<number | null>(null);
 
   /** Runs seen running in this session, and those whose ortho was started automatically. */
   readonly watched = new Set<string>();

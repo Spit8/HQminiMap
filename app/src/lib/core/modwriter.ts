@@ -3,7 +3,7 @@
  *   - one cutscene per pitch, in the installed mod (content/hqminimap/cutscenes/) — the game
  *     re-reads cutscene files at each playCutscene;
  *   - the plan, as a userdata table (<UD>/hqminimap/capture_plan.lua) that the mod re-reads at
- *     each « Capturer » with app.loadUserdata (ug_require would keep a stale copy until reload).
+ *     each scan with app.loadUserdata (ug_require would keep a stale copy until reload).
  * Plan and cutscenes are always written together and carry the same planStamp. Pure.
  */
 import { FOV_V_DEG_MAX, FOV_V_DEG_MIN, type Mosaic } from "./geometry";

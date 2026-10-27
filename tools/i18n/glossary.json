@@ -1,0 +1,812 @@
+{
+  "app": "User-interface text of HQminiMap, a desktop companion app for the city-building / transport video game Transport Fever 3. Its in-game mod exports the savegame's map; the app plans an in-game scan that takes top-down screenshot tiles, assembles them into an orthophoto (a georeferenced top-down image of the whole map), and a map viewer shows that image with live game data: transport lines, stations, vehicles, towns, industries and warehouses.",
+  "keep": [
+    "HQminiMap",
+    "GridLab",
+    "Transport Fever 3",
+    "TF3",
+    "FOV",
+    "Lanczos",
+    "PNG",
+    "GitHub",
+    "MB",
+    "GB",
+    "px",
+    "m/px",
+    "map.lua",
+    "heightmap.lua",
+    "mosaic_plan.lua",
+    "capture_plan.lua",
+    "pyramid.json",
+    "Steam",
+    "Esc",
+    "Alt",
+    "Shift"
+  ],
+  "style": {
+    "de": {
+      "register": "Address the user informally with 'du' (as the game does). Swiss orthography as in the game: write 'ss', never 'ß'.",
+      "button": "Commands (buttons, menu items, and labels or tooltips naming an action): infinitive form, as the game does ('Speichern', 'Diese Konfiguration löschen'). A status that something is in progress: 'Wird …'.",
+      "evidence": {
+        "register": [
+          "Mit dem Linienmanager kannst du sämtliche Linien verwalten.",
+          "Wenn du dich bereits gut auskennst, kannst du das Tutorial jederzeit beenden.",
+          "Benutze den Güterfilter im Fahrzeugladen, um nach dem Gütertyp zu suchen, den du brauchst."
+        ],
+        "button": [
+          "Speichern",
+          "Löschen",
+          "Umbenennen"
+        ]
+      }
+    },
+    "it": {
+      "register": "Address the user informally with 'tu' (as the game does). 'mod' is feminine: 'la mod'.",
+      "button": "Commands (buttons, menu items, and labels or tooltips naming an action): imperative 2nd person singular, as the game does ('Salva', 'Elimina questa configurazione').",
+      "evidence": {
+        "register": [
+          "Il gestore linea ti consente di gestire tutte le linee.",
+          "Se senti di aver acquisito la sicurezza necessaria, puoi concludere il tutorial in qualsiasi momento.",
+          "Usa il filtro carico nel negozio veicoli per isolare il tipo di carico che ti interessa."
+        ],
+        "button": [
+          "Salva",
+          "Elimina",
+          "Rinomina"
+        ]
+      }
+    },
+    "es": {
+      "register": "Address the user informally with 'tú' (as the game does). 'mod' is masculine: 'el mod'.",
+      "button": "Commands (buttons, menu items, and labels or tooltips naming an action): infinitive form, as the game does ('Guardar', 'Eliminar esta configuración').",
+      "evidence": {
+        "register": [
+          "El gestor de líneas te permite administrar todas las líneas.",
+          "Puedes terminar el tutorial en cualquier momento si consideras que ya sabes todo lo que necesitas.",
+          "Usa el filtro de cargamento de la tienda de vehículos para filtrar según el tipo de cargamento que te interese."
+        ],
+        "button": [
+          "Guardar",
+          "Eliminar",
+          "Renombrar"
+        ]
+      }
+    },
+    "zh": {
+      "register": "Simplified Chinese only (zh-Hans). Address the user with '你' (as the game does).",
+      "button": "Commands (buttons, menu items, and labels or tooltips naming an action): short verb phrase, as the game does ('保存', '删除此配置').",
+      "evidence": {
+        "register": [
+          "你可以使用线路管理器管理所有线路。",
+          "如果你已经掌握基本操作，可以随时结束教程。",
+          "使用载具商店中的货品筛选器，按所需货品类型进行筛选。"
+        ],
+        "button": [
+          "保存",
+          "删除",
+          "重命名"
+        ]
+      }
+    }
+  },
+  "terms": [
+    {
+      "en": "line",
+      "forms": [
+        "lines"
+      ],
+      "source": "game: Line / Lines",
+      "fr": [
+        "ligne",
+        "lignes"
+      ],
+      "de": [
+        "Linie",
+        "Linien"
+      ],
+      "it": [
+        "linea",
+        "linee"
+      ],
+      "es": [
+        "línea",
+        "líneas"
+      ],
+      "zh": "线路"
+    },
+    {
+      "en": "station",
+      "forms": [
+        "stations"
+      ],
+      "source": "game: Station / Stations",
+      "fr": [
+        "gare",
+        "gares"
+      ],
+      "de": [
+        "Station",
+        "Stationen"
+      ],
+      "it": [
+        "stazione",
+        "stazioni"
+      ],
+      "es": [
+        "estación",
+        "estaciones"
+      ],
+      "note": "zh: game: 站点 (singular) / 车站 (plural); both accepted",
+      "zh": [
+        "车站",
+        "站点"
+      ]
+    },
+    {
+      "en": "warehouse",
+      "forms": [
+        "warehouses"
+      ],
+      "source": "game: Warehouse / Warehouses",
+      "fr": [
+        "entrepôt",
+        "entrepôts"
+      ],
+      "de": "Lager",
+      "it": [
+        "magazzino",
+        "magazzini"
+      ],
+      "es": [
+        "almacén",
+        "almacenes"
+      ],
+      "zh": "仓库"
+    },
+    {
+      "en": "industry",
+      "forms": [
+        "industries"
+      ],
+      "source": "game: Industry / Industries",
+      "fr": [
+        "industrie",
+        "industries"
+      ],
+      "de": [
+        "Industrie",
+        "Industrien"
+      ],
+      "it": [
+        "industria",
+        "industrie"
+      ],
+      "es": [
+        "industria",
+        "industrias"
+      ],
+      "zh": "产业"
+    },
+    {
+      "en": "town",
+      "forms": [
+        "towns"
+      ],
+      "source": "game: Town / Towns",
+      "fr": [
+        "ville",
+        "villes"
+      ],
+      "de": [
+        "Stadt",
+        "Städte"
+      ],
+      "it": [
+        "cittadina",
+        "cittadine"
+      ],
+      "es": [
+        "localidad",
+        "localidades"
+      ],
+      "zh": "城镇"
+    },
+    {
+      "en": "vehicle",
+      "forms": [
+        "vehicles"
+      ],
+      "source": "game: Vehicle / Vehicles",
+      "fr": [
+        "véhicule",
+        "véhicules"
+      ],
+      "de": [
+        "Fahrzeug",
+        "Fahrzeuge"
+      ],
+      "it": [
+        "veicolo",
+        "veicoli"
+      ],
+      "es": [
+        "vehículo",
+        "vehículos"
+      ],
+      "zh": "载具"
+    },
+    {
+      "en": "passengers",
+      "forms": [
+        "passenger"
+      ],
+      "source": "game: Passengers",
+      "fr": "passagers",
+      "de": "Passagiere",
+      "it": "passeggeri",
+      "es": "pasajeros",
+      "zh": "乘客"
+    },
+    {
+      "en": "mod",
+      "forms": [
+        "mods"
+      ],
+      "source": "game: Mods",
+      "fr": [
+        "mod",
+        "mods"
+      ],
+      "note": "de: game gives the plural only; es: game gives the plural only",
+      "de": [
+        "Mod",
+        "Mods"
+      ],
+      "it": "mod",
+      "es": [
+        "mod",
+        "mods"
+      ],
+      "zh": "模组"
+    },
+    {
+      "en": "screenshot",
+      "forms": [
+        "screenshots",
+        "screenshot(s)"
+      ],
+      "source": "game: Screenshot / Screenshots",
+      "fr": [
+        "capture d’écran",
+        "captures d’écran"
+      ],
+      "de": "Screenshot",
+      "it": "screenshot",
+      "es": [
+        "captura de pantalla",
+        "capturas de pantalla"
+      ],
+      "zh": "截图"
+    },
+    {
+      "en": "traffic",
+      "forms": [],
+      "source": "game: Traffic",
+      "fr": "trafic",
+      "de": "Verkehr",
+      "it": "traffico",
+      "es": "tráfico",
+      "zh": "交通"
+    },
+    {
+      "en": "stocks",
+      "forms": [
+        "stock"
+      ],
+      "source": "game: Stocks",
+      "fr": "stocks",
+      "de": "Bestände",
+      "it": "scorte",
+      "es": "existencias",
+      "zh": "库存"
+    },
+    {
+      "en": "population",
+      "forms": [],
+      "source": "game: Population",
+      "fr": "population",
+      "de": "Bevölkerung",
+      "it": "popolazione",
+      "es": "población",
+      "zh": "人口"
+    },
+    {
+      "en": "port",
+      "forms": [],
+      "source": "game: Port",
+      "fr": "port",
+      "de": "Hafen",
+      "it": "porto",
+      "es": "puerto",
+      "zh": "港口"
+    },
+    {
+      "en": "airport",
+      "forms": [],
+      "source": "game: Airport",
+      "fr": "aéroport",
+      "de": "Flughafen",
+      "it": "aeroporto",
+      "es": "aeropuerto",
+      "note": "zh: game: 双跑道机场 = a two-runway airport (one building type)",
+      "zh": "机场"
+    },
+    {
+      "en": "terrain",
+      "forms": [],
+      "source": "game: Terrain",
+      "fr": "terrain",
+      "de": "Gelände",
+      "it": "terreno",
+      "es": "terreno",
+      "zh": "地形"
+    },
+    {
+      "en": "resolution",
+      "forms": [],
+      "source": "game: Resolution",
+      "fr": "résolution",
+      "de": "Auflösung",
+      "it": "risoluzione",
+      "es": "resolución",
+      "zh": "分辨率"
+    },
+    {
+      "en": "fullscreen",
+      "forms": [],
+      "source": "game: Fullscreen",
+      "fr": "plein écran",
+      "de": "Vollbild",
+      "it": "schermo intero",
+      "es": "pantalla completa",
+      "zh": "全屏"
+    },
+    {
+      "en": "train",
+      "forms": [
+        "trains"
+      ],
+      "source": "game: Trains",
+      "fr": "trains",
+      "note": "de: game gives the plural only; it: game gives the plural only; es: game gives the plural only",
+      "de": [
+        "Zug",
+        "Züge"
+      ],
+      "it": [
+        "treno",
+        "treni"
+      ],
+      "es": [
+        "tren",
+        "trenes"
+      ],
+      "zh": "火车"
+    },
+    {
+      "en": "tram",
+      "forms": [
+        "trams"
+      ],
+      "source": "game: Trams",
+      "fr": "tramways",
+      "note": "de: game gives the plural only; es: game gives the plural only",
+      "de": [
+        "Tram",
+        "Trams"
+      ],
+      "it": "tram",
+      "es": [
+        "tranvía",
+        "tranvías"
+      ],
+      "zh": "有轨电车"
+    },
+    {
+      "en": "ship",
+      "forms": [
+        "ships"
+      ],
+      "source": "game: Ships",
+      "fr": "navires",
+      "note": "de: game gives the plural only; it: game gives the plural only; es: game gives the plural only",
+      "de": [
+        "Schiff",
+        "Schiffe"
+      ],
+      "it": [
+        "nave",
+        "navi"
+      ],
+      "es": [
+        "barco",
+        "barcos"
+      ],
+      "zh": "船只"
+    },
+    {
+      "en": "truck",
+      "forms": [
+        "trucks"
+      ],
+      "source": "game: Trucks",
+      "fr": "camions",
+      "note": "de: game gives the plural only; es: game gives the plural only",
+      "de": [
+        "Lkw",
+        "Lkws"
+      ],
+      "it": "camion",
+      "es": [
+        "camión",
+        "camiones"
+      ],
+      "zh": "卡车"
+    },
+    {
+      "en": "cargo",
+      "forms": [],
+      "fr": "fret",
+      "de": "Güter",
+      "it": "merci",
+      "es": "carga",
+      "zh": "货物",
+      "note": "game msgid 'Cargo' gives it 'Tipologia' (out of context) and es 'Cargamento'; it 'merci' = game 'Goods'. To review."
+    },
+    {
+      "en": "ortho",
+      "forms": [
+        "orthophoto",
+        "orthomosaic"
+      ],
+      "fr": "ortho",
+      "de": "Orthofoto",
+      "it": "ortofoto",
+      "es": "ortofoto",
+      "zh": "正射影像",
+      "note": "app term: to review"
+    },
+    {
+      "en": "tile",
+      "forms": [
+        "tiles"
+      ],
+      "fr": "tuile",
+      "de": [
+        "Kachel",
+        "Kacheln"
+      ],
+      "it": [
+        "tassello",
+        "tasselli"
+      ],
+      "es": [
+        "tesela",
+        "teselas"
+      ],
+      "zh": "图块",
+      "note": "one screenshot of the scan grid; app term: to review"
+    },
+    {
+      "en": "scan",
+      "forms": [
+        "scans"
+      ],
+      "fr": "scan",
+      "de": "Scan",
+      "it": "scansione",
+      "es": "escaneo",
+      "zh": "扫描",
+      "note": "app term: to review"
+    },
+    {
+      "en": "capture",
+      "forms": [
+        "captures",
+        "capture(s)"
+      ],
+      "fr": "capture",
+      "de": [
+        "Aufnahme",
+        "Aufnahmen"
+      ],
+      "it": [
+        "acquisizione",
+        "acquisizioni"
+      ],
+      "es": [
+        "captura",
+        "capturas"
+      ],
+      "zh": "采集",
+      "note": "the images collected by one scan (not a single screenshot); app term: to review"
+    },
+    {
+      "en": "this run",
+      "forms": [
+        "the run",
+        "collected runs",
+        "run's"
+      ],
+      "fr": "run",
+      "de": [
+        "Durchlauf",
+        "Durchläufe"
+      ],
+      "it": [
+        "sessione",
+        "sessioni"
+      ],
+      "es": [
+        "sesión",
+        "sesiones"
+      ],
+      "zh": "批次",
+      "note": "one scan session and its folder (noun only: 'run' is also a verb in the texts); app term: to review"
+    },
+    {
+      "en": "grid",
+      "forms": [],
+      "fr": "grille",
+      "de": "Raster",
+      "it": "griglia",
+      "es": "cuadrícula",
+      "zh": "网格",
+      "note": "app term: to review"
+    },
+    {
+      "en": "cutscene",
+      "forms": [],
+      "fr": "cutscene",
+      "de": "Zwischensequenz",
+      "it": "filmato",
+      "es": "cinemática",
+      "zh": "过场动画",
+      "note": "app term: to review"
+    },
+    {
+      "en": "contour line",
+      "forms": [
+        "contour lines",
+        "contours",
+        "contour"
+      ],
+      "fr": "courbe de niveau",
+      "de": [
+        "Höhenlinie",
+        "Höhenlinien"
+      ],
+      "it": [
+        "curva di livello",
+        "curve di livello"
+      ],
+      "es": [
+        "curva de nivel",
+        "curvas de nivel"
+      ],
+      "zh": "等高线",
+      "note": "app term: to review"
+    },
+    {
+      "en": "index contour",
+      "forms": [],
+      "fr": "courbe maîtresse",
+      "de": "Zähllinie",
+      "it": "curva direttrice",
+      "es": "curva maestra",
+      "zh": "计曲线",
+      "note": "app term: to review"
+    },
+    {
+      "en": "basemap",
+      "forms": [],
+      "fr": "fond de carte",
+      "de": "Grundkarte",
+      "it": "mappa di base",
+      "es": "mapa base",
+      "zh": "底图",
+      "note": "app term: to review"
+    },
+    {
+      "en": "legend",
+      "forms": [],
+      "fr": "légende",
+      "de": "Legende",
+      "it": "legenda",
+      "es": "leyenda",
+      "zh": "图例",
+      "note": "app term: to review"
+    },
+    {
+      "en": "labels",
+      "forms": [
+        "label"
+      ],
+      "fr": "étiquettes",
+      "de": [
+        "Beschriftungen",
+        "Beschriftung"
+      ],
+      "it": [
+        "etichette",
+        "etichetta"
+      ],
+      "es": [
+        "etiquetas",
+        "etiqueta"
+      ],
+      "zh": "标签",
+      "note": "app term: to review"
+    },
+    {
+      "en": "layer",
+      "forms": [
+        "layers"
+      ],
+      "fr": "calque",
+      "de": [
+        "Ebene",
+        "Ebenen"
+      ],
+      "it": [
+        "livello",
+        "livelli"
+      ],
+      "es": [
+        "capa",
+        "capas"
+      ],
+      "zh": "图层",
+      "note": "map layer (GIS sense); game it 'Strati' is for its own views; app term: to review"
+    },
+    {
+      "en": "configuration",
+      "forms": [
+        "configurations",
+        "configuration(s)"
+      ],
+      "fr": "configuration",
+      "de": [
+        "Konfiguration",
+        "Konfigurationen"
+      ],
+      "it": [
+        "configurazione",
+        "configurazioni"
+      ],
+      "es": [
+        "configuración",
+        "configuraciones"
+      ],
+      "zh": "配置",
+      "note": "a saved set of filters; app term: to review"
+    },
+    {
+      "en": "viewer",
+      "forms": [
+        "visualiser"
+      ],
+      "fr": "visualiseur",
+      "de": "Kartenansicht",
+      "it": "visualizzatore",
+      "es": "visor",
+      "zh": "地图查看器",
+      "note": "name of the map tab; app term: to review"
+    },
+    {
+      "en": "trail",
+      "forms": [
+        "trails"
+      ],
+      "fr": "trace",
+      "de": [
+        "Spur",
+        "Spuren"
+      ],
+      "it": [
+        "scia",
+        "scie"
+      ],
+      "es": [
+        "estela",
+        "estelas"
+      ],
+      "zh": "航迹",
+      "note": "positions left behind by a ship or aircraft; app term: to review"
+    },
+    {
+      "en": "track",
+      "forms": [
+        "tracks"
+      ],
+      "fr": "tracé",
+      "de": [
+        "Streckenverlauf",
+        "Strecke"
+      ],
+      "it": [
+        "tracciato",
+        "tracciati"
+      ],
+      "es": [
+        "trazado",
+        "trazados"
+      ],
+      "zh": "路径",
+      "note": "drawn path of a line on the map (not rails: game 'Tracks' = Gleise / binari); app term: to review"
+    },
+    {
+      "en": "lane",
+      "forms": [
+        "lanes"
+      ],
+      "fr": "voie",
+      "de": [
+        "Fahrspur",
+        "Fahrspuren"
+      ],
+      "it": [
+        "corsia",
+        "corsie"
+      ],
+      "es": [
+        "carril",
+        "carriles"
+      ],
+      "zh": "车道",
+      "note": "app term: to review"
+    },
+    {
+      "en": "relief",
+      "forms": [],
+      "fr": "relief",
+      "de": "Relief",
+      "it": "rilievo",
+      "es": "relieve",
+      "zh": "地形",
+      "note": "app term: to review"
+    },
+    {
+      "en": "pyramid",
+      "forms": [],
+      "fr": "pyramide",
+      "de": "Pyramide",
+      "it": "piramide",
+      "es": "pirámide",
+      "zh": "金字塔",
+      "note": "tile pyramid of the orthophoto; app term: to review"
+    },
+    {
+      "en": "/yr",
+      "forms": [],
+      "fr": "/an",
+      "de": "/Jahr",
+      "it": "/anno",
+      "es": "/año",
+      "zh": "/年",
+      "note": "app term: to review"
+    },
+    {
+      "en": "teleport",
+      "forms": [
+        "teleporting"
+      ],
+      "fr": "téléporter",
+      "de": "teleport",
+      "it": "teletraspor",
+      "es": "teletransport",
+      "zh": "传送",
+      "note": "stem check: any inflection accepted; app term: to review"
+    }
+  ]
+}

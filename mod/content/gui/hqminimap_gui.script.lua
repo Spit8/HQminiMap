@@ -96,14 +96,12 @@ end)(),
 					wapi.moveSingletonWindowToFront(recipes.HQminiMapMainWindow)
 				end,
 					meta = {
-						class = "secondary",
+						class = "tfui-66fda867",
 						tooltip = "HQminiMap",
 					},
-					content = builtin.TextView {
-						text = handlers.buttonLabel(react),
-						meta = {
-							class = "font-scale-body",
-						},
+					content = builtin.ImageView {
+						path = handlers.buttonIcon(react),
+						scaling = builtin.type.ImageViewScaling.AutoFit,
 					},
 				},
 			},

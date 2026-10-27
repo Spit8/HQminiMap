@@ -23,7 +23,7 @@ const LS_LAST = "hq.updates.lastCheck";
 const AUTO_DELAY_MS = 5000;
 
 export type UpdatePhase = "idle" | "checking" | "upToDate" | "available" | "downloading" | "installing" | "error";
-export type UpdateError = "network" | "notFound" | "signature" | "install" | "other";
+export type UpdateError = "network" | "notFound" | "limited" | "signature" | "install" | "other";
 
 export interface AvailableUpdate {
   version: string;
@@ -57,8 +57,9 @@ function save(key: string, value: string | null): void {
 export function errorCode(err: unknown): UpdateError {
   const msg = String(err).toLowerCase();
   if (msg.includes("signature")) return "signature";
+  if (/\b403\b|rate limit/.test(msg)) return "limited";
   // No public release (private repository, or none published yet): not a connection problem.
-  if (/\b404\b|not found/.test(msg)) return "notFound";
+  if (/valid release json|release.?not.?found|\b404\b|not found/.test(msg)) return "notFound";
   if (/network|fetch|request|connect|dns|timed out|http/.test(msg)) return "network";
   return "other";
 }
@@ -86,7 +87,12 @@ class Updates {
 
   init(): Promise<void> {
     this.ready ??= (async () => {
-      this.current = await getVersion();
+      try {
+        this.current = await getVersion();
+      } catch (err) {
+        console.warn("getVersion", err);
+        this.current = this.current || "0.0.0";
+      }
       try {
         const info = await invoke<InstallInfo>("install_info");
         this.portable = info.portable;

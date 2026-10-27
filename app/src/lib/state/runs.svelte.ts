@@ -86,6 +86,8 @@ class RunsState {
   private counterBase: number | null = null;
   /** Plan + heightmap of the live run are in its folder. */
   private inputsReady = false;
+  /** Directory sizes already measured (key = what the folder contained), kept across tab changes. */
+  readonly sizes = new Map<string, { key: string; bytes: number }>();
   private deleted = loadDeleted();
   /** Captures settled for good (finished and past their grace time, too old, or deleted), from DONE_FILE. */
   private done = new Set<string>();
@@ -147,12 +149,17 @@ class RunsState {
     const idxPath = await exportFile(p, "capture_index");
     const st = await fileStat(idxPath);
     if (!st) return;
-    if (this.idx?.mtimeMs !== st.mtimeMs) {
+    let idx: CaptureIndex;
+    if (this.idx && this.idx.mtimeMs === st.mtimeMs && this.idx.idx.finishedAt != null) {
+      idx = this.idx.idx;
+    } else {
       const idxText = await readText(idxPath);
       if (!idxText) return;
-      this.idx = { mtimeMs: st.mtimeMs, idx: parseCaptureIndex(idxText) };
+      const parsed = parseCaptureIndex(idxText);
+      // A file still being written has no finishedAt: do not keep that partial parse.
+      this.idx = parsed.finishedAt != null ? { mtimeMs: st.mtimeMs, idx: parsed } : null;
+      idx = parsed;
     }
-    const idx = this.idx.idx;
     if (!idx.startedAt || idx.nX < 1 || idx.nY < 1) return;
     const id = String(idx.startedAt);
     await this.loadDone(p);
@@ -245,7 +252,9 @@ class RunsState {
     const now = Date.now();
     const nameOf = (k: number, f: DirFile) =>
       tileNameFor(k + 1, idx.nX, idx.nY, f.name.slice(f.name.lastIndexOf("."))).name;
-    if (idx.shotTimes.length) {
+    if (idx.hasShotTimes) {
+      // Key present but still empty: the scan is settling. Do not treat it as an old mod.
+      if (!idx.shotTimes.length) return;
       // Pair only the tiles still missing (collected files are already gone from screenshots).
       const pending = idx.shotTimes.map((_, k) => k).filter((k) => !this.collected.has(tileNameFor(k + 1, idx.nX, idx.nY).name));
       // Pairing by the game's counter (img_N): its base is found once, while nothing is collected
@@ -277,7 +286,7 @@ class RunsState {
       }
       return;
     }
-    // Index without shot times (older mod): rank in the time window, copy only.
+    // Index without a shotTimes key (older mod): rank in the time window, copy only.
     const shots = runShots(files, idx.startedAt!, now).slice(0, idx.nX * idx.nY * idx.pitchCount);
     for (let k = 0; k < shots.length; k++) {
       const name = nameOf(k, shots[k]);
@@ -419,6 +428,17 @@ class RunsState {
       }
     }
     this.runs = out.sort((a, b) => b.startedAt - a.startedAt);
+    const live = this.live;
+    if (live) {
+      const i = this.runs.findIndex((r) => r.id === live.id);
+      if (i >= 0) {
+        const disk = this.runs[i]!;
+        this.runs[i] = {
+          ...disk, collected: live.collected, finished: live.finished, extras: live.extras,
+          error: live.error, counterBase: live.counterBase,
+        };
+      }
+    }
   }
 }
 

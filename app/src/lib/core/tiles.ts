@@ -141,12 +141,16 @@ export const COUNTER_MAX_LAG_SEC = 6;
  * counter among the game's images written from the scan start up to shortly after its first shot.
  * Null if there is none (yet) or the names carry no counter.
  */
-export function counterBase<T extends ShotFile>(files: T[], startedAt: number, shotTimes: number[]): number | null {
+export function counterBase<T extends ShotFile>(files: T[], _startedAt: number, shotTimes: number[]): number | null {
   if (!shotTimes.length) return null;
+  // From a second before the first shot, not the scan start: screenshots taken while the
+  // lighting settles are not tiles. The file may still be written COUNTER_MAX_LAG_SEC later.
+  const lo = shotTimes[0]! - SHOT_MATCH_BEFORE_SEC;
+  const hi = shotTimes[0]! + COUNTER_MAX_LAG_SEC;
   let base: number | null = null;
   for (const f of files) {
     const p = parseShotName(f.name);
-    if (!p || p.time < startedAt - SHOT_MATCH_BEFORE_SEC || p.time > shotTimes[0] + COUNTER_MAX_LAG_SEC) continue;
+    if (!p || p.time < lo || p.time > hi) continue;
     if (base === null || p.n < base) base = p.n;
   }
   return base;
@@ -160,9 +164,14 @@ export function counterBase<T extends ShotFile>(files: T[], startedAt: number, s
  */
 export function matchByCounter<T extends ShotFile>(files: T[], base: number, ks: number[], shotTimes: number[], nowMs: number): (T | null)[] {
   const byN = new Map<number, { f: T; time: number }>();
+  // Only files of this scan's span: a game restart reuses counters, and an older img_N must not win.
+  const lo = Math.min(...shotTimes) - SHOT_MATCH_BEFORE_SEC;
+  const hi = Math.max(...shotTimes) + COUNTER_MAX_LAG_SEC;
   for (const f of files) {
     const p = parseShotName(f.name);
-    if (p && nowMs - f.mtimeMs >= MIN_FILE_AGE_MS) byN.set(p.n, { f, time: p.time });
+    if (!p || p.time < lo || p.time > hi || nowMs - f.mtimeMs < MIN_FILE_AGE_MS) continue;
+    const prev = byN.get(p.n);
+    if (!prev || p.time >= prev.time) byN.set(p.n, { f, time: p.time });
   }
   return ks.map((k) => {
     const c = byN.get(base + k), t = shotTimes[k];

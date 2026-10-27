@@ -169,6 +169,8 @@ export interface CaptureIndex {
   planStamp: number | null;
   /** Wall time (unix s) of each screenshot, capture order; empty for older indexes. */
   shotTimes: number[];
+  /** The `shotTimes` key is in the file (an empty list is a scan still settling, not an old mod). */
+  hasShotTimes: boolean;
   error: string | null;
 }
 
@@ -192,6 +194,7 @@ export function parseCaptureIndex(text: string): CaptureIndex {
     pitchCount: num("pitchCount") ?? 1,
     shotsTaken: num("shotsTaken") ?? 0,
     shotTimes: luaNumList(text, "shotTimes"),
+    hasShotTimes: /(?:^|[\s,{])shotTimes\s*=/.test(text),
     planStamp: num("planStamp"),
     error: luaStr(text, "error"),
   };

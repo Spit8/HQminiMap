@@ -7,7 +7,7 @@ restored, capture_index written; then runs the export. --short N plays a cutscen
 (plan/cutscene mismatch): the capture must end in an explicit error.
 
   pip install lupa
-  python tools/sim_mod.py <capture_plan.lua | mosaic_plan.lua> [--short N] [--lang fr|en] [--fps N]
+  python tools/sim_mod.py <capture_plan.lua | mosaic_plan.lua> [--short N] [--lang fr|en|de|it|es|zh] [--fps N]
 """
 from __future__ import annotations
 
@@ -104,29 +104,53 @@ end
     progress, status = state(0), state("Prêt")
     h.bindWindow(react, progress, status)
     sim = rt.eval("SIM")
-    for _ in range(100):  # idle window: the new grid must be announced
+    wall0 = sim.wall or 0
+    while (sim.wall or 0) - wall0 < 2:  # the new grid is announced on the wall clock (~1.5 s)
         sim.step()
         sim.wall = (sim.wall or 0) + 1 / fps
     announced = status.old(status)
     print(f"  idle status='{announced}'")
-    assert ("Nouveau scan" if lang == "fr" else "New scan") in announced, announced
+    # Expected texts come from the mod's own table for the game language (fr, en, de, it, es, zh).
+    i18n = rt.eval('ug_require("hqminimap::/hqminimap/i18n.lua")')
+    assert i18n.language() == lang, f"mod language {i18n.language()} instead of {lang}"
+    expect = lambda key: str(i18n.t(key)).split("%")[0].strip()
+    assert expect("status_new_plan") in announced, announced
     sim.planLoads = 0
     # The app starts the scan (live_request cmd "scan"); the mod button's pump runs it, window closed.
-    h.buttonLabel(rt.eval("{ onStep = function(f) SIM.btnStep = f end }"))
+    h.buttonIcon(rt.eval("{ onStep = function(f) SIM.btnStep = f end }"))
     # A scan left in the request by an older app (no time stamp), or sent long ago: never run.
     capture0 = rt.eval('ug_require("hqminimap::/hqminimap/capture.lua")')
     for stale in ('{ seq = 1, action = "scan" }', '{ seq = 2, action = "scan", at = 1799990000 }'):
         rt.execute(f'REQUEST = {{ cmd = {stale} }}')
-        for _ in range(40):
+        end = (sim.wall or 0) + 1  # the mod re-reads the request on the wall clock, not every frame
+        while (sim.wall or 0) < end:
             sim.btnStep()
             sim.wall = (sim.wall or 0) + 1 / fps
         assert not capture0.isBusy() and sim.saves["hqminimap/live_status"].cmd.error == "stale", "stale scan ran"
     print("  stale scan commands dropped")
     sim.planLoads = 0  # the idle pump re-read the plan meanwhile
     rt.execute('REQUEST = { cmd = { seq = 3, action = "scan", at = 1800000000 } }')
+    if "--skip" in sys.argv:
+        # Jump the cutscene past the first hold: the scan must stop at once with "skipped image".
+        rt.execute('REQUEST = { cmd = { seq = 3, action = "scan", at = 1800000000 } }')
+        capture = rt.eval('ug_require("hqminimap::/hqminimap/capture.lua")')
+        frames = 0
+        while (not capture.isBusy() or sim.t is None) and frames < 8000:
+            sim.btnStep()
+            frames += 1
+            sim.wall = (sim.wall or 0) + 1 / fps
+        assert sim.t is not None, "cutscene did not start"
+        sim.t = float(rt.eval("PLAN.segDur"))
+        sim.btnStep()
+        idx = sim.saves["hqminimap/capture_index"]
+        print(f"  skipped: busy={capture.isBusy()} error={idx.error}")
+        assert not capture.isBusy() and idx.error and expect("err_skipped") in idx.error, idx.error
+        print("OK")
+        return
     frames = 0
     capture = rt.eval('ug_require("hqminimap::/hqminimap/capture.lua")')
-    while (capture.isBusy() or frames < 40) and frames < 100000:
+    started = sim.wall or 0
+    while (capture.isBusy() or frames < 40 or (sim.wall or 0) - started < 1) and frames < 100000:
         sim.btnStep()
         frames += 1
         sim.wall = (sim.wall or 0) + 1 / fps
@@ -147,7 +171,7 @@ end
     st = [idx.shotTimes[i] for i in range(1, len(idx.shotTimes) + 1)]
     print(f"  shotTimes={st[:3]}... n={len(st)} planLoads={sim.planLoads} planStamp={idx.planStamp}")
     if short is not None:
-        assert sim.shots == short and idx.error and ("ne correspond pas" if lang == "fr" else "does not match") in idx.error, idx.error
+        assert sim.shots == short and idx.error and expect("err_mismatch") in idx.error, idx.error
         print(f"  mismatch detected: '{idx.error}'")
         print("OK")
         return

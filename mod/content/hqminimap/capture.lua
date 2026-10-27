@@ -40,7 +40,17 @@ local function getCloudCoverage()
 	local ok, v = pcall(function()
 		return api.gui.rendering.getEnvironment().atmosphere.cloudCoverage
 	end)
-	return (ok and type(v) == "number") and v or nil
+	if ok and type(v) == "number" then
+		return v
+	end
+	-- The environment read can fail; the WORLD component carries the same coverage.
+	local okW, w = pcall(function()
+		return api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.WORLD)
+	end)
+	if okW and w and type(w.cloudCoverage) == "number" then
+		return w.cloudCoverage
+	end
+	return nil
 end
 
 local function setCloudCoverage(value)
@@ -105,6 +115,15 @@ local function setDayOfYear(day)
 	end)
 end
 
+local function setSpeedup(speedup)
+	if type(speedup) ~= "number" then
+		return
+	end
+	pcall(function()
+		api.cmd.sendCommand(api.cmd.makeGameSetSpeedCmd(math.floor(speedup + 0.5)))
+	end)
+end
+
 --- Lighting / time state to restore after the capture.
 local function lightingSnapshot()
 	local snap = { cloud = getCloudCoverage() }
@@ -126,6 +145,22 @@ local function lightingSnapshot()
 			snap.timeOfDayMode = gs.state.timeOfDayMode
 		end
 	end)
+	pcall(function()
+		local sp = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_SPEED)
+		if sp then
+			if type(sp.millisPerDay) == "number" then
+				snap.millisPerDay = sp.millisPerDay
+			end
+			if type(sp.speedup) == "number" then
+				snap.speedup = sp.speedup
+			end
+		end
+	end)
+	for _, key in ipairs({ "cloud", "timeOfDaySec", "dayOfYear", "timeOfDayMode", "millisPerDay", "speedup" }) do
+		if snap[key] == nil then
+			io_util.log("WARN lighting snapshot missing " .. key)
+		end
+	end
 	return snap
 end
 
@@ -145,7 +180,12 @@ local function restoreLighting(snap)
 	setCloudCoverage(snap.cloud)
 	setTimeOfDaySec(snap.timeOfDaySec)
 	setTimeOfDayMode(snap.timeOfDayMode)
-	setCalendarSpeed(snap.calendarSpeed or DEFAULT_CALENDAR_SPEED)
+	if type(snap.millisPerDay) == "number" then
+		setCalendarSpeed(snap.millisPerDay)
+	else
+		setCalendarSpeed(snap.calendarSpeed or DEFAULT_CALENDAR_SPEED)
+	end
+	setSpeedup(snap.speedup)
 	setDayOfYear(snap.dayOfYear)
 end
 
@@ -211,7 +251,8 @@ function M.loadPlan()
 	if plan == nil then
 		return nil, i18n.t("err_no_plan")
 	end
-	if type(plan.nX) ~= "number" or type(plan.nY) ~= "number" or type(plan.centers) ~= "table" then
+	if type(plan.nX) ~= "number" or plan.nX < 1 or type(plan.nY) ~= "number" or plan.nY < 1
+		or type(plan.centers) ~= "table" or type(plan.zEye) ~= "number" then
 		return nil, i18n.t("err_plan_invalid")
 	end
 	local pitches = {}
@@ -263,30 +304,50 @@ local function saveIndex(j, err, finished)
 	return io_util.saveTable("capture_index", buildIndex(j, err, finished))
 end
 
+--- Index at most every 2 s during a pass; forced at the end of a pass and in finishJob.
+local function saveIndexSoon(j, err, finished, force)
+	local now = io_util.nowUnix()
+	if not force and not finished and type(now) == "number" and type(j.lastIndexAt) == "number" and now - j.lastIndexAt < 2 then
+		return
+	end
+	j.lastIndexAt = now
+	pcall(function()
+		saveIndex(j, err, finished)
+	end)
+end
+
 local function finishJob(j, err)
+	-- Clear first: a failure below must not leave the scan stuck (isBusy stays true otherwise).
+	job = nil
 	if isCutscenePlaying() then
 		pcall(function()
 			api.gui.mission.stopCutscene()
 		end)
 	end
 	if j.savedCam then
-		applyCam(j.savedCam)
+		pcall(function()
+			applyCam(j.savedCam)
+		end)
 	end
 	pcall(function()
 		restoreLighting(j.lighting)
 	end)
-	local okIdx, info = saveIndex(j, err, true)
-	if err then
-		settings.setProgress(0)
-		settings.setStatus(i18n.t("status_error", tostring(err)))
-		io_util.log("ERROR capture: " .. tostring(err))
-	else
-		settings.setProgress(1)
-		settings.setStatus(i18n.t("status_capture_done", j.shotsTaken, j.maxShots))
-		io_util.log(string.format("capture OK %dx%d shots=%d/%d -> %s", j.nX, j.nY, j.shotsTaken, j.maxShots,
-			tostring(okIdx and info.pathHint or "capture_index.lua")))
-	end
-	job = nil
+	local okIdx, info = false, nil
+	pcall(function()
+		okIdx, info = saveIndex(j, err, true)
+	end)
+	pcall(function()
+		if err then
+			settings.setProgress(0)
+			settings.setStatus(i18n.t("status_error", tostring(err)))
+			io_util.log("ERROR capture: " .. tostring(err))
+		else
+			settings.setProgress(1)
+			settings.setStatus(i18n.t("status_capture_done", j.shotsTaken, j.maxShots))
+			io_util.log(string.format("capture OK %dx%d shots=%d/%d -> %s", j.nX, j.nY, j.shotsTaken, j.maxShots,
+				tostring(okIdx and info and info.pathHint or "capture_index.lua")))
+		end
+	end)
 end
 
 -- ---------------------------------------------------------------- cutscenes
@@ -301,6 +362,7 @@ local function playPitch(j, pitchIdx)
 	j.segShot = {}
 	j.phaseStart = nowSec(j)
 	j.playingSeen = false
+	pcall(applyCaptureLighting)
 	local path = string.format("%s%02d.lua", j.plan.cutscenePathPrefix or CUTSCENE_PREFIX, pitchIdx)
 	local ok, err = pcall(function()
 		api.gui.mission.playCutscene(path, false)
@@ -318,7 +380,6 @@ local function doShot(j, seg)
 	local i = seg - 1
 	local ix, iy = i % j.nX, math.floor(i / j.nX)
 	local c = j.plan.centers[seg] or {}
-	pcall(applyCaptureLighting)
 	local ok, err = pcall(function()
 		api.gui.camera.takeScreenshot(SCREENSHOT_SCALE)
 	end)
@@ -343,7 +404,7 @@ local function doShot(j, seg)
 		elapsedAtShot = cutsceneElapsed(),
 	}
 	pcall(function()
-		saveIndex(j, nil, false)
+		saveIndexSoon(j, nil, false, false)
 	end)
 	settings.setProgress(j.shotsTaken / j.maxShots)
 	settings.setStatus(i18n.t("status_capture_progress", j.shotsTaken, j.maxShots))
@@ -387,6 +448,8 @@ function M.start()
 		pitchCount = plan.pitchCount,
 		segDur = segDur,
 		shotOffset = tonumber(plan.shotOffset) or SHOT_OFFSET,
+		transit = tonumber(plan.transit) or 0.05,
+		holdEps = tonumber(plan.holdEps) or 0.02,
 		settleSec = settleSec,
 		maxWaitSec = math.max(MIN_MAX_WAIT_SEC, math.ceil(per * segDur) + PLAY_MARGIN_SEC),
 		maxShots = per * plan.pitchCount,
@@ -412,12 +475,11 @@ function M.start()
 end
 
 local function step(j)
-	-- Seconds since the phase began (whole seconds: "> n" waits n to n + 1 s).
-	j.frames = j.frames + 1
+	j.frames = (j.frames or 0) + 1
+	-- Whole seconds: "> ceil(s)" waits until ceil(s)+1 on an integer clock.
 	local waited = nowSec(j) - j.phaseStart
-	-- Sky / time of day settle before the first cutscene.
 	if j.phase == "settle" then
-		if waited > j.settleSec then
+		if waited > math.ceil(j.settleSec) then
 			local ok, err = playPitch(j, 1)
 			if not ok then
 				finishJob(j, err)
@@ -436,14 +498,27 @@ local function step(j)
 	local per = j.nX * j.nY
 	if playing and elapsed ~= nil and elapsed >= 0 then
 		local seg = math.min(per, math.floor(elapsed / j.segDur) + 1)
-		-- One shot per tile, inside the stationary hold.
-		if elapsed >= (seg - 1) * j.segDur + j.shotOffset and not j.segShot[seg] then
-			j.segShot[seg] = true
-			doShot(j, seg)
+		-- A segment already left without a shot: stop now, do not wait for the end.
+		if seg > 1 and not j.segShot[seg - 1] then
+			finishJob(j, i18n.t("err_skipped", seg - 1))
 			return
+		end
+		local segStart = (seg - 1) * j.segDur
+		local holdEnd = segStart + j.segDur - (j.transit or 0) - (j.holdEps or 0)
+		if not j.segShot[seg] then
+			if elapsed > holdEnd then
+				finishJob(j, i18n.t("err_skipped", seg))
+				return
+			end
+			if elapsed >= segStart + j.shotOffset then
+				j.segShot[seg] = true
+				doShot(j, seg)
+				return
+			end
 		end
 	end
 	if j.playingSeen and not playing then
+		saveIndexSoon(j, nil, false, true)
 		if j.pitchIdx < j.pitchCount then
 			local ok, err = playPitch(j, j.pitchIdx + 1)
 			if not ok then
@@ -458,11 +533,11 @@ local function step(j)
 		finishJob(j, nil)
 		return
 	end
-	if not j.playingSeen and waited > PLAY_START_SEC then
+	if not j.playingSeen and waited > math.ceil(PLAY_START_SEC) then
 		finishJob(j, i18n.t("err_not_started"))
 		return
 	end
-	if waited > j.maxWaitSec then
+	if waited > math.ceil(j.maxWaitSec) then
 		finishJob(j, i18n.t("err_timeout", j.shotsTaken))
 	end
 end

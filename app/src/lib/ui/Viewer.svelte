@@ -10,7 +10,7 @@
   import "ol/ol.css";
   import { save } from "@tauri-apps/plugin-dialog";
   import { applyFilters, hiddenKey, industryLabel, LAYERS, type LayerId, type LiveData } from "$lib/core/filters";
-  import { fmtDate, fmtNum, t, type MessageKey } from "$lib/i18n/index.svelte";
+  import { fmtDate, fmtNum, i18n, t, type MessageKey } from "$lib/i18n/index.svelte";
   import { joinPath, readBytes, readText, writeBytes } from "$lib/platform/fsx";
   import { app } from "$lib/state/app.svelte";
   import { live } from "$lib/state/live.svelte";
@@ -173,6 +173,7 @@
   const trackIndexes = new WeakMap<[number, number][][], TrackIndex>();
   function computeFills(): void {
     fillsTimer = null;
+    if (!active || !perf.caps.fills) return;
     fillsAt = Date.now();
     const routes = live.routes, out = new globalThis.Map<number, [number, number][][]>();
     // Ships and aircraft: their averaged crossings are the track; their trails wander off it.
@@ -185,14 +186,32 @@
       const pieces = [...byVehicle.values()].flatMap((tr) => uncovered(tr, index));
       if (pieces.length) out.set(line, pieces);
     }
-    fills = out;
+    fills = fillsEqual(fills, out) ? fills : out;
+  }
+  /** Same pieces (so a recomputation that changed nothing does not rebuild the lines). */
+  function fillsEqual(a: globalThis.Map<number, [number, number][][]>, b: globalThis.Map<number, [number, number][][]>): boolean {
+    if (a.size !== b.size) return false;
+    for (const [id, pieces] of b) {
+      const prev = a.get(id);
+      if (!prev || prev.length !== pieces.length) return false;
+      for (let i = 0; i < pieces.length; i++) {
+        const p = prev[i], q = pieces[i];
+        if (!p || !q || p.length !== q.length) return false;
+        for (let k = 0; k < p.length; k++) if (p[k]![0] !== q[k]![0] || p[k]![1] !== q[k]![1]) return false;
+      }
+    }
+    return true;
   }
   $effect(() => {
     void live.trailsVersion;
     void live.routes;
-    // Hidden, or the performance controller gave the fills up: none.
+    // Hidden, or the performance controller gave the fills up: none, and no timer left running.
     if (!active || !perf.caps.fills) {
-      if (fills.size) fills = new globalThis.Map();
+      if (fillsTimer) {
+        clearTimeout(fillsTimer);
+        fillsTimer = null;
+      }
+      if (untrack(() => fills.size)) fills = new globalThis.Map();
       return;
     }
     if (fillsTimer) return;
@@ -330,6 +349,17 @@
     view.fit(ext, { padding: [top, 12, bottom, panel + 12], duration: animate ? 250 : 0 });
   }
 
+  // The performance controller's tile cache applies to the shown ortho at once, not at the next
+  // background (the renderer's cache is an LRU whose size can be changed in place).
+  $effect(() => {
+    const size = perf.caps.tileCache;
+    const renderer = tileLayer?.getRenderer() as unknown as
+      { tileRepresentationCache?: { setSize(n: number): void }; maxStaleKeys?: number } | null | undefined;
+    if (!renderer?.tileRepresentationCache) return;
+    renderer.tileRepresentationCache.setSize(size);
+    renderer.maxStaleKeys = size * 0.5;
+  });
+
   function setTiles(layer: WebGLTileLayer | null): void {
     if (!map) return;
     if (tileLayer) {
@@ -347,9 +377,12 @@
    * Image space in metres: x = world Y − minY (columns), y = −(world X − minX) (rows, downwards).
    * Tile (z, x, y) = pyramid/<z>/<x>_<y>.png, origin top-left, always 256×256.
    */
+  let showSeq = 0;
   async function show(run: NonNullable<typeof current>): Promise<void> {
+    const seq = ++showSeq;
     errorKey = null;
     const raw = await readText(joinPath(run.dir, "pyramid", "pyramid.json"));
+    if (seq !== showSeq) return;
     if (!raw) {
       errorKey = "viewer.noPyramid";
       return;
@@ -399,7 +432,7 @@
     imageRun = run.id;
     imageAdjust = adj;
     imageAuto = saved?.mode !== "manual";
-    if (imageAuto) void computeAuto(run);
+    if (imageAuto && seq === showSeq) void computeAuto(run);
     setView(new View({
       projection, extent, resolutions, constrainResolution: true, showFullExtent: true,
       constrainOnlyCenter: true, enableRotation: true, rotation: (rotationDeg * Math.PI) / 180,
@@ -612,6 +645,8 @@
     const tr = trails;
     const fl = fills;
     const areas = live.townAreas;
+    const towns = live.towns;
+    const locale = i18n.locale;
     const caps = perf.caps;
     const labelsOn = caps.movingLabels ? vf.current.labels : { ...vf.current.labels, vehicles: false, lines: false };
     const ms = mapStyle.current;
@@ -620,9 +655,15 @@
     const { layoutMs } = liveLayers.update(frame, d, routes, live.routeParts, tr, fl, areas, labels, {
       labels: labelsOn, glideMs: untrack(() => live.vehicleIntervalMs), ...ms,
       plainLines: caps.plainLines, maxTrackedLines: caps.maxTrackedLines, snap: resumed,
-    });
+    }, towns, locale);
     resumed = false;
-    perf.report(liveLayers.count(), performance.now() - t0, layoutMs || undefined);
+    const objects = liveLayers.count();
+    const updateMs = performance.now() - t0;
+    const layout = layoutMs || undefined;
+    // Outside the effect: report() can change the level, which this effect reads through the caps.
+    untrack(() => {
+      queueMicrotask(() => perf.report(objects, updateMs, layout));
+    });
     // Keep the selection (fresh figures) across data refreshes.
     const sel = untrack(() => selected);
     if (sel) selected = liveLayers.infoOf(`${sel.layer}:${sel.id}`) ?? sel;
@@ -836,7 +877,12 @@
     ro.observe(target);
     // Keyboard: F / F11 toggle fullscreen, Escape leaves it, L toggles the filter panel (viewer visible only).
     const onKey = (e: KeyboardEvent) => {
-      if (!target.offsetParent || (e.target as HTMLElement)?.closest("input, select, textarea")) return;
+      if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+      // Only text entry keeps the keys (a checkbox or a list with the focus does not).
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.isContentEditable || !!el.closest("textarea")
+        || (el instanceof HTMLInputElement && !["checkbox", "radio", "range", "button", "submit", "reset", "color", "file"].includes(el.type)));
+      if (!target.offsetParent || typing) return;
       if (e.key === "f" || e.key === "F" || e.key === "F11") {
         e.preventDefault();
         toggleFullscreen();
@@ -845,21 +891,31 @@
       } else if (e.key === "0") {
         fitMap();
       } else if (e.key === "Escape") {
+        if (lineMenu) { lineMenu = null; return; }
         if (exportOpen || imageOpen || styleOpen) return;
         if (selected) select(null);
         else if (app.fullscreen) void app.setFullscreen(false);
       }
     };
     window.addEventListener("keydown", onKey);
+    const onFs = () => {
+      const on = !!document.fullscreenElement;
+      if (app.fullscreen !== on) app.fullscreen = on;
+    };
+    document.addEventListener("fullscreenchange", onFs);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFs);
       target.removeEventListener("wheel", onWheel);
       if (wheelIdle) clearTimeout(wheelIdle);
+      if (fillsTimer) clearTimeout(fillsTimer);
+      if (toastTimer) clearTimeout(toastTimer);
+      if (idleTimer) clearTimeout(idleTimer);
       cancelAnimationFrame(raf);
       map?.setTarget(undefined);
-      // Free the WebGL resources and every layer's renderer.
+      tileLayer?.getSource()?.dispose();
       tileLayer?.dispose();
       map?.dispose();
       map = null;

@@ -26,6 +26,10 @@ class PerfState {
   private updateMs = 0;
   private layoutMs = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** When the current level was entered (dwell before stepping down). */
+  private since = Date.now();
+  /** The map update that follows a level change is the caps settling: not a sample. */
+  private skipNext = false;
 
   get caps(): PerfCaps {
     return PERF_CAPS[this.level];
@@ -42,6 +46,10 @@ class PerfState {
 
   /** After a map update: what it drew and how long it took (lane layout included). */
   report(objects: number, updateMs: number, layoutMs?: number): void {
+    if (this.skipNext) {
+      this.skipNext = false;
+      return;
+    }
     this.objects = objects;
     this.updateMs = updateMs;
     if (layoutMs !== undefined) this.layoutMs = layoutMs;
@@ -57,11 +65,13 @@ class PerfState {
     const s: PerfSample = { memory: m ? m.usedJSHeapSize / m.jsHeapSizeLimit : null, objects: this.objects, updateMs: this.updateMs };
     this.sample = {
       ...s, layoutMs: this.layoutMs,
-      usedMb: m ? m.usedJSHeapSize / 2 ** 20 : null, limitMb: m ? m.jsHeapSizeLimit / 2 ** 20 : null,
+      usedMb: m ? m.usedJSHeapSize / 1e6 : null, limitMb: m ? m.jsHeapSizeLimit / 1e6 : null,
     };
-    const next = perfLevel(s, this.level);
+    const next = perfLevel(s, this.level, Date.now() - this.since);
     if (next !== this.level) {
       this.level = next;
+      this.since = Date.now();
+      this.skipNext = true;
       if (next === "ok") this.dismissedAt = null;
     }
   }

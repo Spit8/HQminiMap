@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import GridLab from "$lib/ui/GridLab.svelte";
   import Settings from "$lib/ui/Settings.svelte";
   import Steps from "$lib/ui/Steps.svelte";
@@ -47,9 +47,16 @@
   });
 
   // Collect capture screenshots in the background, whatever the open tab.
-  $effect(() => runs.start(app.paths));
+  // Paths only: start() reads other state, which must not restart the collector.
+  $effect(() => {
+    const p = app.paths;
+    untrack(() => runs.start(p));
+  });
   // Live game data (Visualiser layers) + the cadences / commands written for the mod.
-  $effect(() => live.start(app.paths));
+  $effect(() => {
+    const p = app.paths;
+    untrack(() => live.start(p));
+  });
   perf.start();
 
   // A capture starts in the game: show it arriving (GridLab › Captures).
@@ -114,7 +121,7 @@
     color-scheme: dark;
   }
   :global(html, body) { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-    font: 14px/1.4 system-ui, "Segoe UI", sans-serif; }
+    font: 14px/1.4 system-ui, "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
   :global(button) { background: var(--panel); color: var(--text); border: 1px solid var(--line);
     border-radius: 5px; padding: 6px 12px; cursor: pointer; font: inherit; }
   :global(button:hover:not(:disabled)) { border-color: var(--accent); }

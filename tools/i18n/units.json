@@ -1,0 +1,3418 @@
+[
+  {
+    "id": "app:tabs.grid",
+    "text": "GridLab",
+    "ref": "GridLab",
+    "context": "Main tabs of the app window.",
+    "kind": "button"
+  },
+  {
+    "id": "app:tabs.viewer",
+    "text": "Viewer",
+    "ref": "Visualiseur",
+    "context": "Main tabs of the app window.",
+    "kind": "button"
+  },
+  {
+    "id": "app:tabs.settings",
+    "text": "Options",
+    "ref": "Options",
+    "context": "Main tabs of the app window.",
+    "kind": "button"
+  },
+  {
+    "id": "app:header.ortho",
+    "text": "Ortho {pct} % · {elapsed}",
+    "ref": "Ortho {pct} % · {elapsed}",
+    "context": "App header bar: progress of the orthophoto being computed, app update notice.",
+    "kind": "label"
+  },
+  {
+    "id": "app:header.orthoTitle",
+    "text": "Orthomosaic being computed",
+    "ref": "Calcul de l'ortho en cours",
+    "context": "App header bar: progress of the orthophoto being computed, app update notice.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:header.update",
+    "text": "v{version} available",
+    "ref": "v{version} disponible",
+    "context": "App header bar: progress of the orthophoto being computed, app update notice.",
+    "kind": "label"
+  },
+  {
+    "id": "app:header.updateTitle",
+    "text": "New HQminiMap version: see Options → Updates",
+    "ref": "Nouvelle version de HQminiMap : voir Options → Mises à jour",
+    "context": "App header bar: progress of the orthophoto being computed, app update notice.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:updates.title",
+    "text": "Updates",
+    "ref": "Mises à jour",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "title"
+  },
+  {
+    "id": "app:updates.installed",
+    "text": "Installed version",
+    "ref": "Version installée",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.status",
+    "text": "Status",
+    "ref": "État",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.check",
+    "text": "Check",
+    "ref": "Vérifier",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "button"
+  },
+  {
+    "id": "app:updates.checking",
+    "text": "Checking…",
+    "ref": "Vérification…",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.upToDate",
+    "text": "Up to date",
+    "ref": "À jour",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.never",
+    "text": "Not checked yet",
+    "ref": "Pas encore vérifié",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.available",
+    "text": "Version {version} available",
+    "ref": "Version {version} disponible",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.install",
+    "text": "Install and restart",
+    "ref": "Installer et redémarrer",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "button"
+  },
+  {
+    "id": "app:updates.download",
+    "text": "Download",
+    "ref": "Télécharger",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "button"
+  },
+  {
+    "id": "app:updates.notes",
+    "text": "Release notes",
+    "ref": "Notes de version",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "button"
+  },
+  {
+    "id": "app:updates.skip",
+    "text": "Skip this version",
+    "ref": "Ignorer cette version",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "button"
+  },
+  {
+    "id": "app:updates.downloading",
+    "text": "Downloading",
+    "ref": "Téléchargement",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.installing",
+    "text": "Installing…",
+    "ref": "Installation…",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.cancel",
+    "text": "Cancel",
+    "ref": "Annuler",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "button"
+  },
+  {
+    "id": "app:updates.busy",
+    "text": "An ortho or a capture is running: installing closes the app and stops it. Install anyway?",
+    "ref": "Une ortho ou une capture est en cours : l'installation ferme l'application et l'interrompt. Installer quand même ?",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:updates.manual",
+    "text": "This install does not update itself: download the new installer from the release page.",
+    "ref": "Cette installation ne se met pas à jour toute seule : télécharge le nouvel installeur sur la page de la version.",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:updates.manualPortable",
+    "text": "Portable version: download the new zip from the release page and replace HQminiMap.exe.",
+    "ref": "Version portable : télécharge le nouveau zip sur la page de la version et remplace HQminiMap.exe.",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:updates.auto",
+    "text": "Check at startup",
+    "ref": "Vérifier au démarrage",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.lastCheck",
+    "text": "Last check: {date}",
+    "ref": "Dernière vérification : {date}",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "label"
+  },
+  {
+    "id": "app:updates.modHint",
+    "text": "The mod is updated separately, in the game folder (zip attached to each release).",
+    "ref": "Le mod se met à jour à part, dans le dossier du jeu (zip joint à chaque version).",
+    "context": "Options › Updates: checking GitHub releases and installing new versions of the app.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:updates.err.notFound",
+    "text": "No public release found on GitHub (private repository?): cannot check.",
+    "ref": "Aucune version publique trouvée sur GitHub (dépôt privé ?) : vérification impossible.",
+    "context": "Options › Updates: why the update check failed.",
+    "kind": "status"
+  },
+  {
+    "id": "app:updates.err.limited",
+    "text": "GitHub is limiting requests: try again in a few minutes.",
+    "ref": "GitHub limite les requêtes : réessayez dans quelques minutes.",
+    "context": "Options › Updates: why the update check failed.",
+    "kind": "status"
+  },
+  {
+    "id": "app:updates.err.network",
+    "text": "GitHub unreachable (no connection?)",
+    "ref": "GitHub injoignable (pas de connexion ?)",
+    "context": "Options › Updates: why the update check failed.",
+    "kind": "status"
+  },
+  {
+    "id": "app:updates.err.signature",
+    "text": "Invalid update signature: nothing was installed.",
+    "ref": "Signature de la mise à jour invalide : rien n'a été installé.",
+    "context": "Options › Updates: why the update check failed.",
+    "kind": "status"
+  },
+  {
+    "id": "app:updates.err.install",
+    "text": "The installation failed.",
+    "ref": "L'installation a échoué.",
+    "context": "Options › Updates: why the update check failed.",
+    "kind": "status"
+  },
+  {
+    "id": "app:updates.err.other",
+    "text": "Could not check.",
+    "ref": "Vérification impossible.",
+    "context": "Options › Updates: why the update check failed.",
+    "kind": "status"
+  },
+  {
+    "id": "app:steps.export.done",
+    "text": "Map exported",
+    "ref": "Carte exportée",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.export.todo",
+    "text": "In game: HQminiMap → “Export map”",
+    "ref": "Dans le jeu : HQminiMap → « Exporter la carte »",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.grid.done",
+    "text": "Scan started ({grid})",
+    "ref": "Scan lancé ({grid})",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.grid.todo",
+    "text": "GridLab → “Scan the map in game”",
+    "ref": "GridLab → « Scanner la carte en jeu »",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.capture.idle",
+    "text": "Scan",
+    "ref": "Scanner",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.capture.todo",
+    "text": "GridLab: “Scan the map in game” ({grid})",
+    "ref": "GridLab : « Scanner la carte en jeu » ({grid})",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.capture.error",
+    "text": "Capture failed: {error}",
+    "ref": "Capture en erreur : {error}",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.capture.active",
+    "text": "Capturing: {shots}/{expected}",
+    "ref": "Capture en cours : {shots}/{expected}",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.capture.done",
+    "text": "Captured ({shots} images)",
+    "ref": "Capturé ({shots} images)",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.capture.sent",
+    "text": "Scan started in game",
+    "ref": "Scan lancé dans le jeu",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.ortho.idle",
+    "text": "Compute the ortho",
+    "ref": "Calculer l'ortho",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.ortho.active",
+    "text": "Ortho {pct} %",
+    "ref": "Ortho {pct} %",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.ortho.done",
+    "text": "Ortho ready",
+    "ref": "Ortho prête",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:steps.ortho.missing",
+    "text": "Ortho not computed yet: GridLab › Captures",
+    "ref": "Ortho pas encore calculée : GridLab › Captures",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:map.unreadable",
+    "text": "map.lua unreadable (export in progress?)",
+    "ref": "map.lua illisible (export en cours ?)",
+    "context": "Reading the map exported by the mod (map.lua, heightmap.lua files).",
+    "kind": "label"
+  },
+  {
+    "id": "app:map.noRelief",
+    "text": "no relief in heightmap.lua / map.lua",
+    "ref": "relief introuvable dans heightmap.lua / map.lua",
+    "context": "Reading the map exported by the mod (map.lua, heightmap.lua files).",
+    "kind": "label"
+  },
+  {
+    "id": "app:map.unknownDate",
+    "text": "unknown date",
+    "ref": "date inconnue",
+    "context": "Reading the map exported by the mod (map.lua, heightmap.lua files).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.status.map",
+    "text": "Map {w} × {h} km",
+    "ref": "Carte {w} × {h} km",
+    "context": "GridLab: status line about the exported map and the last scan.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.status.exported",
+    "text": "exported on {date}",
+    "ref": "exportée le {date}",
+    "context": "GridLab: status line about the exported map and the last scan.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.status.noExport",
+    "text": "No export: game → HQminiMap → “Export map”",
+    "ref": "Aucun export : jeu → HQminiMap → « Exporter la carte »",
+    "context": "GridLab: status line about the exported map and the last scan.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.status.planWritten",
+    "text": "Started on {date}",
+    "ref": "Lancé le {date}",
+    "context": "GridLab: status line about the exported map and the last scan.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.status.planDiffers",
+    "text": "Scan: settings changed, run a new scan",
+    "ref": "Scan : paramètres modifiés, relancer un scan",
+    "context": "GridLab: status line about the exported map and the last scan.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.status.captured",
+    "text": "Scan: {grid} captured",
+    "ref": "Scan : {grid} capturé",
+    "context": "GridLab: status line about the exported map and the last scan.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.camera",
+    "text": "Camera",
+    "ref": "Caméra",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.altitude",
+    "text": "Altitude Z (m)",
+    "ref": "Altitude Z (m)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.fov",
+    "text": "Vertical FOV (°)",
+    "ref": "FOV vertical (°)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.grid",
+    "text": "Grid",
+    "ref": "Grille",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.gridHint",
+    "text": "(cover, margin {m} m)",
+    "ref": "(cover, marge {m} m)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.cols",
+    "text": "Columns (Y)",
+    "ref": "Colonnes (Y)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.rows",
+    "text": "Rows (X)",
+    "ref": "Lignes (X)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.min",
+    "text": "Min",
+    "ref": "Min",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.minTitle",
+    "text": "Smallest grid covering the whole map",
+    "ref": "Plus petite grille qui couvre toute la carte",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.lighting",
+    "text": "Lighting",
+    "ref": "Éclairage",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.hour",
+    "text": "Hour",
+    "ref": "Heure",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.day",
+    "text": "Day of year",
+    "ref": "Jour de l'année",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.mode",
+    "text": "Capture mode",
+    "ref": "Mode de capture",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.mode.simple",
+    "text": "Simple",
+    "ref": "Simple",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.mode.x4",
+    "text": "x4",
+    "ref": "x4",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.mode.x16",
+    "text": "x16",
+    "ref": "x16",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.mode.x64",
+    "text": "x64",
+    "ref": "x64",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.mode.simple.title",
+    "text": "Simple view: about 1 image, very quick capture and computation",
+    "ref": "Vue simple : environ 1 image, capture et calcul très rapides",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.mode.x4.title",
+    "text": "x4 view: about 4 images",
+    "ref": "Vue x4 : environ 4 images",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.mode.x16.title",
+    "text": "x16 view: about 16 images",
+    "ref": "Vue x16 : environ 16 images",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.mode.x64.title",
+    "text": "x64 view: about 64 images, the most detail",
+    "ref": "Vue x64 : environ 64 images, le plus de détail",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.mode.custom",
+    "text": "Custom view: advanced settings changed by hand. Pick a mode to go back to automatic settings.",
+    "ref": "Vue personnalisée : réglages avancés modifiés à la main. Choisis un mode pour revenir aux réglages automatiques.",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.summary.session",
+    "text": "Session",
+    "ref": "Session",
+    "context": "GridLab: summary of the current capture session.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.summary.noSession",
+    "text": "no capture yet",
+    "ref": "pas encore de capture",
+    "context": "GridLab: summary of the current capture session.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.summary.size",
+    "text": "Size",
+    "ref": "Taille",
+    "context": "GridLab: summary of the current capture session.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.summary.time",
+    "text": "Total time",
+    "ref": "Temps total",
+    "context": "GridLab: summary of the current capture session.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.advanced",
+    "text": "Advanced settings",
+    "ref": "Réglages avancés",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "title"
+  },
+  {
+    "id": "app:grid.orthoSettings",
+    "text": "Ortho",
+    "ref": "Ortho",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.auto.after",
+    "text": "The ortho will compute by itself at the end of the capture, then the map opens in the Viewer.",
+    "ref": "L'ortho se calculera toute seule à la fin de la capture, puis la carte s'ouvrira dans le Visualiseur.",
+    "context": "GridLab: automatic orthophoto computation after a capture.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.auto.retry",
+    "text": "Run the ortho again: {name}",
+    "ref": "Relancer l'ortho : {name}",
+    "context": "GridLab: automatic orthophoto computation after a capture.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.auto.manual",
+    "text": "Compute the ortho of this capture: {name}",
+    "ref": "Calculer l'ortho de cette capture : {name}",
+    "context": "GridLab: automatic orthophoto computation after a capture.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.view.grid",
+    "text": "Grid",
+    "ref": "Grille",
+    "context": "GridLab: switch between the grid planner and the list of captures.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.view.tiles",
+    "text": "Captures",
+    "ref": "Captures",
+    "context": "GridLab: switch between the grid planner and the list of captures.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.details",
+    "text": "Details",
+    "ref": "Détails",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "title"
+  },
+  {
+    "id": "app:grid.mode.customShort",
+    "text": "Custom view",
+    "ref": "Vue personnalisée",
+    "context": "GridLab: capture mode, i.e. how many screenshots (detail level) the scan takes.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.d.modeAuto",
+    "text": "{mode}. Settings computed for your map and resolution:",
+    "ref": "{mode}. Réglages calculés pour ta carte et ta résolution :",
+    "context": "GridLab › Details: settings computed automatically for the chosen mode.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.d.grid",
+    "text": "Grid",
+    "ref": "Grille",
+    "context": "GridLab › Details: settings computed automatically for the chosen mode.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.d.camera",
+    "text": "Camera",
+    "ref": "Caméra",
+    "context": "GridLab › Details: settings computed automatically for the chosen mode.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.d.cameraValue",
+    "text": "FOV {fov}° · altitude {z} m",
+    "ref": "FOV {fov}° · altitude {z} m",
+    "context": "GridLab › Details: settings computed automatically for the chosen mode.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.d.sun",
+    "text": "Sun",
+    "ref": "Soleil",
+    "context": "GridLab › Details: settings computed automatically for the chosen mode.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.d.sunValue",
+    "text": "{hour}, day {day}",
+    "ref": "{hour}, jour {day}",
+    "context": "GridLab › Details: settings computed automatically for the chosen mode.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.images",
+    "text": "Images",
+    "ref": "Images",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.resolution",
+    "text": "Resolution",
+    "ref": "Résolution",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.ortho",
+    "text": "Final ortho",
+    "ref": "Ortho finale",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.orthoCost",
+    "text": "~{size} on disk, computed in {duration}",
+    "ref": "~{size} sur disque, calcul {duration}",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.orthoBigTitle",
+    "text": "Large ortho (over 500 MB): raise the altitude or the FOV to lower the resolution, or tick half resolution (Advanced settings › Ortho).",
+    "ref": "Ortho volumineuse (plus de 500 Mo) : augmente l'altitude ou le FOV pour réduire la résolution, ou coche la demi-résolution (Réglages avancés › Ortho).",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.r.footprint",
+    "text": "Footprint",
+    "ref": "Empreinte",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.overlap",
+    "text": "Overlap",
+    "ref": "Chevauchement",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.coverage",
+    "text": "Coverage",
+    "ref": "Couverture",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.coverageOk",
+    "text": "complete",
+    "ref": "complète",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.coverageKo",
+    "text": "incomplete",
+    "ref": "incomplète",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.sun",
+    "text": "Sun",
+    "ref": "Soleil",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.sunValue",
+    "text": "{deg}° from zenith · {glint}",
+    "ref": "{deg}° du zénith · {glint}",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.glint",
+    "text": "glint likely",
+    "ref": "reflets probables",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.r.noGlint",
+    "text": "no glint",
+    "ref": "pas de reflets",
+    "context": "GridLab › Details: expected result of the scan (images, ground resolution, final orthophoto, coverage, sun glint).",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.write",
+    "text": "Scan the map in game",
+    "ref": "Scanner la carte en jeu",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.scanLaunching",
+    "text": "Starting in game…",
+    "ref": "Lancement dans le jeu…",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.scanStarted",
+    "text": "✔ Scan started in game",
+    "ref": "✔ Scan lancé dans le jeu",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.scanNoGame",
+    "text": "The game does not answer: start Transport Fever 3 with your save (HQminiMap mod enabled), then “Scan the map in game”.",
+    "ref": "Le jeu ne répond pas : lance Transport Fever 3 avec ta partie (mod HQminiMap activé), puis « Scanner la carte en jeu ».",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.scanBusy",
+    "text": "A scan is already running in game.",
+    "ref": "Un scan est déjà en cours dans le jeu.",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.scanOldMod",
+    "text": "The game runs an older version of the mod: reload the save, then “Scan the map in game”.",
+    "ref": "Le jeu utilise une ancienne version du mod : recharge la partie, puis « Scanner la carte en jeu ».",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.scanFailed",
+    "text": "Scan impossible: {error}",
+    "ref": "Scan impossible : {error}",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.written",
+    "text": "✔ Scan sent to the game: {grid} ({n} images)",
+    "ref": "✔ Scan envoyé au jeu : {grid} ({n} images)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.next",
+    "text": "Waiting for the game: the scan starts as soon as it gets the request",
+    "ref": "En attente du jeu : le scan démarre dès qu'il reçoit la demande",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.capturing",
+    "text": "Capturing in game…",
+    "ref": "Capture en cours dans le jeu…",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.capturingCount",
+    "text": "{shots}/{expected} images",
+    "ref": "{shots}/{expected} images",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.writeFailed",
+    "text": "Cannot write: {error}",
+    "ref": "Écriture impossible : {error}",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.modMissing",
+    "text": "HQminiMap mod not found in {dir} (see Options)",
+    "ref": "Mod HQminiMap introuvable dans {dir} (voir Options)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.block.noMap",
+    "text": "no exported map",
+    "ref": "aucune carte exportée",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.badConfig",
+    "text": "invalid settings",
+    "ref": "réglages invalides",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.fov",
+    "text": "FOV {fov}° outside the validated range {min}…{max}°",
+    "ref": "FOV {fov}° hors de la plage validée {min}…{max}°",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.coverage",
+    "text": "map not covered (missing {dx} m in X, {dy} m in Y)",
+    "ref": "carte non couverte (manque {dx} m en X, {dy} m en Y)",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.minGrid",
+    "text": ": minimum grid {grid}",
+    "ref": " : grille minimale {grid}",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.segTooShort",
+    "text": "time per tile below {min} s",
+    "ref": "durée par tuile inférieure à {min} s",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.shotOutsideHold",
+    "text": "shot outside the still hold ({min}…{max} s)",
+    "ref": "prise hors du maintien immobile ({min}…{max} s)",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.block.negativeSettle",
+    "text": "negative initial wait",
+    "ref": "attente initiale négative",
+    "context": "GridLab: why the scan cannot be started (shown after a dash).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.hint",
+    "text": "wheel: zoom · drag: pan · double-click: fit",
+    "ref": "molette : zoom · glisser : déplacer · double-clic : recadrer",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.live",
+    "text": "Capturing: {collected}/{expected} images collected",
+    "ref": "Capture en cours : {collected}/{expected} images récupérées",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.empty",
+    "text": "No capture yet. GridLab: “Scan the map in game”, the game runs it. Images are collected here automatically.",
+    "ref": "Aucune capture. GridLab : « Scanner la carte en jeu », le jeu lance le scan. Les images sont rangées ici automatiquement.",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.images",
+    "text": "{collected}/{expected} images",
+    "ref": "{collected}/{expected} images",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.badge.error",
+    "text": " · error",
+    "ref": " · erreur",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.badge.live",
+    "text": " · in progress",
+    "ref": " · en cours",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.badge.ortho",
+    "text": " · ortho",
+    "ref": " · ortho",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.extras",
+    "text": "{n} screenshot(s) taken during the run do not belong to the mosaic: ignored, left in the screenshots folder.",
+    "ref": "{n} capture(s) d'écran prise(s) pendant le run n'appartiennent pas à la mosaïque : ignorée(s), laissée(s) dans le dossier screenshots.",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.modError",
+    "text": "Mod error: {error}",
+    "ref": "Erreur du mod : {error}",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.interp",
+    "text": "Interpolation",
+    "ref": "Interpolation",
+    "context": "GridLab › Captures: resampling filter used to compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.interp.lanczos3",
+    "text": "Lanczos 3 — sharpest",
+    "ref": "Lanczos 3 — le plus net",
+    "context": "GridLab › Captures: resampling filter used to compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.interp.bicubic",
+    "text": "Bicubic — sharp",
+    "ref": "Bicubique — net",
+    "context": "GridLab › Captures: resampling filter used to compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.interp.bilinear",
+    "text": "Bilinear — softer",
+    "ref": "Bilinéaire — plus doux",
+    "context": "GridLab › Captures: resampling filter used to compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.interp.nearest",
+    "text": "Nearest — raw pixels",
+    "ref": "Plus proche — pixels bruts",
+    "context": "GridLab › Captures: resampling filter used to compute the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.halfRes",
+    "text": "Half resolution (4× fewer pixels)",
+    "ref": "Demi-résolution (4× moins de pixels)",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.computing",
+    "text": "Computing: {label}",
+    "ref": "Calcul en cours : {label}",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.clock",
+    "text": "Elapsed {elapsed} · left {remaining} · total {total}",
+    "ref": "Écoulé {elapsed} · restant {remaining} · total {total}",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.cancel",
+    "text": "Cancel",
+    "ref": "Annuler",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "button"
+  },
+  {
+    "id": "app:tiles.incomplete",
+    "text": "Incomplete images ({collected}/{expected}).",
+    "ref": "Images incomplètes ({collected}/{expected}).",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.done",
+    "text": "Ortho {w}×{h} px ({gsd} m/px) in {duration} (estimated {estimate})",
+    "ref": "Ortho {w}×{h} px ({gsd} m/px) en {duration} (estimé {estimate})",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.doneHoles",
+    "text": " — {holes} uncovered pixels",
+    "ref": " — {holes} pixels non couverts",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.doneNoHole",
+    "text": " — no hole",
+    "ref": " — sans trou",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.stopped",
+    "text": "Stopped: {error}",
+    "ref": "Arrêté : {error}",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.oldOrtho",
+    "text": "Ortho computed by an older version (stretched edges in the viewer): compute it again.",
+    "ref": "Ortho calculée avec une ancienne version (bords étirés dans le visualiseur) : recalcule-la.",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.showViewer",
+    "text": "Open in the viewer",
+    "ref": "Voir dans le visualiseur",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "button"
+  },
+  {
+    "id": "app:tiles.planMissing",
+    "text": "Capture plan not found in this run: {path}",
+    "ref": "Plan de capture introuvable dans ce run : {path}",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.planRetry",
+    "text": "Retrying every 2 s (the app copies it as soon as it matches the capture).",
+    "ref": "Nouvel essai toutes les 2 s (l'app le copie dès qu'il correspond à la capture).",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.tileAlt",
+    "text": "tile {n}",
+    "ref": "tuile {n}",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "label"
+  },
+  {
+    "id": "app:ortho.err.cancelled",
+    "text": "cancelled",
+    "ref": "annulé",
+    "context": "Why the orthophoto computation stopped (short, after a colon).",
+    "kind": "status"
+  },
+  {
+    "id": "app:ortho.err.planMissing",
+    "text": "mosaic_plan.lua missing in the run",
+    "ref": "mosaic_plan.lua manquant dans le run",
+    "context": "Why the orthophoto computation stopped (short, after a colon).",
+    "kind": "status"
+  },
+  {
+    "id": "app:ortho.err.heightmapMissing",
+    "text": "heightmap.lua missing in the run",
+    "ref": "heightmap.lua manquant dans le run",
+    "context": "Why the orthophoto computation stopped (short, after a colon).",
+    "kind": "status"
+  },
+  {
+    "id": "app:ortho.err.planInvalid",
+    "text": "invalid mosaic_plan.lua",
+    "ref": "mosaic_plan.lua invalide",
+    "context": "Why the orthophoto computation stopped (short, after a colon).",
+    "kind": "status"
+  },
+  {
+    "id": "app:ortho.err.heightmapInvalid",
+    "text": "unreadable heightmap.lua",
+    "ref": "heightmap.lua illisible",
+    "context": "Why the orthophoto computation stopped (short, after a colon).",
+    "kind": "status"
+  },
+  {
+    "id": "app:viewer.zoomIn",
+    "text": "Zoom in",
+    "ref": "Zoomer",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.zoomOut",
+    "text": "Zoom out",
+    "ref": "Dézoomer",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.rot90",
+    "text": "Rotate 90°",
+    "ref": "Tourner de 90°",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.fullscreen",
+    "text": "Fullscreen",
+    "ref": "Plein écran",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.exitFullscreen",
+    "text": "Exit fullscreen",
+    "ref": "Quitter le plein écran",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.mapSize",
+    "text": "Map {w} × {h} km",
+    "ref": "Carte {w} × {h} km",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "label"
+  },
+  {
+    "id": "app:viewer.pin",
+    "text": "Pin: always shown",
+    "ref": "Épingler : toujours affiché",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.unpin",
+    "text": "Unpin: fades when the mouse stops moving",
+    "ref": "Désépingler : s'estompe quand la souris ne bouge plus",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.info",
+    "text": "{w}×{h} px · {gsd} m/px",
+    "ref": "{w}×{h} px · {gsd} m/px",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "label"
+  },
+  {
+    "id": "app:viewer.none",
+    "text": "No ortho yet. It starts when a scan finishes, or from GridLab › Captures.",
+    "ref": "Pas encore d'ortho. Elle démarre à la fin d'un scan, ou depuis GridLab › Captures.",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:viewer.noPyramid",
+    "text": "pyramid.json not found: compute the ortho again in GridLab",
+    "ref": "pyramid.json introuvable : recalculer l'ortho dans GridLab",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "label"
+  },
+  {
+    "id": "app:viewer.oldPyramid",
+    "text": "Ortho computed by an older version (stretched edges): compute it again in GridLab",
+    "ref": "Ortho calculée avec une ancienne version (bords étirés) : recalcule-la dans GridLab",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:viewer.hint",
+    "text": "wheel: zoom · drag: pan · click: details · double-click: game camera (and the object's window) · Alt+Shift+drag: rotate · L: filters · F: fullscreen",
+    "ref": "molette : zoom · glisser : déplacer · clic : fiche · double-clic : caméra du jeu (et fenêtre de l'objet) · Alt+Maj+glisser : tourner · L : filtres · F : plein écran",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:settings.language",
+    "text": "Language",
+    "ref": "Langue",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.gameData",
+    "text": "Game data",
+    "ref": "Données du jeu",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.notFound",
+    "text": "not found",
+    "ref": "non trouvé",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.detect",
+    "text": "Detect",
+    "ref": "Détecter",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "button"
+  },
+  {
+    "id": "app:settings.choose",
+    "text": "Choose…",
+    "ref": "Choisir…",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "button"
+  },
+  {
+    "id": "app:settings.found",
+    "text": "Folder found.",
+    "ref": "Dossier trouvé.",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.notDetected",
+    "text": "Not found automatically: choose the folder by hand.",
+    "ref": "Introuvable automatiquement : choisis le dossier à la main.",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.tried",
+    "text": "Locations tried",
+    "ref": "Emplacements testés",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.pickUserdata",
+    "text": "TF3 data folder (…/Steam/userdata/<SteamID>/3493540/local)",
+    "ref": "Dossier de données TF3 (…/Steam/userdata/<SteamID>/3493540/local)",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.mod",
+    "text": "Installed mod",
+    "ref": "Mod installé",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.modMissing",
+    "text": "The HQminiMap mod is not installed there.",
+    "ref": "Le mod HQminiMap n'est pas installé à cet endroit.",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.modFound",
+    "text": "Mod found.",
+    "ref": "Mod trouvé.",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.pickModTitle",
+    "text": "Installed HQminiMap mod folder",
+    "ref": "Dossier du mod HQminiMap installé",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:settings.folders",
+    "text": "Folders used",
+    "ref": "Dossiers utilisés",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.exports",
+    "text": "Mod exports:",
+    "ref": "Exports du mod :",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.screenshots",
+    "text": "Screenshots:",
+    "ref": "Captures d'écran :",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.runs",
+    "text": "Collected runs:",
+    "ref": "Runs collectés :",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.title",
+    "text": "Live data",
+    "ref": "Données en direct",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "title"
+  },
+  {
+    "id": "app:live.enabled",
+    "text": "Export game data (towns, industries, stations, lines, vehicles)",
+    "ref": "Exporter les données du jeu (villes, industries, gares, lignes, véhicules)",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.col.kind",
+    "text": "Data",
+    "ref": "Données",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.col.every",
+    "text": "Every",
+    "ref": "Toutes les",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.col.last",
+    "text": "Last update",
+    "ref": "Dernière mise à jour",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.towns",
+    "text": "Towns",
+    "ref": "Villes",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.industries",
+    "text": "Industries",
+    "ref": "Industries",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.stations",
+    "text": "Stations",
+    "ref": "Gares",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.lines",
+    "text": "Lines",
+    "ref": "Lignes",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.vehicles",
+    "text": "Vehicles",
+    "ref": "Véhicules",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.statusNone",
+    "text": "No answer from the mod: start a game with HQminiMap.",
+    "ref": "Aucune réponse du mod : lance une partie avec HQminiMap.",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.hint",
+    "text": "The mod applies the cadence within a second; 0 = off.",
+    "ref": "La cadence est appliquée par le mod dès la seconde suivante ; 0 = désactivé.",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:viewer.noOrtho",
+    "text": "No ortho (data only)",
+    "ref": "Sans ortho (données seules)",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.title",
+    "text": "Layers and filters",
+    "ref": "Calques et filtres",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "title"
+  },
+  {
+    "id": "app:lp.hide",
+    "text": "Hide the panel (L)",
+    "ref": "Masquer le panneau (L)",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.showPanel",
+    "text": "Show the filter panel (L)",
+    "ref": "Afficher le panneau des filtres (L)",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.unsaved",
+    "text": "— unsaved configuration —",
+    "ref": "— configuration non enregistrée —",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.update",
+    "text": "Save the changes into this configuration",
+    "ref": "Enregistrer les changements dans cette configuration",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.default",
+    "text": "Load this configuration at startup",
+    "ref": "Charger cette configuration au démarrage",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.undefault",
+    "text": "Stop loading this configuration at startup",
+    "ref": "Ne plus charger cette configuration au démarrage",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.rename",
+    "text": "Rename",
+    "ref": "Renommer",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.delete",
+    "text": "Delete this configuration",
+    "ref": "Supprimer cette configuration",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.newName",
+    "text": "New name",
+    "ref": "Nouveau nom",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.saveAsPlaceholder",
+    "text": "Configuration name",
+    "ref": "Nom de la configuration",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.renameOk",
+    "text": "Rename",
+    "ref": "Renommer",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.saveAs",
+    "text": "Save as",
+    "ref": "Enregistrer sous",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.import",
+    "text": "Import…",
+    "ref": "Importer…",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.export",
+    "text": "Export…",
+    "ref": "Exporter…",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.reset",
+    "text": "Show everything",
+    "ref": "Tout afficher",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.exported",
+    "text": "Configurations exported.",
+    "ref": "Configurations exportées.",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.exportError",
+    "text": "Export failed: {error}",
+    "ref": "Export impossible : {error}",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.imported",
+    "text": "{n} configuration(s) imported.",
+    "ref": "{n} configuration(s) importée(s).",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.importError",
+    "text": "Unrecognised file (an HQminiMap configuration export is expected).",
+    "ref": "Fichier non reconnu (export de configurations HQminiMap attendu).",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.search",
+    "text": "Search a name…",
+    "ref": "Rechercher un nom…",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.mode.rail",
+    "text": "Train",
+    "ref": "Train",
+    "context": "Viewer › Layers panel: transport mode of a line.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.mode.road",
+    "text": "Road",
+    "ref": "Route",
+    "context": "Viewer › Layers panel: transport mode of a line.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.mode.tram",
+    "text": "Tram",
+    "ref": "Tram",
+    "context": "Viewer › Layers panel: transport mode of a line.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.mode.water",
+    "text": "Ship",
+    "ref": "Bateau",
+    "context": "Viewer › Layers panel: transport mode of a line.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.mode.air",
+    "text": "Air",
+    "ref": "Avion",
+    "context": "Viewer › Layers panel: transport mode of a line.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.mode.other",
+    "text": "Other",
+    "ref": "Autre",
+    "context": "Viewer › Layers panel: transport mode of a line.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.kind.all",
+    "text": "All",
+    "ref": "Tout",
+    "context": "Viewer › Layers panel: what a line or station carries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.kind.passengers",
+    "text": "Passengers",
+    "ref": "Passagers",
+    "context": "Viewer › Layers panel: what a line or station carries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.kind.cargo",
+    "text": "Cargo",
+    "ref": "Fret",
+    "context": "Viewer › Layers panel: what a line or station carries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.filterLines",
+    "text": "Filter…",
+    "ref": "Filtrer…",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.all",
+    "text": "All",
+    "ref": "Toutes",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.none",
+    "text": "None",
+    "ref": "Aucune",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief",
+    "text": "Relief",
+    "ref": "Relief",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.step",
+    "text": "Contour interval",
+    "ref": "Équidistance des courbes",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.auto",
+    "text": "Auto ({step} m)",
+    "ref": "Auto ({step} m)",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.width",
+    "text": "Line width",
+    "ref": "Épaisseur du trait",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.labels",
+    "text": "Altitudes on the index contours",
+    "ref": "Altitudes sur les courbes maîtresses",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.hint",
+    "text": "From the exported heightmap: colours by altitude and / or contour lines (an index contour, thicker, every 5).",
+    "ref": "Tiré de la heightmap exportée : couleurs selon l'altitude et / ou courbes de niveau (une maîtresse, plus épaisse, toutes les 5).",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:lp.legend.contour",
+    "text": "Contour line",
+    "ref": "Courbe de niveau",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.contourMajor",
+    "text": "Index contour",
+    "ref": "Courbe maîtresse",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.mode.colors",
+    "text": "Colours",
+    "ref": "Couleurs",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.mode.lines",
+    "text": "Contours",
+    "ref": "Courbes",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.mode.both",
+    "text": "Both",
+    "ref": "Les deux",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.stop",
+    "text": "Colour {n}",
+    "ref": "Couleur {n}",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.addStop",
+    "text": "Add a colour",
+    "ref": "Ajouter une couleur",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.relief.removeStop",
+    "text": "Remove this colour",
+    "ref": "Retirer cette couleur",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.relief.stopAlpha",
+    "text": "Opacity of this colour: {pct} %",
+    "ref": "Opacité de cette couleur : {pct} %",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.low",
+    "text": "Low",
+    "ref": "Bas",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.high",
+    "text": "High",
+    "ref": "Haut",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.opacity",
+    "text": "Overall opacity",
+    "ref": "Opacité générale",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.resetColors",
+    "text": "Default colours",
+    "ref": "Couleurs par défaut",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.legend.reliefM",
+    "text": "Altitude, m",
+    "ref": "Altitude, m",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.scale",
+    "text": "Colour scale",
+    "ref": "Échelle des couleurs",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.scale.equalize",
+    "text": "Equalised: same area per colour",
+    "ref": "Égalisée : même surface par couleur",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.scale.linear",
+    "text": "Linear",
+    "ref": "Linéaire",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.scale.sqrt",
+    "text": "Square root",
+    "ref": "Racine",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.scale.log",
+    "text": "Logarithmic",
+    "ref": "Logarithmique",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.balance",
+    "text": "Balance low ↔ high",
+    "ref": "Balance bas ↔ haut",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.relief.balanceReset",
+    "text": "Reset to 0",
+    "ref": "Remettre à 0",
+    "context": "Viewer › Layers panel › Relief layer: terrain colours by altitude and contour lines.",
+    "kind": "button"
+  },
+  {
+    "id": "app:viewer.mapSettings",
+    "text": "Map",
+    "ref": "Carte",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "button"
+  },
+  {
+    "id": "app:viewer.mapSettingsTitle",
+    "text": "Map display settings (sizes, width, loads…)",
+    "ref": "Réglages d'affichage de la carte (tailles, épaisseur, chargement…)",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.basemap",
+    "text": "Basemap",
+    "ref": "Fond de carte",
+    "context": "Viewer › Layers panel: background of the map (orthophoto image or plain black).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.basemap.ortho",
+    "text": "ortho",
+    "ref": "ortho",
+    "context": "Viewer › Layers panel: background of the map (orthophoto image or plain black).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.basemap.plain",
+    "text": "black, water, outline",
+    "ref": "noir, eau, contour",
+    "context": "Viewer › Layers panel: background of the map (orthophoto image or plain black).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.basemap.title",
+    "text": "Show the ortho image (otherwise a black background, water in blue and the map outline)",
+    "ref": "Afficher l'image de l'ortho (sinon fond noir, eau en bleu et contour de la carte)",
+    "context": "Viewer › Layers panel: background of the map (orthophoto image or plain black).",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.checkAll",
+    "text": "Check all",
+    "ref": "Tout cocher",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.uncheckAll",
+    "text": "Uncheck all",
+    "ref": "Tout décocher",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.followLines",
+    "text": "Only those of the shown lines",
+    "ref": "Seulement ceux des lignes affichées",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.hidden",
+    "text": "Hidden ({n})",
+    "ref": "Masqués ({n})",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.showAll",
+    "text": "Show all again",
+    "ref": "Tout réafficher",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.show",
+    "text": "Show again",
+    "ref": "Réafficher",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.noData",
+    "text": "No game data: start a game with HQminiMap (Options → Live data).",
+    "ref": "Aucune donnée du jeu : lance une partie avec HQminiMap (Options → Données en direct).",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.size",
+    "text": "Size",
+    "ref": "Taille",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.type",
+    "text": "Type",
+    "ref": "Type",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.level",
+    "text": "Level",
+    "ref": "Niveau",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.mode",
+    "text": "Mode",
+    "ref": "Mode",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.cargo",
+    "text": "Use",
+    "ref": "Usage",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.stops",
+    "text": "Stops",
+    "ref": "Arrêts",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.vehicles",
+    "text": "Vehicles",
+    "ref": "Véhicules",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.line",
+    "text": "Line",
+    "ref": "Ligne",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.hide",
+    "text": "Hide",
+    "ref": "Masquer",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "button"
+  },
+  {
+    "id": "app:card.teleport",
+    "text": "Teleport here",
+    "ref": "Téléporter ici",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "button"
+  },
+  {
+    "id": "app:tp.pending",
+    "text": "Teleporting…",
+    "ref": "Téléportation…",
+    "context": "Viewer: moving the in-game camera to the clicked place (teleport).",
+    "kind": "label"
+  },
+  {
+    "id": "app:tp.ok",
+    "text": "✓ Camera moved",
+    "ref": "✓ Caméra déplacée",
+    "context": "Viewer: moving the in-game camera to the clicked place (teleport).",
+    "kind": "label"
+  },
+  {
+    "id": "app:tp.timeout",
+    "text": "No answer from the mod: is a game running with HQminiMap?",
+    "ref": "Pas de réponse du mod : la partie est-elle lancée avec HQminiMap ?",
+    "context": "Viewer: moving the in-game camera to the clicked place (teleport).",
+    "kind": "label"
+  },
+  {
+    "id": "app:tp.error",
+    "text": "Teleport failed: {error}",
+    "ref": "Téléportation impossible : {error}",
+    "context": "Viewer: moving the in-game camera to the clicked place (teleport).",
+    "kind": "label"
+  },
+  {
+    "id": "app:export.button",
+    "text": "Export the view",
+    "ref": "Exporter la vue",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "button"
+  },
+  {
+    "id": "app:export.scale",
+    "text": "Scale",
+    "ref": "Échelle",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "label"
+  },
+  {
+    "id": "app:export.legend",
+    "text": "Add a legend",
+    "ref": "Ajouter une légende",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "label"
+  },
+  {
+    "id": "app:export.go",
+    "text": "Export as PNG…",
+    "ref": "Exporter en PNG…",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "button"
+  },
+  {
+    "id": "app:export.running",
+    "text": "Exporting…",
+    "ref": "Export…",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "label"
+  },
+  {
+    "id": "app:export.done",
+    "text": "Saved: {path}",
+    "ref": "Enregistré : {path}",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "label"
+  },
+  {
+    "id": "app:export.error",
+    "text": "Export failed: {error}",
+    "ref": "Échec de l'export : {error}",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.general",
+    "text": "General",
+    "ref": "Général",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.reveal",
+    "text": "Show in the file manager",
+    "ref": "Ouvrir dans l'explorateur",
+    "context": "Options tab: language, game data folder, installed mod folder.",
+    "kind": "button"
+  },
+  {
+    "id": "app:live.statusShort",
+    "text": "mod running · {date}",
+    "ref": "mod actif · {date}",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.warn",
+    "text": "{n} warning(s) from the mod",
+    "ref": "{n} avertissement(s) du mod",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.stats",
+    "text": "Traffic",
+    "ref": "Trafic",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.routes",
+    "text": "Tracks",
+    "ref": "Tracés",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.kind.both",
+    "text": "Passengers and cargo",
+    "ref": "Passagers et fret",
+    "context": "Viewer › Layers panel: what a line or station carries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.sortTitle",
+    "text": "Sort by name or by traffic",
+    "ref": "Trier par nom ou par trafic",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.selectLine",
+    "text": "Select (highlight)",
+    "ref": "Sélectionner (surbrillance)",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:card.fit",
+    "text": "Zoom to",
+    "ref": "Cadrer",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "button"
+  },
+  {
+    "id": "app:card.loaded",
+    "text": "Loaded /yr",
+    "ref": "Chargés /an",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.unloaded",
+    "text": "Unloaded /yr",
+    "ref": "Déchargés /an",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.waitP",
+    "text": "Waiting passengers",
+    "ref": "Passagers en attente",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.waitC",
+    "text": "Waiting cargo",
+    "ref": "Fret en attente",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.transported",
+    "text": "Transported /yr",
+    "ref": "Transportés /an",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:unit.perYear",
+    "text": "/yr",
+    "ref": "/an",
+    "context": "Units shown after a number.",
+    "kind": "label"
+  },
+  {
+    "id": "app:export.saved",
+    "text": "PNG saved",
+    "ref": "PNG enregistré",
+    "context": "Viewer: exporting the current map view as a PNG image.",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.warehouses",
+    "text": "Warehouses",
+    "ref": "Entrepôts",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.stocks",
+    "text": "Stocks",
+    "ref": "Stocks",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.col.cost",
+    "text": "Cost",
+    "ref": "Coût",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.col.costTitle",
+    "text": "Computing time in the game for each update (long jobs are spread over several frames, ≤ 3 ms per frame)",
+    "ref": "Temps de calcul dans le jeu à chaque mise à jour (les jobs longs sont étalés sur plusieurs images, ≤ 3 ms par image)",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:live.col.load",
+    "text": "Load",
+    "ref": "Charge",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.col.loadTitle",
+    "text": "Share of the game's time spent on this data: cost ÷ interval",
+    "ref": "Part du temps du jeu consacrée à cette donnée : coût ÷ intervalle",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:live.lessThan",
+    "text": "< 0.1 %",
+    "ref": "< 0,1 %",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.minTitle",
+    "text": "Minimum {n} s (0 = off)",
+    "ref": "Minimum {n} s (0 = désactivé)",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:live.minHint",
+    "text": "1 s is the mod's finest step: below it nothing gets faster. Minimums: vehicles 1 s; lines, stations and traffic 5 s; routes, stocks, towns and industries 10 s; town areas and history 60 s.",
+    "ref": "1 s est le pas le plus fin du mod : en dessous, rien n'est plus rapide. Minimums : véhicules 1 s ; lignes, gares et trafic 5 s ; trajets, stocks, villes et industries 10 s ; zones et historique 60 s.",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:lp.labels.towns",
+    "text": "Labels: town names",
+    "ref": "Étiquettes : noms des villes",
+    "context": "Viewer › Layers panel: which text labels are drawn on the map.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.labels.industries",
+    "text": "Labels: industry stocks (inputs → outputs)",
+    "ref": "Étiquettes : stocks des industries (entrées → sorties)",
+    "context": "Viewer › Layers panel: which text labels are drawn on the map.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.labels.warehouses",
+    "text": "Labels: warehouse stocks",
+    "ref": "Étiquettes : stocks des entrepôts",
+    "context": "Viewer › Layers panel: which text labels are drawn on the map.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.labels.stations",
+    "text": "Labels: name, waiting · traffic per year",
+    "ref": "Étiquettes : nom, en attente · trafic par an",
+    "context": "Viewer › Layers panel: which text labels are drawn on the map.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.labels.lines",
+    "text": "Labels: line names along the track",
+    "ref": "Étiquettes : noms des lignes le long du tracé",
+    "context": "Viewer › Layers panel: which text labels are drawn on the map.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.labels.vehicles",
+    "text": "Labels: vehicle loads",
+    "ref": "Étiquettes : chargement des véhicules",
+    "context": "Viewer › Layers panel: which text labels are drawn on the map.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.noWarehouses",
+    "text": "No warehouse (or stocks not read yet).",
+    "ref": "Aucun entrepôt (ou stocks pas encore lus).",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend",
+    "text": "Legend",
+    "ref": "Légende",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.passengers",
+    "text": "Passenger station / stop",
+    "ref": "Gare / arrêt passagers",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.cargo",
+    "text": "Cargo station",
+    "ref": "Gare de fret",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.both",
+    "text": "Passengers and cargo",
+    "ref": "Passagers et fret",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.track",
+    "text": "Recorded track",
+    "ref": "Tracé relevé",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.legs",
+    "text": "Approximate track between stops",
+    "ref": "Tracé approximatif entre arrêts",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.trail",
+    "text": "Ship / aircraft trail",
+    "ref": "Trace des bateaux / avions",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.showLine",
+    "text": "Show the line",
+    "ref": "Voir la ligne",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "button"
+  },
+  {
+    "id": "app:card.total",
+    "text": "Total stock",
+    "ref": "Stock total",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:stock.in",
+    "text": "input",
+    "ref": "entrée",
+    "context": "Viewer: kind of stock of an industry (input it consumes, output it produces, storage).",
+    "kind": "label"
+  },
+  {
+    "id": "app:stock.out",
+    "text": "output",
+    "ref": "sortie",
+    "context": "Viewer: kind of stock of an industry (input it consumes, output it produces, storage).",
+    "kind": "label"
+  },
+  {
+    "id": "app:stock.store",
+    "text": "stock",
+    "ref": "stock",
+    "context": "Viewer: kind of stock of an industry (input it consumes, output it produces, storage).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.townAreas",
+    "text": "Town outlines",
+    "ref": "Contours des villes",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.kind.history",
+    "text": "History",
+    "ref": "Historique",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "label"
+  },
+  {
+    "id": "app:live.staleMod",
+    "text": "The game runs an older HQminiMap mod: reload the save (Esc → Load) to enable the new data.",
+    "ref": "Le jeu exécute une ancienne version du mod HQminiMap : recharge la partie (Échap → Charger) pour activer les nouvelles données.",
+    "context": "Options › Live data: which game data the mod exports and how often (seconds).",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:card.range",
+    "text": "min {min} · max {max}",
+    "ref": "min {min} · max {max}",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.population",
+    "text": "Population",
+    "ref": "Population",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.stationsIn",
+    "text": "Stations in town",
+    "ref": "Gares dans la ville",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.industriesIn",
+    "text": "Industries in town",
+    "ref": "Industries dans la ville",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.warehousesIn",
+    "text": "Warehouses in town",
+    "ref": "Entrepôts dans la ville",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.filters",
+    "text": "Filters",
+    "ref": "Filtres",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.visible",
+    "text": "Show / hide the layer",
+    "ref": "Afficher / masquer le calque",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.more",
+    "text": "Manage configurations",
+    "ref": "Gérer les configurations",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:lp.townMinLabel",
+    "text": "Minimum size",
+    "ref": "Taille minimale",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stockMinLabel",
+    "text": "Minimum stock",
+    "ref": "Stock minimal",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stationMinLabel",
+    "text": "Minimum traffic /yr",
+    "ref": "Trafic minimal /an",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.lineMinLabel",
+    "text": "Minimum transported /yr",
+    "ref": "Transportés minimum /an",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.previewsReleased",
+    "text": "This run's ortho is computed: the captures are no longer loaded, to free memory.",
+    "ref": "L'ortho de ce run est calculée : les captures ne sont plus chargées, pour libérer la mémoire.",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.previewsBusy",
+    "text": "Ortho being computed: capture previews unloaded to leave it the memory.",
+    "ref": "Calcul de l'ortho en cours : aperçus des captures déchargés pour lui laisser la mémoire.",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:tiles.showCaptures",
+    "text": "Show the captures (preview)",
+    "ref": "Afficher les captures (aperçu)",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "button"
+  },
+  {
+    "id": "app:lp.inactiveLines",
+    "text": "Inactive lines ({n}): no vehicle or no stops",
+    "ref": "Lignes inactives ({n}) : sans véhicule ou sans arrêts",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.inactive",
+    "text": "inactive",
+    "ref": "inactive",
+    "context": "Viewer › Layers and filters panel: map layers (towns, industries, warehouses, stations, lines, vehicles), filters and saved filter configurations.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.vehicleDisc",
+    "text": "Vehicle",
+    "ref": "Véhicule",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.pax",
+    "text": "Passengers on board",
+    "ref": "Passagers à bord",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.freight",
+    "text": "Cargo on board",
+    "ref": "Fret à bord",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stop.rail",
+    "text": "Station",
+    "ref": "Gare",
+    "context": "Viewer › Layers panel: kind of station or stop.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stop.road",
+    "text": "Bus / truck stop",
+    "ref": "Arrêt de bus / camion",
+    "context": "Viewer › Layers panel: kind of station or stop.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stop.tram",
+    "text": "Tram stop",
+    "ref": "Arrêt de tram",
+    "context": "Viewer › Layers panel: kind of station or stop.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stop.water",
+    "text": "Port",
+    "ref": "Port",
+    "context": "Viewer › Layers panel: kind of station or stop.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stop.air",
+    "text": "Airport",
+    "ref": "Aéroport",
+    "context": "Viewer › Layers panel: kind of station or stop.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.stop.other",
+    "text": "Other stop",
+    "ref": "Autre arrêt",
+    "context": "Viewer › Layers panel: kind of station or stop.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.multi",
+    "text": "Served by several lines",
+    "ref": "Desservi par plusieurs lignes",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.fill",
+    "text": "Portion recorded as vehicles pass",
+    "ref": "Portion relevée au passage des véhicules",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:viewer.fit",
+    "text": "Fit",
+    "ref": "Ajuster",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "button"
+  },
+  {
+    "id": "app:viewer.fitTitle",
+    "text": "Show the whole map (key 0)",
+    "ref": "Voir toute la carte (touche 0)",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:image.button",
+    "text": "Image",
+    "ref": "Image",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "button"
+  },
+  {
+    "id": "app:image.title",
+    "text": "Brightness, contrast, saturation of the map",
+    "ref": "Luminosité, contraste, saturation de la carte",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:image.brightness",
+    "text": "Brightness",
+    "ref": "Luminosité",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:image.contrast",
+    "text": "Contrast",
+    "ref": "Contraste",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:image.saturation",
+    "text": "Saturation",
+    "ref": "Saturation",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:image.gamma",
+    "text": "Gamma",
+    "ref": "Gamma",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:image.auto",
+    "text": "Auto",
+    "ref": "Auto",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "button"
+  },
+  {
+    "id": "app:image.neutral",
+    "text": "Neutral",
+    "ref": "Neutre",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "button"
+  },
+  {
+    "id": "app:image.isAuto",
+    "text": "Automatic setting (computed on the whole map).",
+    "ref": "Réglage automatique (calculé sur toute la carte).",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:image.isManual",
+    "text": "Manual setting, saved for this capture.",
+    "ref": "Réglage manuel, enregistré pour cette capture.",
+    "context": "Viewer › Image menu: brightness, contrast, saturation and gamma of the orthophoto.",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map",
+    "text": "Map",
+    "ref": "Carte",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.iconScale",
+    "text": "Icon size",
+    "ref": "Taille des icônes",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.textScale",
+    "text": "Text size",
+    "ref": "Taille des textes",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.lineOpacity",
+    "text": "Line opacity",
+    "ref": "Opacité des lignes",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.lineWidth",
+    "text": "Line width",
+    "ref": "Épaisseur des lignes",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.hint",
+    "text": "Applies to the information shown on the Viewer map.",
+    "ref": "S'applique aux informations affichées sur la carte du Visualiseur.",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:settings.map.reset",
+    "text": "Defaults",
+    "ref": "Valeurs par défaut",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "button"
+  },
+  {
+    "id": "app:steps.show",
+    "text": "Steps",
+    "ref": "Étapes",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "button"
+  },
+  {
+    "id": "app:steps.showTitle",
+    "text": "Show the steps bar again",
+    "ref": "Réafficher la barre des étapes",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:steps.hideTitle",
+    "text": "Hide the steps bar (it comes back when the grid changes)",
+    "ref": "Masquer la barre des étapes (elle revient quand la grille change)",
+    "context": "Steps bar at the top of the app: export the map in game, scan it, compute the orthophoto.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:settings.map.openInGame",
+    "text": "Double-click on an object: also open its in-game window",
+    "ref": "Double-clic sur un objet : ouvrir aussi sa fenêtre en jeu",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:card.openInGame",
+    "text": "Open in game",
+    "ref": "Ouvrir en jeu",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "button"
+  },
+  {
+    "id": "app:card.openInGameTitle",
+    "text": "Centre the game camera on the object and open its window",
+    "ref": "Centrer la caméra du jeu sur l'objet et ouvrir sa fenêtre",
+    "context": "Viewer: information card of the object selected on the map (town, industry, warehouse, station, line, vehicle).",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:viewer.linesHere",
+    "text": "{n} lines here",
+    "ref": "{n} lignes ici",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "label"
+  },
+  {
+    "id": "app:viewer.linesHint",
+    "text": "Click again at the same spot: next line",
+    "ref": "Recliquer au même endroit : ligne suivante",
+    "context": "Viewer tab: interactive map showing the orthophoto and the live game data.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:settings.map.vehicleBadge",
+    "text": "Load on vehicles",
+    "ref": "Chargement sur les véhicules",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.badge.none",
+    "text": "Nothing",
+    "ref": "Rien",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.badge.pax",
+    "text": "Passengers",
+    "ref": "Passagers",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.badge.freight",
+    "text": "Cargo",
+    "ref": "Fret",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:settings.map.badge.both",
+    "text": "Passengers and cargo",
+    "ref": "Passagers et fret",
+    "context": "Options › Map: display settings of the Viewer map (icon size, text size, line width, loads on vehicles).",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.shared",
+    "text": "Lane or track shared by several lines",
+    "ref": "Voie commune à plusieurs lignes",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.twoWay",
+    "text": "Street: one lane per direction, in stripes when several lines use it",
+    "ref": "Rue : une voie par sens, en rayures si plusieurs lignes y passent",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:lp.legend.badges",
+    "text": "On board: passengers · cargo",
+    "ref": "À bord : passagers · fret",
+    "context": "Viewer › Layers panel: map legend entries.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolution",
+    "text": "Game resolution",
+    "ref": "Résolution du jeu",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionOther",
+    "text": "Other…",
+    "ref": "Autre…",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionDetect",
+    "text": "Detect",
+    "ref": "Détecter",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.resolutionDetectTitle",
+    "text": "Ask the game for its resolution (if running), else read the game's latest screenshot",
+    "ref": "Demander la résolution au jeu (s'il tourne), sinon lire la dernière capture d'écran du jeu",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "tooltip"
+  },
+  {
+    "id": "app:grid.width",
+    "text": "Width (px)",
+    "ref": "Largeur (px)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.height",
+    "text": "Height (px)",
+    "ref": "Hauteur (px)",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionDetected",
+    "text": "Detected resolution: {w} × {h} ({a}).",
+    "ref": "Résolution détectée : {w} × {h} ({a}).",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionRemembered",
+    "text": "Detected on {date} (no recent screenshot readable).",
+    "ref": "Détectée le {date} (aucune capture d'écran récente lisible).",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionUse",
+    "text": "Use",
+    "ref": "Utiliser",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "button"
+  },
+  {
+    "id": "app:grid.resolutionOk",
+    "text": "Matches the game's latest screenshot.",
+    "ref": "Correspond à la dernière capture d'écran du jeu.",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionNone",
+    "text": "Game resolution unknown: start the game with your save (HQminiMap mod enabled), then “Detect”, or pick it in the list.",
+    "ref": "Résolution du jeu inconnue : lance le jeu avec ta partie (mod HQminiMap activé), puis « Détecter », ou choisis-la dans la liste.",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:grid.resolutionFromGame",
+    "text": "Given by the game.",
+    "ref": "Donnée par le jeu.",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:tiles.resolutionMismatch",
+    "text": "Captures are {w} × {h} ({a}) but the grid expected {pw} × {ph} ({pa}): pick the right resolution in GridLab and run the scan again.",
+    "ref": "Captures en {w} × {h} ({a}) alors que la grille prévoyait {pw} × {ph} ({pa}) : choisis la bonne résolution dans GridLab et relance le scan.",
+    "context": "GridLab › Captures: screenshots collected from a scan (a run) and computation of the orthophoto from them.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:ortho.err.resolutionMismatch",
+    "text": "the captures do not have the screen shape the grid expected",
+    "ref": "les captures n'ont pas le format d'écran prévu par la grille",
+    "context": "Why the orthophoto computation stopped (short, after a colon).",
+    "kind": "status"
+  },
+  {
+    "id": "app:grid.resolutionAuto",
+    "text": "Auto: {res}",
+    "ref": "Auto : {res}",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:grid.resolutionAutoOk",
+    "text": "Detected from the game's latest screenshot.",
+    "ref": "Détectée sur la dernière capture d'écran du jeu.",
+    "context": "GridLab tab: plans the in-game scan (camera altitude, field of view, grid of screenshot tiles covering the map, lighting) and starts it in the game.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.title",
+    "text": "Capture history",
+    "ref": "Historique des captures",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "title"
+  },
+  {
+    "id": "app:history.empty",
+    "text": "No capture recorded.",
+    "ref": "Aucune capture enregistrée.",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.selectAll",
+    "text": "Select all",
+    "ref": "Tout sélectionner",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "button"
+  },
+  {
+    "id": "app:history.col.name",
+    "text": "Name",
+    "ref": "Nom",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.col.grid",
+    "text": "Grid",
+    "ref": "Grille",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.col.images",
+    "text": "Images",
+    "ref": "Images",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.col.ortho",
+    "text": "Ortho",
+    "ref": "Ortho",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.col.size",
+    "text": "Size",
+    "ref": "Taille",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.yes",
+    "text": "yes",
+    "ref": "oui",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.live",
+    "text": " · in progress",
+    "ref": " · en cours",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.deleteSel",
+    "text": "Delete selection ({n})",
+    "ref": "Supprimer la sélection ({n})",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "button"
+  },
+  {
+    "id": "app:history.deleteAll",
+    "text": "Delete all",
+    "ref": "Tout supprimer",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "button"
+  },
+  {
+    "id": "app:history.total",
+    "text": "Total: {size}",
+    "ref": "Total : {size}",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.confirm",
+    "text": "Delete {n} capture(s) ({size})? Images, ortho and pyramid will be permanently erased.",
+    "ref": "Supprimer {n} capture(s) ({size}) ? Images, ortho et pyramide seront effacées définitivement.",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:history.confirmTitle",
+    "text": "HQminiMap — history",
+    "ref": "HQminiMap — historique",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "title"
+  },
+  {
+    "id": "app:history.confirmOk",
+    "text": "Delete",
+    "ref": "Supprimer",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "button"
+  },
+  {
+    "id": "app:history.confirmCancel",
+    "text": "Cancel",
+    "ref": "Annuler",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "button"
+  },
+  {
+    "id": "app:history.deleted",
+    "text": "{n} capture(s) deleted.",
+    "ref": "{n} capture(s) supprimée(s).",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "label"
+  },
+  {
+    "id": "app:history.deleteFailed",
+    "text": "{n} folder(s) could not be fully deleted (files open in another program?): {paths}",
+    "ref": "{n} dossier(s) n'ont pas pu être entièrement supprimés (fichiers ouverts par un autre programme ?) : {paths}",
+    "context": "Options › Capture history: list of past capture sessions with their size on disk, deletion.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:perf.warning",
+    "text": "Lots of information shown ({objects} objects{memory}): display simplified. Hide layers or lines to get the detail back.",
+    "ref": "Beaucoup d'informations affichées ({objects} objets{memory}) : affichage simplifié. Masquez des calques ou des lignes pour retrouver le détail.",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:perf.warningMemory",
+    "text": ", memory {pct} %",
+    "ref": ", mémoire {pct} %",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.close",
+    "text": "Close",
+    "ref": "Fermer",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "button"
+  },
+  {
+    "id": "app:perf.title",
+    "text": "Performance",
+    "ref": "Performance",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "title"
+  },
+  {
+    "id": "app:perf.level",
+    "text": "State",
+    "ref": "État",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.level.ok",
+    "text": "Normal",
+    "ref": "Normal",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.level.busy",
+    "text": "Busy: lines as plain tracks, shorter trails",
+    "ref": "Chargé : lignes en trait simple, traces raccourcies",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.level.critical",
+    "text": "Critical: also no moving labels, only the busiest lines tracked",
+    "ref": "Critique : en plus, sans étiquettes mobiles, seules les lignes les plus fréquentées tracées",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.memory",
+    "text": "Memory",
+    "ref": "Mémoire",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.memoryValue",
+    "text": "{used} / {limit} MB ({pct} %)",
+    "ref": "{used} / {limit} Mo ({pct} %)",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.memoryNone",
+    "text": "not available",
+    "ref": "non disponible",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.objects",
+    "text": "Objects shown",
+    "ref": "Objets affichés",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.update",
+    "text": "Map update",
+    "ref": "Mise à jour de la carte",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.layout",
+    "text": "Lane layout",
+    "ref": "Disposition des voies",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.ms",
+    "text": "{v} ms",
+    "ref": "{v} ms",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "label"
+  },
+  {
+    "id": "app:perf.hint",
+    "text": "The Visualiser simplifies the display by itself when memory, the number of objects or the update time get close to their limits, and brings the detail back when they go down.",
+    "ref": "Le Visualiseur simplifie l'affichage tout seul quand la mémoire, le nombre d'objets ou le temps de mise à jour approchent des limites, et revient au détail quand ça redescend.",
+    "context": "Viewer: performance controller that simplifies the map display when too much is shown.",
+    "kind": "sentence"
+  },
+  {
+    "id": "app:unit.go",
+    "text": "{v} GB",
+    "ref": "{v} Go",
+    "context": "Units shown after a number.",
+    "kind": "label"
+  },
+  {
+    "id": "app:unit.mo",
+    "text": "{v} MB",
+    "ref": "{v} Mo",
+    "context": "Units shown after a number.",
+    "kind": "label"
+  },
+  {
+    "id": "mod:export_button",
+    "text": "Export map",
+    "ref": "Exporter la carte",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "button"
+  },
+  {
+    "id": "mod:help",
+    "text": "1. Export map  >  2. HQminiMap app: choose a mode, “Scan the map in game”",
+    "ref": "1. Exporter la carte  >  2. App HQminiMap : choisir un mode, « Scanner la carte en jeu »",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "sentence"
+  },
+  {
+    "id": "mod:status_ready",
+    "text": "Ready",
+    "ref": "Prêt",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_exporting",
+    "text": "Exporting the map…",
+    "ref": "Export de la carte…",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_exported",
+    "text": "Map exported: in the HQminiMap app, choose a mode and \"Scan the map in game\"",
+    "ref": "Carte exportée : dans l'app HQminiMap, choisis un mode et « Scanner la carte en jeu »",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_export_error",
+    "text": "Export error: %s",
+    "ref": "Erreur export : %s",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_busy_export",
+    "text": "Scan in progress: export not possible",
+    "ref": "Scan en cours : export impossible",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_module_missing",
+    "text": "Error: module %s not found (reload the mod)",
+    "ref": "Erreur : module %s introuvable (recharger le mod)",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_new_plan",
+    "text": "New scan received: %dx%d (%d images)",
+    "ref": "Nouveau scan reçu : %dx%d (%d images)",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_capture_prep",
+    "text": "Scan %dx%d: preparing the lighting…",
+    "ref": "Scan %dx%d : préparation de l'éclairage…",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_capture_progress",
+    "text": "Scan %d/%d",
+    "ref": "Scan %d/%d",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_capture_done",
+    "text": "Scan finished: %d/%d images",
+    "ref": "Scan terminé : %d/%d images",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:status_error",
+    "text": "Error: %s",
+    "ref": "Erreur : %s",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_busy",
+    "text": "a scan is already running",
+    "ref": "scan déjà en cours",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_no_plan",
+    "text": "no grid: write it from the HQminiMap app (GridLab)",
+    "ref": "aucune grille : l'écrire depuis l'app HQminiMap (GridLab)",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_plan_invalid",
+    "text": "invalid capture_plan.lua (nX/nY/centers)",
+    "ref": "capture_plan.lua invalide (nX/nY/centers)",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_mismatch",
+    "text": "the cutscene does not match the grid (%d images instead of %d): start the scan again from the app",
+    "ref": "la cutscene ne correspond pas à la grille (%d images au lieu de %d) : relancer le scan depuis l'app",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_not_started",
+    "text": "the cutscene did not start (grid written from the HQminiMap app?)",
+    "ref": "la cutscene n'a pas démarré (grille écrite depuis l'app HQminiMap ?)",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_timeout",
+    "text": "cutscene timeout, images=%d",
+    "ref": "timeout cutscene, images=%d",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_skipped",
+    "text": "skipped image (tile %d)",
+    "ref": "image sautée (tuile %d)",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  },
+  {
+    "id": "mod:err_window_closed",
+    "text": "window closed",
+    "ref": "fenêtre fermée",
+    "context": "In-game window of the HQminiMap mod inside Transport Fever 3 (status line and its button).",
+    "kind": "status"
+  }
+]

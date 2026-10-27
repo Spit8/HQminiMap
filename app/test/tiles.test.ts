@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseCaptureIndex } from "../src/lib/core/lua";
 import { counterBase, matchByCounter, matchShots, parseShotName, parseTileName, runShots, tileNameFor } from "../src/lib/core/tiles";
 
 /** TF3-style screenshot name for local wall time `t` (unix s) and counter n. */
@@ -62,6 +63,13 @@ describe("capture screenshots ↔ tiles", () => {
     expect(got.map((f) => f?.name)).toEqual(files.map((f) => f.name));
     // Only the tiles still missing are asked for; a file far too late is refused.
     expect(matchByCounter([{ ...files[4], name: shotName(shotTimes[4] + 20, 30) }], 26, [4], shotTimes, now)).toEqual([null]);
+    // A screenshot during the lighting settle (before the first shot) is not the base, even with a lower counter.
+    const duringSettle = file(shotTimes[0] - 2, 1);
+    expect(counterBase([duringSettle, ...files], t0, shotTimes)).toBe(26);
+    // Same counter from a previous session, outside the span, does not replace this scan's file.
+    const reused = file(shotTimes[0] - 100, 26);
+    const paired = matchByCounter([reused, files[0]!], 26, [0], shotTimes, now);
+    expect(paired[0]?.name).toBe(files[0]!.name);
   });
 
   it("on a same-second tie, takes the file that continues the game counter", () => {
@@ -119,5 +127,18 @@ describe("tile naming", () => {
     ];
     const now = (t0 + 4) * 1000;
     expect(runShots(files, t0, now).map((f) => f.name)).toEqual(["a.png", "b.png"]);
+  });
+});
+
+describe("parseCaptureIndex shotTimes", () => {
+  it("tells a missing key from an empty list", () => {
+    const bare = "startedAt = 10\nnX = 2\nnY = 1\npitchCount = 1\nshotsTaken = 0\n";
+    const empty = bare + "shotTimes = {}\n";
+    const some = bare + "shotTimes = { 11, 12 }\n";
+    expect(parseCaptureIndex(bare).hasShotTimes).toBe(false);
+    expect(parseCaptureIndex(bare).shotTimes).toEqual([]);
+    expect(parseCaptureIndex(empty).hasShotTimes).toBe(true);
+    expect(parseCaptureIndex(empty).shotTimes).toEqual([]);
+    expect(parseCaptureIndex(some)).toMatchObject({ hasShotTimes: true, shotTimes: [11, 12] });
   });
 });

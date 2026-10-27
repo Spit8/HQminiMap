@@ -1,6 +1,6 @@
 [package]
 name = "hqminimap"
-version = "0.2.0"
+version = "1.0.0"
 description = "HQminiMap: high-quality maps and live data for Transport Fever 3"
 authors = ["Wilfried Lambert"]
 license = "GPL-3.0-only"

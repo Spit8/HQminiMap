@@ -25,7 +25,13 @@ function M.resolveApp()
 end
 
 local function sep()
-	return package.config:sub(1, 1)
+	local ok, s = pcall(function()
+		return package.config:sub(1, 1)
+	end)
+	if ok and type(s) == "string" and #s == 1 then
+		return s
+	end
+	return "/"
 end
 
 local function dirPath(appObj, directory)

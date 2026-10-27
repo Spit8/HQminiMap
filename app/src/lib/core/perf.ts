@@ -24,16 +24,27 @@ export const PERF_THRESHOLDS: Record<Exclude<PerfLevel, "ok">, PerfSample & { me
 /** Share of a threshold a measure must fall under to leave its level. */
 export const PERF_HYSTERESIS = 0.8;
 
+/** Minimum time (ms) spent at a level before a lower one is accepted. Rising is immediate. */
+export const PERF_DWELL_MS = 15_000;
+
 const over = (s: PerfSample, t: PerfSample & { memory: number }, k = 1) =>
   (s.memory !== null && s.memory > t.memory * k) || s.objects > t.objects * k || s.updateMs > t.updateMs * k;
 
-/** Level for a sample, given the current level (hysteresis on the way down). */
-export function perfLevel(s: PerfSample, current: PerfLevel): PerfLevel {
-  if (over(s, PERF_THRESHOLDS.critical)) return "critical";
-  if (current === "critical" && over(s, PERF_THRESHOLDS.critical, PERF_HYSTERESIS)) return "critical";
-  if (over(s, PERF_THRESHOLDS.busy)) return "busy";
-  if (current !== "ok" && over(s, PERF_THRESHOLDS.busy, PERF_HYSTERESIS)) return "busy";
-  return "ok";
+const RANK: Record<PerfLevel, number> = { ok: 0, busy: 1, critical: 2 };
+
+/**
+ * Level for a sample, given the current level. Threshold hysteresis on the way down, and a dwell:
+ * a lower level is refused until `heldMs` reaches PERF_DWELL_MS (Infinity in tests that only check
+ * the thresholds). A higher level is taken at once.
+ */
+export function perfLevel(s: PerfSample, current: PerfLevel, heldMs = Infinity): PerfLevel {
+  let next: PerfLevel = "ok";
+  if (over(s, PERF_THRESHOLDS.critical)) next = "critical";
+  else if (current === "critical" && over(s, PERF_THRESHOLDS.critical, PERF_HYSTERESIS)) next = "critical";
+  else if (over(s, PERF_THRESHOLDS.busy)) next = "busy";
+  else if (current !== "ok" && over(s, PERF_THRESHOLDS.busy, PERF_HYSTERESIS)) next = "busy";
+  if (RANK[next] < RANK[current] && heldMs < PERF_DWELL_MS) return current;
+  return next;
 }
 
 /** What each level gives up (nothing is lost from the data: back at "ok", everything returns). */

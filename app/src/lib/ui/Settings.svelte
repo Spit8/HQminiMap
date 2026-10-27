@@ -28,12 +28,12 @@
   ] as const) : []);
 
   async function pickUserdata(): Promise<void> {
-    const dir = await open({ directory: true, title: t("settings.pickUserdata") });
+    const dir = await open({ directory: true, recursive: true, title: t("settings.pickUserdata") });
     if (typeof dir === "string") app.setUserdata(dir);
   }
 
   async function pickModDir(): Promise<void> {
-    const dir = await open({ directory: true, title: t("settings.pickModTitle") });
+    const dir = await open({ directory: true, recursive: true, title: t("settings.pickModTitle") });
     if (typeof dir === "string") app.setUserdata(app.settings.userdata, dir);
   }
 
@@ -41,7 +41,7 @@
     const d = await detectUserdata();
     app.candidates = d.candidates;
     if (d.userdata) {
-      app.setUserdata(d.userdata, "");
+      app.setUserdata(d.userdata, d.modDir ?? "");
       detectMsg = "settings.found";
     } else {
       detectMsg = "settings.notDetected";

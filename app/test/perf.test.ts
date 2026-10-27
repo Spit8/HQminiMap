@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERF_CAPS, perfLevel } from "../src/lib/core/perf";
+import { PERF_CAPS, PERF_DWELL_MS, perfLevel } from "../src/lib/core/perf";
 
 describe("performance levels", () => {
   const s = (memory: number | null, objects: number, updateMs: number) => ({ memory, objects, updateMs });
@@ -20,6 +20,17 @@ describe("performance levels", () => {
     // 45 000: under critical (50 000) but over 80 % → stays critical.
     expect(perfLevel(s(null, 45_000, 40), "critical")).toBe("critical");
     expect(perfLevel(s(null, 35_000, 40), "critical")).toBe("busy");
+  });
+
+  it("does not step down before the dwell, and still steps up at once", () => {
+    const cool = s(null, 1_000, 10);
+    expect(perfLevel(cool, "busy", 0)).toBe("busy");
+    expect(perfLevel(cool, "busy", PERF_DWELL_MS - 1)).toBe("busy");
+    expect(perfLevel(cool, "critical", 1_000)).toBe("critical");
+    expect(perfLevel(cool, "busy", PERF_DWELL_MS)).toBe("ok");
+    // Caps that drop the object count must not bounce the level back on the next sample.
+    expect(perfLevel(s(null, 60_000, 40), "busy", 0)).toBe("critical");
+    expect(perfLevel(s(null, 5_000, 20), "critical", 0)).toBe("critical");
   });
 
   it("gives up more at each level, nothing at ok", () => {

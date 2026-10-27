@@ -103,7 +103,7 @@ jobs:
             - macOS: `.dmg` (Apple Silicon and Intel)
 
             **Mod** — download `hqminimap-mod-*.zip`, extract it and copy the `hqminimap` folder into
-            the game's local mods folder (`…/Steam/RUNE/3493540/local/staging_area/`), then enable
+            the `mods` folder of the game's data folder (`<Steam>/userdata/<SteamID>/3493540/local/mods/`), then enable
             *HQminiMap* in the game. See the README for details.
 
             **Windows portable** — `HQminiMap_*_x64-portable.zip`: extract it anywhere and run

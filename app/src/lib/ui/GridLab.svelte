@@ -63,7 +63,7 @@
   /** Detected by the running game itself (its view size), not from a screenshot file. */
   let fromGame = $state(false);
   /** The game's view size, while it answers (status updated in the last 30 s). */
-  const gameScreen = $derived(live.status?.screen && Date.now() - live.statusAt < 30_000 ? live.status.screen : null);
+  const gameScreen = $derived(live.status?.screen && live.now - live.statusAt < 30_000 ? live.status.screen : null);
   const resKey = $derived(`${cfg.screenW}x${cfg.screenH}`);
   const isPreset = $derived(RESOLUTIONS.some(([w, h]) => w === cfg.screenW && h === cfg.screenH));
   let customRes = $state(false);
@@ -72,6 +72,7 @@
 
   /** A resolution found: remembered, and (default) used by the grid. */
   function useDetected(size: { width: number; height: number }, game: boolean): void {
+    if (detected && detected.width === size.width && detected.height === size.height && fromGame === game) return;
     detected = size;
     detectState = "idle";
     fromMemory = false;
@@ -134,7 +135,8 @@
 
   /** Resolution chosen by hand: stops following the detection. */
   function setResolution(w: number, h: number): void {
-    if (w > 0 && h > 0) app.setConfig({ screenW: Math.round(w), screenH: Math.round(h), SCREEN_AUTO: false });
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return;
+    app.setConfig({ screenW: Math.round(w), screenH: Math.round(h), SCREEN_AUTO: false });
   }
 
   /** Back to the default: follow the game's latest screenshot. */
@@ -143,18 +145,19 @@
     app.setConfig({ SCREEN_AUTO: true, ...(detected ? { screenW: detected.width, screenH: detected.height } : {}) });
     void detectResolution();
   }
-  const mo = $derived.by<Mosaic | null>(() => {
-    if (!app.map) return null;
+  const mosaic = $derived.by<{ mo: Mosaic | null; bad: boolean }>(() => {
+    if (!app.map) return { mo: null, bad: false };
     try {
-      return computeMosaic(cfg, app.map.hm);
+      return { mo: computeMosaic(cfg, app.map.hm), bad: false };
     } catch {
-      return null;
+      return { mo: null, bad: true };
     }
   });
+  const mo = $derived(mosaic.mo);
   const issue = $derived<WriteIssue | null>(mo ? writeIssue(mo) : null);
   /** Following the game's resolution but it was never found: a scan would use a guess. */
   const resUnknown = $derived(autoRes && !detected && detectState === "none" && !cfg.SCREEN_DETECTED);
-  const blocker = $derived(!mo ? t("grid.block.noMap") : resUnknown ? t("grid.resolutionNone") : issue ? issueText(issue) : null);
+  const blocker = $derived(mosaic.bad ? t("grid.block.badConfig") : !mo ? t("grid.block.noMap") : resUnknown ? t("grid.resolutionNone") : issue ? issueText(issue) : null);
   /** The current grid is already the smallest one covering the map. */
   const atBest = $derived(!!mo && mo.bestGrid.nX === cfg.GRID_NX && mo.bestGrid.nY === cfg.GRID_NY);
 
@@ -182,7 +185,12 @@
   }
   /** An advanced setting changed by hand: custom mode. */
   function custom(patch: Partial<typeof cfg>): void {
-    app.setConfig({ ...patch, MODE: "custom" });
+    const clean: Partial<typeof cfg> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || (typeof v === "number" && !Number.isFinite(v))) continue;
+      (clean as Record<string, unknown>)[k] = v;
+    }
+    app.setConfig({ ...clean, MODE: "custom" });
   }
   // Solve ahead, after the frame is shown (even in custom mode: the next click is instant).
   $effect(() => {
@@ -218,8 +226,14 @@
   const orthoRun = $derived(lab.run);
   const orthoResult = $derived<OrthoResult | undefined>(orthoRun ? orthoJob.results[orthoRun.id] : undefined);
   let labelDraft = $state("");
+  let labelKey = "";
   $effect(() => {
-    labelDraft = lab.run?.label ?? "";
+    const id = lab.run?.id ?? "";
+    const label = lab.run?.label ?? "";
+    const key = `${id}\0${label}`;
+    if (key === labelKey) return;
+    labelKey = key;
+    labelDraft = label;
   });
   function saveLabel(): void {
     const r = lab.run;
@@ -388,9 +402,19 @@
     if (launching) return;
     launching = true;
     try {
+      // A live game still scanning this plan: do not rewrite the cutscene under it.
+      // A stale status means the game is gone (an interrupted scan never finishes): write and send.
+      const alive = live.statusAt > 0 && live.now - live.statusAt < 30_000;
+      if (capturing && alive) {
+        writeMsg = { ok: false, text: t("grid.scanBusy") };
+        return;
+      }
       if (!(await writeToMod())) return;
       const r = await live.scan();
-      if (r.ok) writeMsg = { ok: true, text: t("grid.scanStarted") };
+      if (r.ok) {
+        lab.scanSentStamp = modPlan?.stamp ?? null;
+        writeMsg = { ok: true, text: t("grid.scanStarted") };
+      }
       else if (r.error === "timeout") writeMsg = { ok: false, text: t("grid.scanNoGame") };
       else if (r.error === "busy") writeMsg = { ok: false, text: t("grid.scanBusy") };
       // A mod older than the app does not know the command: the save must be reloaded.
@@ -627,7 +651,7 @@
     </div>
 
     <div class="actions">
-      {#if modPlan && modPlanSame && awaitingCapture}
+      {#if modPlan && modPlanSame && awaitingCapture && lab.scanSentStamp === modPlan.stamp}
         <div class="callout">
           <b>{t("grid.written", { grid: `${modPlan.nY}×${modPlan.nX}`, n: modPlan.nX * modPlan.nY })}</b>
           <span>{t("grid.next")}</span>

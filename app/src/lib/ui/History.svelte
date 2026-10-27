@@ -27,19 +27,37 @@
   // Sizes are computed in the background (thousands of pyramid tiles per run), only for runs that
   // changed since (not at every tile of a capture in progress: once it is finished).
   const sizedFor = new Map<string, string>();
+  let sizeGen = 0;
   $effect(() => {
     const list = runs.runs;
+    const gen = ++sizeGen;
+    const ids = new Set(list.map((r) => r.id));
+    untrack(() => {
+      if ([...selected].some((id) => !ids.has(id))) selected = new Set([...selected].filter((id) => ids.has(id)));
+    });
     void (async () => {
       const next: Record<string, number> = { ...untrack(() => sizes) };
-      for (const id of Object.keys(next)) if (!list.some((r) => r.id === id)) delete next[id];
+      for (const id of Object.keys(next)) if (!ids.has(id)) delete next[id];
       let changed = false;
       for (const r of list) {
         const key = `${r.collected}:${r.hasOrtho}:${r.orthoVersion ?? ""}:${r.finished}`;
-        if (sizedFor.get(r.id) === key || (!r.finished && next[r.id] !== undefined)) continue;
+        const cached = runs.sizes.get(r.id);
+        if (cached?.key === key) {
+          if (next[r.id] !== cached.bytes) {
+            next[r.id] = cached.bytes;
+            changed = true;
+          }
+          continue;
+        }
+        if (!r.finished && next[r.id] !== undefined) continue;
+        const bytes = await runs.dirSize(r);
+        if (gen !== sizeGen) return;
+        runs.sizes.set(r.id, { key, bytes });
         sizedFor.set(r.id, key);
-        next[r.id] = await runs.dirSize(r);
+        next[r.id] = bytes;
         changed = true;
       }
+      if (gen !== sizeGen) return;
       if (changed || Object.keys(next).length !== Object.keys(untrack(() => sizes)).length) sizes = next;
     })();
   });

@@ -33,13 +33,18 @@ node tools/bump-version.mjs <x.y.z>       # même version partout (app, Tauri, C
 | `app/` | l'application Tauri 2 + SvelteKit (Svelte 5, TypeScript, OpenLayers) |
 | `app/src/lib/core/` | logique pure et testée : grille, ortho, données en direct, filtres, tracés, contours |
 | `tools/` | déploiement, simulations, packaging, version |
-| `docs/` | traduction, notes de conception (`docs/agent-memory/`) |
+| `docs/` | traduction, notes de version |
 
 ## Publier une version
 1. `node tools/bump-version.mjs 0.2.0`, puis commit.
 2. `git tag v0.2.0 && git push origin main v0.2.0`.
 3. La CI (`.github/workflows/release.yml`) construit les installeurs Windows, Linux et macOS et le zip du mod, dans une **release brouillon**.
 4. Relis la release sur GitHub, puis publie-la. Tant qu'elle reste en brouillon (ou en pré-release), les apps installées ne la voient pas.
+
+### Publier le mod sur le Mod Hub (mod.io)
+1. Augmente `revision` dans `mod/mod.json`, puis `node tools/deploy-dev.mjs` : le mod part dans `staging_area`.
+2. Dans le jeu : **Mod Hub** → **My Mods** → HQminiMap. Vérifie que le message en bas à gauche dit « The existing mod on mod.io will be updated », écris le message de version, puis **Update** (**Upload** la première fois).
+3. Au premier envoi, le jeu écrit `_metadata/mod.io_fileid.txt` dans `staging_area` : il relie le mod à sa page mod.io. `deploy-dev.mjs` ne l'efface pas ; s'il est perdu, recrée-le avec l'identifiant affiché sur la page mod.io du mod.
 
 ### Clé de mise à jour (une fois)
 Les mises à jour automatiques (`tauri-plugin-updater`) exigent des paquets signés. La clé publique est

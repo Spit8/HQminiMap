@@ -5,7 +5,9 @@
 
   function setInterval(kind: LiveKind, e: Event): void {
     const input = e.target as HTMLInputElement;
-    const v = Math.max(0, Number(input.value) || 0);
+    const raw = input.value.trim();
+    const v = Number(raw);
+    if (!raw || !Number.isFinite(v)) return;
     live.setSettings({ intervals: { ...live.settings.intervals, [kind]: v } });
     input.value = String(live.settings.intervals[kind]); // raised to the minimum if below it
   }

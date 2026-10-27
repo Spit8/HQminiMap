@@ -1,14 +1,21 @@
 /**
  * UI translations: t(key, params) reads the current locale (a rune), so templates update when the
- * language changes. Add a language: copy en.ts, translate the values, register it in LOCALES.
+ * language changes. fr and en are written by hand; de, it, es and zh are generated (tools/i18n/README.md).
+ * Add a language: generate it, register it in LOCALES and TAGS.
  */
+import { de } from "./de";
 import { en } from "./en";
+import { es } from "./es";
 import { fr, type MessageKey } from "./fr";
+import { it } from "./it";
+import { zh } from "./zh";
 
 export type { MessageKey };
 
-export const LOCALES = { fr, en } as const;
+export const LOCALES = { fr, en, de, it, es, zh } as const;
 export type Locale = keyof typeof LOCALES;
+/** BCP 47 tag of each language (number / date formatting, and the page's lang for CJK glyphs). */
+const TAGS: Record<Locale, string> = { fr: "fr-FR", en: "en-GB", de: "de-DE", it: "it-IT", es: "es-ES", zh: "zh-CN" };
 const LS_KEY = "hq.locale";
 
 function detect(): Locale {
@@ -22,11 +29,21 @@ function detect(): Locale {
   return (nav in LOCALES ? nav : "en") as Locale;
 }
 
+/** The page's language: the browser picks Simplified Chinese glyphs for zh, hyphenation, etc. */
+function setDocumentLang(locale: Locale): void {
+  if (typeof document !== "undefined") document.documentElement.lang = TAGS[locale];
+}
+
 class I18n {
   locale = $state<Locale>(detect());
 
+  constructor() {
+    setDocumentLang(this.locale);
+  }
+
   set(locale: Locale): void {
     this.locale = locale;
+    setDocumentLang(locale);
     try {
       localStorage.setItem(LS_KEY, locale);
     } catch {
@@ -36,7 +53,7 @@ class I18n {
 
   /** BCP 47 tag for number/date formatting. */
   get tag(): string {
-    return this.locale === "fr" ? "fr-FR" : "en-GB";
+    return TAGS[this.locale];
   }
 }
 

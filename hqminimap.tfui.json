@@ -210,28 +210,25 @@
                 }
               },
               "meta": {
-                "class": [
-                  "secondary"
-                ],
                 "tooltip": "HQminiMap"
               },
               "slots": {
                 "content": [
                   {
-                    "id": "e633d3fe-f2ab-41b3-8119-85691b48020e",
-                    "type": "TextView",
-                    "name": "TextView",
+                    "id": "c4d84abf-55c2-4b37-b5c2-cc55728c9bcf",
+                    "type": "ImageView",
+                    "name": "Icon",
                     "props": {
-                      "text": {
+                      "path": {
                         "kind": "lua",
-                        "code": "handlers.buttonLabel(react)"
+                        "code": "handlers.buttonIcon(react)"
+                      },
+                      "scaling": {
+                        "kind": "enum",
+                        "value": "ImageViewScaling.AutoFit"
                       }
                     },
-                    "meta": {
-                      "class": [
-                        "font-scale-body"
-                      ]
-                    },
+                    "meta": {},
                     "slots": {}
                   }
                 ]
@@ -383,6 +380,75 @@
         "fontSize": 12
       },
       "ownerNodeId": "6920c69b-324e-443d-8cb8-264e710817f1"
+    },
+    {
+      "id": "10d7ba1f-bd1a-41ec-ac3f-f9495f350b06",
+      "selector": "",
+      "ownerNodeId": "66fda867-761a-4c57-9d65-24e98c7f7614",
+      "props": {
+        "size": [
+          40,
+          40
+        ],
+        "padding": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "margin": [
+          1,
+          1,
+          2,
+          1
+        ],
+        "gravity": [
+          0,
+          0
+        ],
+        "backgroundColor1": {
+          "kind": "palette",
+          "name": "Invisible"
+        },
+        "borderColor": {
+          "kind": "palette",
+          "name": "Invisible"
+        }
+      }
+    },
+    {
+      "id": "4d285acc-a978-41c9-80fe-a7bcb5103012",
+      "selector": "",
+      "ownerNodeId": "66fda867-761a-4c57-9d65-24e98c7f7614",
+      "state": "hover",
+      "props": {
+        "backgroundColor1": {
+          "kind": "palette",
+          "name": "NeutralLightest",
+          "alpha": 0.18
+        },
+        "borderColor": {
+          "kind": "palette",
+          "name": "Invisible"
+        }
+      }
+    },
+    {
+      "id": "df07b6c4-fc22-43d2-a3af-84b360791c98",
+      "selector": "",
+      "ownerNodeId": "66fda867-761a-4c57-9d65-24e98c7f7614",
+      "state": "active",
+      "props": {
+        "backgroundColor1": {
+          "kind": "palette",
+          "name": "NeutralLightest",
+          "alpha": 0.32
+        },
+        "borderColor": {
+          "kind": "palette",
+          "name": "Invisible"
+        }
+      }
     }
   ],
   "catalogHash": "d5cd9379486f473b",

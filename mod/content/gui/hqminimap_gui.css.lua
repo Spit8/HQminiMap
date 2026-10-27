@@ -32,5 +32,21 @@ function data()
 	a("TextView!tfui-6920c69b", {
 		fontSize = 12,
 	})
+	a("Button!tfui-66fda867", {
+		size = { 40, 40 },
+		padding = { 0, 0, 0, 0 },
+		margin = { 1, 1, 2, 1 },
+		gravity = { 0, 0 },
+		backgroundColor1 = colorDefault.Invisible,
+		borderColor = colorDefault.Invisible,
+	})
+	a("Button!tfui-66fda867:hover", {
+		backgroundColor1 = { colorDefault.NeutralLightest[1], colorDefault.NeutralLightest[2], colorDefault.NeutralLightest[3], 0.18 },
+		borderColor = colorDefault.Invisible,
+	})
+	a("Button!tfui-66fda867:active", {
+		backgroundColor1 = { colorDefault.NeutralLightest[1], colorDefault.NeutralLightest[2], colorDefault.NeutralLightest[3], 0.32 },
+		borderColor = colorDefault.Invisible,
+	})
 	return result
 end

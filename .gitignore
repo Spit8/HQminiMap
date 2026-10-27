@@ -10,3 +10,11 @@ __pycache__/
 *.log
 # Release packages (tools/pack-mod.mjs)
 dist/
+# Local only: agent settings, internal notes, Office lock files, translation outputs
+.claude/
+~$*
+docs/agent-memory/
+captures/Concept.pptx
+tools/i18n/out/
+tools/i18n/.cache/
+tools/i18n/translate.log

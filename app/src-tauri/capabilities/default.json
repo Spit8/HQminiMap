@@ -27,7 +27,6 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "$PUBLIC/**" },
         { "path": "$HOME/**" },
         { "path": "$APPDATA/**" },
         { "path": "$APPCONFIG/**" }

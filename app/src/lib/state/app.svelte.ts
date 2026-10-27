@@ -3,6 +3,7 @@
  * map.lua changes) and the capture config. Persisted settings live in localStorage.
  */
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { DEFAULT_CONFIG, type MosaicConfig } from "$lib/core/geometry";
 import {
   luaNum, luaStr, parseBounds, parseCaptureIndex, parseHeightmap, parseMapCells, parsePlan, parseWaterGrid, type Bounds, type Heightmap,
@@ -62,7 +63,15 @@ function withoutTimingOverrides(cfg: MosaicConfig): MosaicConfig {
 function loadJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out = { ...(fallback as object) } as Record<string, unknown>;
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v === null || v === undefined) continue;
+      if (typeof v === "number" && !Number.isFinite(v)) continue;
+      out[k] = v;
+    }
+    return out as T;
   } catch {
     return fallback;
   }
@@ -88,7 +97,7 @@ class AppState {
   paths = $derived<GamePaths | null>(
     this.settings.userdata ? gamePaths(this.settings.userdata, this.settings.modDir || undefined) : null,
   );
-  /** capture_plan.lua the mod plays at the next « Capturer » (null: none written yet). */
+  /** capture_plan.lua the mod plays at the next scan (null: none written yet). */
   capturePlan = $state<CapturePlanInfo | null | undefined>(undefined);
   /** Last capture seen in capture_index.lua. */
   lastCapture = $state<LastCapture | null>(null);
@@ -155,20 +164,49 @@ class AppState {
     if (!this.settings.userdata) {
       const d = await detectUserdata();
       this.candidates = d.candidates;
-      if (d.userdata) this.setUserdata(d.userdata);
+      if (d.userdata) this.setUserdata(d.userdata, d.modDir ?? "");
     }
     this.startPolling();
+    void this.allowSavedDirs();
+  }
+
+  /** Re-grant the saved folders: the dialog scope is not kept across launches (no persisted-scope plugin). */
+  private async allowSavedDirs(): Promise<void> {
+    const dirs = [this.settings.userdata, this.settings.modDir, ...this.candidates].filter((d): d is string => !!d);
+    if (!dirs.length) return;
+    try {
+      await invoke("allow_dirs", { dirs });
+    } catch {
+      /* browser preview, or the command is unavailable */
+    }
   }
 
   setUserdata(path: string, modDir = this.settings.modDir): void {
     this.settings = { userdata: path, modDir };
     saveJson(LS_SETTINGS, this.settings);
     this.map = null;
+    void this.allowSavedDirs();
     void this.reloadMap();
   }
 
   setConfig(patch: Partial<MosaicConfig>): void {
-    this.config = { ...this.config, ...patch };
+    const next: MosaicConfig = { ...this.config };
+    const limits: Partial<Record<keyof MosaicConfig, [number, number]>> = {
+      Z_EYE: [50, 200_000], FOV_V_DEG: [1, 120], FOV_SCALE: [0.2, 5], PIXEL_ASPECT: [0.5, 3],
+      GRID_NX: [1, 64], GRID_NY: [1, 64], STEP_SCALE_X: [0.25, 4], STEP_SCALE_Y: [0.25, 4],
+      COVER_MARGIN_M: [0, 1000], CAPTURE_TIME_SEC: [0, 86_400], CAPTURE_DAY_OF_YEAR: [1, 366],
+      CAPTURE_LATITUDE: [-90, 90], screenW: [320, 16_384], screenH: [240, 16_384],
+    };
+    const bag = next as unknown as Record<string, unknown>;
+    for (const [k, v] of Object.entries(patch) as [keyof MosaicConfig, MosaicConfig[keyof MosaicConfig]][]) {
+      if (v === null || v === undefined) continue;
+      if (typeof v === "number") {
+        if (!Number.isFinite(v)) continue;
+        const lim = limits[k];
+        bag[k] = lim ? Math.min(lim[1], Math.max(lim[0], v)) : v;
+      } else bag[k] = v;
+    }
+    this.config = next;
     saveJson(LS_CONFIG, this.config);
   }
 
