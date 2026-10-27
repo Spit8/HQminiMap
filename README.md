@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  🌐 English · Français · Deutsch · Italiano · Español · 简体中文<br>
+  🇬🇧 English · 🇫🇷 Français · 🇩🇪 Deutsch · 🇮🇹 Italiano · 🇪🇸 Español · 🇨🇳 简体中文<br>
   💻 Windows · Linux · macOS
 </p>
 
