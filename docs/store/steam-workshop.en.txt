@@ -1,0 +1,77 @@
+=== TITLE ===
+HQminiMap – High-res map & live data
+
+=== DESCRIPTION (Steam BBCode, paste as is) ===
+[h1]HQminiMap – your whole world, in high resolution, live[/h1]
+
+[b]Scan your map. Choose your filter. Make a decision.[/b]
+HQminiMap turns your Transport Fever 3 map into one sharp top-down [b]orthophoto[/b] and shows your network on top of it, live: towns, lines, stations, vehicles, industries and warehouses.
+
+🌐 [b]English · Français · Deutsch · Italiano · Español · 简体中文[/b]
+
+[hr][/hr]
+
+[h2]⚠ This mod works with the free HQminiMap app[/h2]
+The mod does the in-game part (map export, screenshots, live data). The map itself is built and shown by the [b]HQminiMap desktop app[/b] (Windows, Linux, macOS), free and open source:
+[url=https://github.com/Spit8/HQminiMap/releases/latest]➜ Download the HQminiMap app[/url]
+
+[h2]Features[/h2]
+[list]
+[*][b]One-click map scan[/b] – pick a mode (Simple, x4, x16 or x64 images); the app sets the grid, camera and lighting for your map and your screen resolution, then starts the scan in game.
+[*][b]High-resolution orthophoto[/b] – zoom down to the pixel, rotate, full screen, adjust brightness, contrast, saturation and gamma.
+[*][b]Relief[/b] – colour the map by altitude, draw contour lines, or both.
+[*][b]Clean basemap[/b] – black background, blue water and map outline to make your lines stand out.
+[*][b]Live data[/b] – towns with their outlines, lines on their real tracks in the game's colours, stations and stops, moving vehicles with their load, industries and warehouses with their stocks.
+[*][b]Filters[/b] – by name, transport mode, traffic, stock, line; save and share your filter setups.
+[*][b]Control the game from the map[/b] – double-click to move the camera, or to open the in-game window of a vehicle, line, stop, factory or warehouse.
+[*][b]Export the view[/b] as a PNG (×1, ×2, ×4) with an optional legend.
+[/list]
+
+[h2]Installation[/h2]
+[olist]
+[*][b]Subscribe[/b] to this mod and enable [b]HQminiMap[/b] in the mod list of your save.
+[*][b]Install the HQminiMap app[/b] from the [url=https://github.com/Spit8/HQminiMap/releases/latest]download page[/url].
+[*]Start the app: it finds the game's data folder by itself (otherwise, choose it in Options).
+[/olist]
+
+[h2]How to use it[/h2]
+[olist]
+[*]In game, click the [b]HQminiMap[/b] button in the bottom bar, then [b]Export map[/b].
+[*]In the app ([b]GridLab[/b]), choose a capture mode.
+[*]Click [b]Scan the map in game[/b]: the scan runs in your game, no need to open the mod window.
+[*]The app builds the orthophoto by itself and opens it in the [b]Viewer[/b]. Enjoy!
+[/olist]
+
+[h2]Good to know[/h2]
+[list]
+[*][b]Script mod:[/b] it only reads your game and takes screenshots; it does not change your world.
+[*][b]No server, no account:[/b] the mod and the app talk through files in the game's data folder.
+[*]The live data refresh rates can be tuned in the app ([b]Options → Live data[/b]) to keep big maps smooth.
+[*][b]After a mod update, reload your save[/b]: the game keeps the old mod code until then.
+[*]A new line may show provisional parts until the game has computed its whole track.
+[/list]
+
+[h2]More to come[/h2]
+Ideas for the next versions: smartphone and tablet support, original game icons, a diagram generator, drawing on the map, richer (cross-)filtering.
+
+[h2]Links[/h2]
+[list]
+[*][url=https://github.com/Spit8/HQminiMap]Source code and full guide (GitHub)[/url]
+[*][url=https://github.com/Spit8/HQminiMap/issues]Report a bug or suggest an idea[/url]
+[/list]
+
+Open source under the GPL-3.0 license. Transport Fever is a trademark of Urban Games; HQminiMap is an independent fan project, neither affiliated with nor endorsed by Urban Games.
+
+=== SCREENSHOTS (captures/Concept, upload in this order; Diapositive1 is the main preview image) ===
+1. Diapositive1 – Scan your map, choose your filter, make a decision: lines, stops and vehicle loads live on the high-res orthophoto.
+2. Diapositive2 – GridLab: game resolution detected automatically, pick a capture mode, then "Scan the map in game".
+3. Diapositive3 – The clean orthophoto with town names: zoom to the pixel, teleport the game camera, export the view.
+4. Diapositive4 – Plain basemap (black, water, outline): your network stands out at a glance.
+5. Diapositive5 – Contour lines from your map's heightmap.
+6. Diapositive6 – Altitude colours on the orthophoto, with your own colour scale.
+7. Diapositive7 – Colours and contours combined. More to come: smartphone and tablet support, original game icons, diagram generator, drawing on the map.
+=== TAGS (pick those the Workshop offers) ===
+Script, Utility, User Interface, Map
+
+=== CHANGE NOTE (first Workshop release) ===
+v<<VERSION>> – First release on the Steam Workshop. Six languages (English, French, German, Italian, Spanish, Simplified Chinese), new icon-only button in the bottom bar. Requires the HQminiMap app <<VERSION>> or later.

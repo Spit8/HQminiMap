@@ -1,0 +1,77 @@
+=== TITRE ===
+HQminiMap – Carte HD et données en direct
+
+=== DESCRIPTION (BBCode Steam, à coller tel quel) ===
+[h1]HQminiMap – tout ton monde, en haute résolution, en direct[/h1]
+
+[b]Scanne ta carte. Choisis ton filtre. Prends ta décision.[/b]
+HQminiMap transforme ta carte Transport Fever 3 en une [b]orthophoto[/b] nette vue du dessus et y affiche ton réseau en direct : villes, lignes, gares, véhicules, industries et entrepôts.
+
+🌐 [b]English · Français · Deutsch · Italiano · Español · 简体中文[/b]
+
+[hr][/hr]
+
+[h2]⚠ Ce mod fonctionne avec l'application gratuite HQminiMap[/h2]
+Le mod s'occupe de la partie en jeu (export de la carte, captures, données en direct). La carte elle-même est calculée et affichée par l'[b]application de bureau HQminiMap[/b] (Windows, Linux, macOS), gratuite et open source :
+[url=https://github.com/Spit8/HQminiMap/releases/latest]➜ Télécharger l'application HQminiMap[/url]
+
+[h2]Fonctionnalités[/h2]
+[list]
+[*][b]Scan de la carte en un clic[/b] : choisis un mode (Simple, x4, x16 ou x64 images) ; l'app règle la grille, la caméra et l'éclairage pour ta carte et ta résolution, puis lance le scan en jeu.
+[*][b]Orthophoto haute résolution[/b] : zoom jusqu'au pixel, rotation, plein écran, réglage de la luminosité, du contraste, de la saturation et du gamma.
+[*][b]Relief[/b] : couleurs selon l'altitude, courbes de niveau, ou les deux.
+[*][b]Fond de carte épuré[/b] : fond noir, eau en bleu et contour de la carte pour faire ressortir tes lignes.
+[*][b]Données en direct[/b] : villes et leurs contours, lignes sur leur vrai tracé aux couleurs du jeu, gares et arrêts, véhicules animés avec leur chargement, industries et entrepôts avec leurs stocks.
+[*][b]Filtres[/b] : par nom, mode de transport, trafic, stock, ligne ; enregistre et partage tes configurations.
+[*][b]Pilote le jeu depuis la carte[/b] : double-clic pour déplacer la caméra, ou pour ouvrir la fenêtre en jeu d'un véhicule, d'une ligne, d'un arrêt, d'une usine ou d'un entrepôt.
+[*][b]Exporte la vue[/b] en PNG (×1, ×2, ×4), avec une légende en option.
+[/list]
+
+[h2]Installation[/h2]
+[olist]
+[*][b]Abonne-toi[/b] à ce mod et active [b]HQminiMap[/b] dans la liste des mods de ta partie.
+[*][b]Installe l'application HQminiMap[/b] depuis la [url=https://github.com/Spit8/HQminiMap/releases/latest]page de téléchargement[/url].
+[*]Lance l'app : elle trouve seule le dossier de données du jeu (sinon, choisis-le dans Options).
+[/olist]
+
+[h2]Utilisation[/h2]
+[olist]
+[*]Dans le jeu, clique sur le bouton [b]HQminiMap[/b] de la barre du bas, puis [b]Exporter la carte[/b].
+[*]Dans l'app ([b]GridLab[/b]), choisis un mode de capture.
+[*]Clique sur [b]Scanner la carte en jeu[/b] : le scan se déroule dans ta partie, inutile d'ouvrir la fenêtre du mod.
+[*]L'app calcule l'orthophoto toute seule et l'ouvre dans le [b]Visualiseur[/b]. Bonne exploration !
+[/olist]
+
+[h2]À savoir[/h2]
+[list]
+[*][b]Mod de script :[/b] il lit ta partie et prend des captures, sans modifier ton monde.
+[*][b]Ni serveur, ni compte :[/b] le mod et l'app communiquent par fichiers dans le dossier de données du jeu.
+[*]Les cadences des données en direct se règlent dans l'app ([b]Options → Données en direct[/b]) pour garder un jeu fluide sur les grandes cartes.
+[*][b]Après une mise à jour du mod, recharge ta sauvegarde[/b] : le jeu garde l'ancien code du mod jusque-là.
+[*]Une ligne récente peut montrer des portions provisoires jusqu'à ce que le jeu ait calculé tout son tracé.
+[/list]
+
+[h2]À venir[/h2]
+Des idées pour les prochaines versions : support smartphone et tablette, icônes originales du jeu, générateur de diagrammes, dessin sur la carte, filtres croisés plus riches.
+
+[h2]Liens[/h2]
+[list]
+[*][url=https://github.com/Spit8/HQminiMap/blob/main/README.fr.md]Code source et guide complet (GitHub)[/url]
+[*][url=https://github.com/Spit8/HQminiMap/issues]Signaler un bug ou proposer une idée[/url]
+[/list]
+
+Open source sous licence GPL-3.0. Transport Fever est une marque d'Urban Games ; HQminiMap est un projet de fan indépendant, ni affilié ni approuvé par Urban Games.
+
+=== CAPTURES (captures/Concept, à envoyer dans cet ordre ; Diapositive1 est l'image principale) ===
+1. Diapositive1 – Scanne ta carte, choisis ton filtre, prends ta décision : lignes, arrêts et chargements en direct sur l'orthophoto HD.
+2. Diapositive2 – GridLab : résolution du jeu détectée seule, choix du mode de capture, puis « Scanner la carte en jeu ».
+3. Diapositive3 – L'orthophoto épurée avec le nom des villes : zoom au pixel, téléportation de la caméra, export de la vue.
+4. Diapositive4 – Fond de carte simple (noir, eau, contour) : ton réseau ressort d'un coup d'œil.
+5. Diapositive5 – Les courbes de niveau tirées du relief de ta carte.
+6. Diapositive6 – Les couleurs d'altitude sur l'orthophoto, avec ta propre échelle.
+7. Diapositive7 – Couleurs et courbes combinées. À venir : support smartphone et tablette, icônes originales du jeu, générateur de diagrammes, dessin sur la carte.
+=== TAGS (choisir parmi ceux proposés par le Workshop) ===
+Script, Utility, User Interface, Map
+
+=== NOTE DE VERSION (première publication sur le Workshop) ===
+v<<VERSION>> – Première publication sur le Steam Workshop. Six langues (anglais, français, allemand, italien, espagnol, chinois simplifié), nouveau bouton icône dans la barre du bas. Nécessite l'application HQminiMap <<VERSION>> ou plus récente.
