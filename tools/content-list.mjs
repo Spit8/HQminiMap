@@ -35,11 +35,14 @@ export function contentJson(modDir) {
   return JSON.stringify({ archives: null, files }, null, 4) + "\n";
 }
 
+/** Current _content.json text, line endings normalised (a Windows checkout has CRLF). */
+const readIndex = (path) => (existsSync(path) ? readFileSync(path, "utf8").replace(/\r\n/g, "\n") : null);
+
 /** Rewrite <modDir>/_content.json if needed. @return true when the file changed */
 export function writeContentJson(modDir) {
   const path = join(modDir, "_content.json");
   const text = contentJson(modDir);
-  if (existsSync(path) && readFileSync(path, "utf8") === text) return false;
+  if (readIndex(path) === text) return false;
   writeFileSync(path, text);
   return true;
 }
@@ -48,7 +51,7 @@ if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   const modDir = join(dirname(fileURLToPath(import.meta.url)), "..", "mod");
   if (process.argv.includes("--check")) {
     const path = join(modDir, "_content.json");
-    if (!existsSync(path) || readFileSync(path, "utf8") !== contentJson(modDir)) {
+    if (readIndex(path) !== contentJson(modDir)) {
       console.error("mod/_content.json is out of date: run node tools/content-list.mjs");
       process.exit(1);
     }
