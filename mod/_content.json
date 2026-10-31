@@ -1,0 +1,19 @@
+{
+    "archives": null,
+    "files": [
+        "gui/hqminimap_gui.css.lua",
+        "gui/hqminimap_gui.handlers.lua",
+        "gui/hqminimap_gui.script.lua",
+        "gui/hqminimap_gui_button.res.lua",
+        "gui/icons/hqminimap.tga",
+        "gui/icons/hqminimap@2x.tga",
+        "hqminimap/capture.lua",
+        "hqminimap/collect_terrain.lua",
+        "hqminimap/cutscenes/mosaic_run_p01.lua",
+        "hqminimap/export_map.lua",
+        "hqminimap/i18n.lua",
+        "hqminimap/io_util.lua",
+        "hqminimap/live_export.lua",
+        "hqminimap/settings.lua"
+    ]
+}

@@ -43,8 +43,12 @@ node tools/bump-version.mjs <x.y.z>       # même version partout (app, Tauri, C
 
 ### Publier le mod sur le Mod Hub (mod.io)
 1. Augmente `revision` dans `mod/mod.json`, puis `node tools/deploy-dev.mjs` : le mod part dans `staging_area`.
-2. Dans le jeu : **Mod Hub** → **My Mods** → HQminiMap. Vérifie que le message en bas à gauche dit « The existing mod on mod.io will be updated », écris le message de version, puis **Update** (**Upload** la première fois).
-3. Au premier envoi, le jeu écrit `_metadata/mod.io_fileid.txt` dans `staging_area` : il relie le mod à sa page mod.io. `deploy-dev.mjs` ne l'efface pas ; s'il est perdu, recrée-le avec l'identifiant affiché sur la page mod.io du mod.
+2. Redémarre le jeu, écris une nouvelle grille depuis l'app et lance une capture : elle doit aller au bout.
+3. Dans le jeu : **Mod Hub** → **My Mods** → HQminiMap. Vérifie que le message en bas à gauche dit « The existing mod on mod.io will be updated », écris le message de version, puis **Update**.
+
+`mod/_content.json` liste les fichiers de `content/`. Le jeu ne voit **que** les fichiers listés : `deploy-dev.mjs` et `pack-mod.mjs` le régénèrent (`node tools/content-list.mjs`), et la CI vérifie qu'il est à jour. La cutscene écrite par l'app (`cutscenes/mosaic_run_p01.lua`) y est listée, et le mod en livre une version vide.
+
+`mod/_metadata/mod.io_fileid.txt` relie le mod à sa page mod.io (ID `6484598`). Il est versionné et copié par `deploy-dev.mjs` : sans lui, l'envoi créerait un nouveau mod. Il n'entre pas dans le zip de la release.
 
 ### Clé de mise à jour (une fois)
 Les mises à jour automatiques (`tauri-plugin-updater`) exigent des paquets signés. La clé publique est

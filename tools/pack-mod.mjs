@@ -10,6 +10,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
+import { RUNTIME_FILES, writeContentJson } from "./content-list.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(root, "mod");
@@ -17,10 +18,14 @@ const outIdx = process.argv.indexOf("--out");
 const outDir = outIdx > 0 ? process.argv[outIdx + 1] : join(root, "dist");
 const version = JSON.parse(readFileSync(join(root, "app", "package.json"), "utf8")).version;
 
-/** Written by the app at run time (or by the Mod Hub at upload), never shipped. */
+/** Written by the app at run time (or the Mod Hub link), never shipped — except the placeholder
+ *  cutscenes _content.json lists. */
 const skip = (rel) =>
   rel === "_metadata/mod.io_fileid.txt" ||
-  rel === "content/hqminimap/mosaic_plan.lua" || rel.startsWith("content/hqminimap/cutscenes/") || rel.endsWith(".log");
+  rel === "content/hqminimap/mosaic_plan.lua" || rel.endsWith(".log") ||
+  (rel.startsWith("content/hqminimap/cutscenes/") && !RUNTIME_FILES.includes(rel.slice("content/".length)));
+
+if (writeContentJson(src)) console.log("mod/_content.json updated");
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {

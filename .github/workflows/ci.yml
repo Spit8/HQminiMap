@@ -46,5 +46,8 @@ jobs:
       - name: Versions agree
         run: node tools/bump-version.mjs "$(node tools/bump-version.mjs --print)" --check
 
+      - name: Mod content index up to date
+        run: node tools/content-list.mjs --check
+
       - name: Mod package
         run: node tools/pack-mod.mjs
